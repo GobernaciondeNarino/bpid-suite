@@ -167,7 +167,7 @@ final class BPID_Suite_Updater {
 
         $response = wp_remote_get($url, [
             'timeout'   => 10,
-            'sslverify' => true,
+            'sslverify' => false,
             'headers'   => [
                 'Accept' => 'application/vnd.github.v3+json',
             ],
