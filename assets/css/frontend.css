@@ -1,0 +1,990 @@
+/* ========================================
+   BPID Suite — Frontend Styles
+   Gobernación de Nariño
+   ======================================== */
+
+/* ----------------------------------------
+   CSS Custom Properties
+   ---------------------------------------- */
+:root {
+    --bpid-color-primario: #348afb;
+    --bpid-color-fondo: #fffcf3;
+    --bpid-color-primario-dark: #1a6fde;
+    --bpid-color-primario-light: #e8f1fe;
+    --bpid-color-text: #1d2327;
+    --bpid-color-text-muted: #646970;
+    --bpid-color-border: #dcdcde;
+    --bpid-color-surface: #ffffff;
+    --bpid-color-success: #00a32a;
+    --bpid-color-warning: #dba617;
+    --bpid-color-danger: #d63638;
+    --bpid-radius: 8px;
+    --bpid-shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.08);
+    --bpid-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.1);
+    --bpid-shadow-lg: 0 8px 30px rgba(0, 0, 0, 0.15);
+    --bpid-transition: 0.25s ease;
+}
+
+/* ----------------------------------------
+   Chart Container
+   ---------------------------------------- */
+.bpid-chart-container {
+    position: relative;
+    background: var(--bpid-color-surface);
+    border: 1px solid var(--bpid-color-border);
+    border-radius: var(--bpid-radius);
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: var(--bpid-shadow-sm);
+    min-height: 300px;
+}
+
+.bpid-chart-container h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--bpid-color-text);
+    margin: 0 0 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--bpid-color-primario-light);
+}
+
+.bpid-chart-container canvas {
+    width: 100% !important;
+    max-height: 400px;
+}
+
+/* Chart loading spinner */
+.bpid-chart-loading {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(255, 255, 255, 0.85);
+    border-radius: var(--bpid-radius);
+    z-index: 5;
+}
+
+.bpid-chart-loading::after {
+    content: '';
+    width: 36px;
+    height: 36px;
+    border: 3px solid var(--bpid-color-border);
+    border-top-color: var(--bpid-color-primario);
+    border-radius: 50%;
+    animation: bpid-spin 0.7s linear infinite;
+}
+
+@keyframes bpid-spin {
+    to { transform: rotate(360deg); }
+}
+
+.bpid-chart-no-data {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-height: 200px;
+    color: var(--bpid-color-text-muted);
+    font-size: 14px;
+    font-style: italic;
+}
+
+/* ----------------------------------------
+   Filter Container
+   ---------------------------------------- */
+.bpid-filter-container {
+    background: var(--bpid-color-surface);
+    border: 1px solid var(--bpid-color-border);
+    border-radius: var(--bpid-radius);
+    padding: 24px;
+    margin-bottom: 24px;
+    box-shadow: var(--bpid-shadow-sm);
+}
+
+.bpid-filter-container h3 {
+    font-size: 16px;
+    font-weight: 600;
+    color: var(--bpid-color-text);
+    margin: 0 0 16px;
+}
+
+.bpid-filter-form {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-end;
+}
+
+.bpid-filter-field {
+    flex: 1 1 200px;
+    min-width: 0;
+}
+
+.bpid-filter-field label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--bpid-color-text-muted);
+    margin-bottom: 6px;
+}
+
+.bpid-filter-field select,
+.bpid-filter-field input[type="text"],
+.bpid-filter-field input[type="search"],
+.bpid-filter-field input[type="date"] {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 14px;
+    border: 1px solid var(--bpid-color-border);
+    border-radius: 6px;
+    background: var(--bpid-color-surface);
+    color: var(--bpid-color-text);
+    transition: border-color var(--bpid-transition), box-shadow var(--bpid-transition);
+}
+
+.bpid-filter-field select:focus,
+.bpid-filter-field input:focus {
+    outline: none;
+    border-color: var(--bpid-color-primario);
+    box-shadow: 0 0 0 3px rgba(52, 138, 251, 0.15);
+}
+
+.bpid-filter-submit {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 20px;
+    background: var(--bpid-color-primario);
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background var(--bpid-transition), transform var(--bpid-transition);
+}
+
+.bpid-filter-submit:hover {
+    background: var(--bpid-color-primario-dark);
+}
+
+.bpid-filter-submit:active {
+    transform: scale(0.97);
+}
+
+.bpid-filter-reset {
+    padding: 10px 16px;
+    background: transparent;
+    color: var(--bpid-color-text-muted);
+    border: 1px solid var(--bpid-color-border);
+    border-radius: 6px;
+    font-size: 14px;
+    cursor: pointer;
+    transition: background var(--bpid-transition), color var(--bpid-transition);
+}
+
+.bpid-filter-reset:hover {
+    background: #f6f7f7;
+    color: var(--bpid-color-text);
+}
+
+/* Filter results table */
+.bpid-filter-results {
+    margin-top: 20px;
+    overflow-x: auto;
+}
+
+.bpid-filter-results table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+}
+
+.bpid-filter-results th {
+    text-align: left;
+    padding: 12px 14px;
+    background: #f6f7f7;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    color: var(--bpid-color-text-muted);
+    border-bottom: 2px solid var(--bpid-color-border);
+    white-space: nowrap;
+}
+
+.bpid-filter-results td {
+    padding: 12px 14px;
+    border-bottom: 1px solid #eee;
+    color: var(--bpid-color-text);
+    vertical-align: middle;
+}
+
+.bpid-filter-results tr:hover td {
+    background: var(--bpid-color-primario-light);
+}
+
+.bpid-filter-results-count {
+    font-size: 13px;
+    color: var(--bpid-color-text-muted);
+    margin-bottom: 12px;
+}
+
+.bpid-filter-results-count strong {
+    color: var(--bpid-color-text);
+}
+
+/* ----------------------------------------
+   Post Module — Grid Container
+   ---------------------------------------- */
+.bpid-grid-container {
+    background: var(--bpid-color-fondo);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, sans-serif;
+    padding: 32px 24px;
+    min-height: 400px;
+}
+
+.bpid-grid-container *,
+.bpid-grid-container *::before,
+.bpid-grid-container *::after {
+    box-sizing: border-box;
+}
+
+.bpid-grid-header {
+    text-align: center;
+    margin-bottom: 32px;
+}
+
+.bpid-grid-header h2 {
+    font-size: 28px;
+    font-weight: 700;
+    color: var(--bpid-color-text);
+    margin: 0 0 8px;
+}
+
+.bpid-grid-header p {
+    font-size: 15px;
+    color: var(--bpid-color-text-muted);
+    margin: 0;
+}
+
+/* ----------------------------------------
+   Post Module — Stats Bar
+   ---------------------------------------- */
+.bpid-grid-stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 16px;
+    margin-bottom: 28px;
+}
+
+.bpid-grid-stat-card {
+    background: var(--bpid-color-surface);
+    border: 1px solid var(--bpid-color-border);
+    border-radius: var(--bpid-radius);
+    padding: 20px;
+    text-align: center;
+    box-shadow: var(--bpid-shadow-sm);
+    transition: transform var(--bpid-transition), box-shadow var(--bpid-transition);
+}
+
+.bpid-grid-stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--bpid-shadow-md);
+}
+
+.bpid-grid-stat-card .bpid-stat-number {
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--bpid-color-primario);
+    line-height: 1.1;
+}
+
+.bpid-grid-stat-card .bpid-stat-label {
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--bpid-color-text-muted);
+    margin-top: 6px;
+}
+
+/* ----------------------------------------
+   Post Module — Filters Row
+   ---------------------------------------- */
+.bpid-grid-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: center;
+    background: var(--bpid-color-surface);
+    border: 1px solid var(--bpid-color-border);
+    border-radius: var(--bpid-radius);
+    padding: 16px 20px;
+    margin-bottom: 24px;
+    box-shadow: var(--bpid-shadow-sm);
+}
+
+.bpid-grid-filters select,
+.bpid-grid-filters input[type="search"] {
+    padding: 8px 12px;
+    font-size: 14px;
+    border: 1px solid var(--bpid-color-border);
+    border-radius: 6px;
+    background: #fff;
+    color: var(--bpid-color-text);
+    min-width: 160px;
+    transition: border-color var(--bpid-transition);
+}
+
+.bpid-grid-filters select:focus,
+.bpid-grid-filters input[type="search"]:focus {
+    outline: none;
+    border-color: var(--bpid-color-primario);
+    box-shadow: 0 0 0 3px rgba(52, 138, 251, 0.15);
+}
+
+.bpid-grid-filters .bpid-filter-count {
+    margin-left: auto;
+    font-size: 13px;
+    color: var(--bpid-color-text-muted);
+}
+
+.bpid-grid-filters .bpid-filter-count strong {
+    color: var(--bpid-color-primario);
+}
+
+/* ----------------------------------------
+   Post Module — Project Cards Grid
+   ---------------------------------------- */
+.bpid-grid-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+    margin-bottom: 32px;
+}
+
+.bpid-grid-card {
+    background: var(--bpid-color-surface);
+    border: 1px solid var(--bpid-color-border);
+    border-radius: var(--bpid-radius);
+    padding: 0;
+    overflow: hidden;
+    box-shadow: var(--bpid-shadow-sm);
+    transition: transform var(--bpid-transition), box-shadow var(--bpid-transition);
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+}
+
+.bpid-grid-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--bpid-shadow-lg);
+}
+
+.bpid-grid-card-header {
+    padding: 20px 20px 12px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.bpid-grid-card-bpin {
+    display: inline-block;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    background: var(--bpid-color-primario-light);
+    color: var(--bpid-color-primario);
+    padding: 3px 8px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+}
+
+.bpid-grid-card-title {
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--bpid-color-text);
+    line-height: 1.4;
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.bpid-grid-card-body {
+    padding: 12px 20px;
+    flex: 1;
+}
+
+.bpid-grid-card-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+    color: var(--bpid-color-text-muted);
+}
+
+.bpid-grid-card-meta span {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.bpid-grid-card-meta .bpid-meta-icon {
+    width: 14px;
+    height: 14px;
+    opacity: 0.5;
+}
+
+.bpid-grid-card-footer {
+    padding: 12px 20px;
+    border-top: 1px solid #f0f0f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.bpid-grid-card-status {
+    font-size: 12px;
+    font-weight: 600;
+    padding: 4px 10px;
+    border-radius: 20px;
+    text-transform: capitalize;
+}
+
+.bpid-grid-card-status.status-en-ejecucion {
+    background: #e6f9ee;
+    color: #0a7c3e;
+}
+
+.bpid-grid-card-status.status-terminado {
+    background: #e8f1fe;
+    color: #1a5fb4;
+}
+
+.bpid-grid-card-status.status-suspendido {
+    background: #fef3e2;
+    color: #a65d00;
+}
+
+.bpid-grid-card-status.status-sin-iniciar {
+    background: #f6f7f7;
+    color: #646970;
+}
+
+.bpid-grid-card-progress {
+    width: 60px;
+    height: 6px;
+    background: #eee;
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.bpid-grid-card-progress-fill {
+    height: 100%;
+    background: var(--bpid-color-primario);
+    border-radius: 3px;
+    transition: width 0.4s ease;
+}
+
+/* Empty state */
+.bpid-grid-empty {
+    grid-column: 1 / -1;
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--bpid-color-text-muted);
+}
+
+.bpid-grid-empty p {
+    font-size: 15px;
+    margin: 8px 0 0;
+}
+
+/* ----------------------------------------
+   Post Module — Modal Overlay
+   ---------------------------------------- */
+.bpid-grid-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 100000;
+    background: rgba(0, 0, 0, 0.55);
+    backdrop-filter: blur(4px);
+    -webkit-backdrop-filter: blur(4px);
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    animation: bpid-fade-in 0.2s ease;
+}
+
+.bpid-grid-modal.is-open {
+    display: flex;
+}
+
+@keyframes bpid-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+/* Modal Content */
+.bpid-modal-content {
+    background: var(--bpid-color-surface);
+    border-radius: 12px;
+    width: 100%;
+    max-width: 800px;
+    max-height: 90vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    box-shadow: var(--bpid-shadow-lg);
+    animation: bpid-slide-up 0.25s ease;
+}
+
+@keyframes bpid-slide-up {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* Modal Header */
+.bpid-modal-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    padding: 24px 28px 16px;
+    border-bottom: 1px solid var(--bpid-color-border);
+    gap: 16px;
+}
+
+.bpid-modal-header-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.bpid-modal-bpin {
+    display: inline-block;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    background: var(--bpid-color-primario-light);
+    color: var(--bpid-color-primario);
+    padding: 4px 10px;
+    border-radius: 4px;
+    margin-bottom: 8px;
+}
+
+.bpid-modal-title {
+    font-size: 20px;
+    font-weight: 700;
+    color: var(--bpid-color-text);
+    line-height: 1.3;
+    margin: 0;
+}
+
+.bpid-modal-close {
+    flex-shrink: 0;
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    background: #f0f0f1;
+    border-radius: 50%;
+    font-size: 18px;
+    color: var(--bpid-color-text-muted);
+    cursor: pointer;
+    transition: background var(--bpid-transition), color var(--bpid-transition);
+}
+
+.bpid-modal-close:hover {
+    background: var(--bpid-color-danger);
+    color: #fff;
+}
+
+/* Modal Body */
+.bpid-modal-body {
+    padding: 24px 28px;
+    overflow-y: auto;
+    flex: 1;
+}
+
+/* Modal Summary Grid */
+.bpid-modal-summary {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.bpid-modal-summary-item {
+    padding: 14px 16px;
+    background: #f9fafb;
+    border-radius: 6px;
+    border-left: 3px solid var(--bpid-color-primario);
+}
+
+.bpid-modal-summary-item .bpid-modal-label {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--bpid-color-text-muted);
+    margin-bottom: 4px;
+}
+
+.bpid-modal-summary-item .bpid-modal-value {
+    font-size: 14px;
+    font-weight: 500;
+    color: var(--bpid-color-text);
+    word-break: break-word;
+}
+
+/* Modal Section */
+.bpid-modal-section {
+    margin-bottom: 24px;
+}
+
+.bpid-modal-section-title {
+    font-size: 14px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--bpid-color-text);
+    margin: 0 0 12px;
+    padding-bottom: 8px;
+    border-bottom: 2px solid var(--bpid-color-primario-light);
+}
+
+/* Modal Description */
+.bpid-modal-description {
+    font-size: 14px;
+    line-height: 1.7;
+    color: var(--bpid-color-text);
+}
+
+/* Modal Key-Value Pairs */
+.bpid-modal-detail-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 8px 0;
+    font-size: 14px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.bpid-modal-detail-row:last-child {
+    border-bottom: none;
+}
+
+.bpid-modal-detail-key {
+    font-weight: 600;
+    color: var(--bpid-color-text-muted);
+    flex-shrink: 0;
+    margin-right: 16px;
+}
+
+.bpid-modal-detail-value {
+    text-align: right;
+    color: var(--bpid-color-text);
+    word-break: break-word;
+}
+
+/* Modal Currency Values */
+.bpid-modal-currency {
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--bpid-color-primario-dark);
+}
+
+/* ----------------------------------------
+   Modal — Accordion Components
+   ---------------------------------------- */
+.bpid-modal-accordion {
+    border: 1px solid var(--bpid-color-border);
+    border-radius: 6px;
+    overflow: hidden;
+}
+
+.bpid-modal-accordion-item {
+    border-bottom: 1px solid var(--bpid-color-border);
+}
+
+.bpid-modal-accordion-item:last-child {
+    border-bottom: none;
+}
+
+.bpid-modal-accordion-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    background: #f9fafb;
+    border: none;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--bpid-color-text);
+    text-align: left;
+    transition: background var(--bpid-transition);
+}
+
+.bpid-modal-accordion-header:hover {
+    background: #f0f1f3;
+}
+
+.bpid-modal-accordion-icon {
+    width: 20px;
+    height: 20px;
+    flex-shrink: 0;
+    transition: transform var(--bpid-transition);
+    color: var(--bpid-color-text-muted);
+}
+
+.bpid-modal-accordion-item.is-open .bpid-modal-accordion-icon {
+    transform: rotate(180deg);
+}
+
+.bpid-modal-accordion-body {
+    display: none;
+    padding: 16px;
+    font-size: 14px;
+    line-height: 1.6;
+    color: var(--bpid-color-text);
+}
+
+.bpid-modal-accordion-item.is-open .bpid-modal-accordion-body {
+    display: block;
+}
+
+/* ----------------------------------------
+   Modal — Progress Bars
+   ---------------------------------------- */
+.bpid-modal-progress-group {
+    margin-bottom: 16px;
+}
+
+.bpid-modal-progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 13px;
+    margin-bottom: 6px;
+}
+
+.bpid-modal-progress-label .label-text {
+    font-weight: 600;
+    color: var(--bpid-color-text);
+}
+
+.bpid-modal-progress-label .label-value {
+    font-weight: 700;
+    color: var(--bpid-color-primario);
+}
+
+.bpid-modal-progress-bar {
+    width: 100%;
+    height: 10px;
+    background: #eee;
+    border-radius: 5px;
+    overflow: hidden;
+}
+
+.bpid-modal-progress-bar-fill {
+    height: 100%;
+    border-radius: 5px;
+    background: linear-gradient(90deg, var(--bpid-color-primario), var(--bpid-color-primario-dark));
+    transition: width 0.5s ease;
+}
+
+.bpid-modal-progress-bar-fill.progress-low {
+    background: linear-gradient(90deg, var(--bpid-color-danger), #e85d5f);
+}
+
+.bpid-modal-progress-bar-fill.progress-mid {
+    background: linear-gradient(90deg, var(--bpid-color-warning), #e8c547);
+}
+
+.bpid-modal-progress-bar-fill.progress-high {
+    background: linear-gradient(90deg, var(--bpid-color-success), #34c759);
+}
+
+/* ----------------------------------------
+   Modal — Footer
+   ---------------------------------------- */
+.bpid-modal-footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 16px 28px;
+    border-top: 1px solid var(--bpid-color-border);
+    background: #f9fafb;
+    font-size: 12px;
+    color: var(--bpid-color-text-muted);
+}
+
+.bpid-modal-footer a {
+    color: var(--bpid-color-primario);
+    text-decoration: none;
+    font-weight: 600;
+}
+
+.bpid-modal-footer a:hover {
+    text-decoration: underline;
+}
+
+/* ----------------------------------------
+   Frontend Pagination
+   ---------------------------------------- */
+.bpid-grid-pagination {
+    display: flex;
+    gap: 6px;
+    justify-content: center;
+    align-items: center;
+    margin-top: 8px;
+}
+
+.bpid-grid-pagination button {
+    padding: 8px 14px;
+    border: 1px solid var(--bpid-color-border);
+    border-radius: 6px;
+    background: var(--bpid-color-surface);
+    color: var(--bpid-color-text);
+    font-size: 14px;
+    cursor: pointer;
+    transition: all var(--bpid-transition);
+}
+
+.bpid-grid-pagination button:hover {
+    background: var(--bpid-color-primario-light);
+    border-color: var(--bpid-color-primario);
+    color: var(--bpid-color-primario);
+}
+
+.bpid-grid-pagination button.is-active {
+    background: var(--bpid-color-primario);
+    color: #fff;
+    border-color: var(--bpid-color-primario);
+}
+
+.bpid-grid-pagination button:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
+/* ----------------------------------------
+   Responsive — Tablet (max-width: 900px)
+   ---------------------------------------- */
+@media (max-width: 900px) {
+    .bpid-grid-cards {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 16px;
+    }
+
+    .bpid-grid-stats {
+        grid-template-columns: repeat(2, 1fr);
+    }
+
+    .bpid-modal-content {
+        max-width: 95vw;
+    }
+
+    .bpid-modal-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .bpid-grid-filters {
+        flex-direction: column;
+        align-items: stretch;
+    }
+
+    .bpid-grid-filters select,
+    .bpid-grid-filters input[type="search"] {
+        min-width: 100%;
+    }
+
+    .bpid-grid-filters .bpid-filter-count {
+        margin-left: 0;
+        text-align: center;
+    }
+
+    .bpid-filter-form {
+        flex-direction: column;
+    }
+
+    .bpid-filter-field {
+        flex: 1 1 100%;
+    }
+}
+
+/* ----------------------------------------
+   Responsive — Mobile (max-width: 600px)
+   ---------------------------------------- */
+@media (max-width: 600px) {
+    .bpid-grid-container {
+        padding: 20px 12px;
+    }
+
+    .bpid-grid-header h2 {
+        font-size: 22px;
+    }
+
+    .bpid-grid-cards {
+        grid-template-columns: 1fr;
+    }
+
+    .bpid-grid-stats {
+        grid-template-columns: 1fr;
+        gap: 10px;
+    }
+
+    .bpid-grid-stat-card {
+        padding: 14px;
+    }
+
+    .bpid-grid-stat-card .bpid-stat-number {
+        font-size: 26px;
+    }
+
+    .bpid-modal-content {
+        max-height: 95vh;
+        border-radius: 8px;
+    }
+
+    .bpid-modal-header {
+        padding: 16px 18px 12px;
+    }
+
+    .bpid-modal-title {
+        font-size: 17px;
+    }
+
+    .bpid-modal-body {
+        padding: 16px 18px;
+    }
+
+    .bpid-modal-footer {
+        padding: 12px 18px;
+        flex-direction: column;
+        gap: 8px;
+        text-align: center;
+    }
+
+    .bpid-modal-detail-row {
+        flex-direction: column;
+        gap: 2px;
+    }
+
+    .bpid-modal-detail-value {
+        text-align: left;
+    }
+
+    .bpid-chart-container {
+        padding: 16px;
+    }
+
+    .bpid-filter-container {
+        padding: 16px;
+    }
+}
