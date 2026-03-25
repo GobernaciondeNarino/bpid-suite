@@ -451,6 +451,7 @@ final class BPID_Suite_Visualizer {
         }
 
         $container_id = 'bpid-chart-' . $post_id;
+        $data_id      = $container_id . '-data';
 
         $json_flags = JSON_HEX_TAG | JSON_HEX_AMP;
 
@@ -458,16 +459,16 @@ final class BPID_Suite_Visualizer {
         ?>
         <div id="<?php echo esc_attr($container_id); ?>"
              class="<?php echo esc_attr($css_class); ?>"
+             data-chart-id="<?php echo esc_attr((string) $post_id); ?>"
              data-chart-type="<?php echo esc_attr($chart_type); ?>"
              data-column-x="<?php echo esc_attr($column_x); ?>"
              data-column-y="<?php echo esc_attr($column_y); ?>"
              data-group="<?php echo esc_attr($group_col); ?>"
              data-color="<?php echo esc_attr($color); ?>"
-             data-height="<?php echo esc_attr((string) $height); ?>"
              data-aggregation="<?php echo esc_attr($aggregation); ?>"
              style="height:<?php echo esc_attr((string) $height); ?>px;">
         </div>
-        <script type="application/json" id="<?php echo esc_attr($container_id . '-data'); ?>">
+        <script type="application/json" id="<?php echo esc_attr($data_id); ?>">
             <?php
             // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- wp_json_encode with safe flags
             echo wp_json_encode($data, $json_flags);

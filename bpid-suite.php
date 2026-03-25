@@ -4,7 +4,7 @@ declare(strict_types=1);
  * Plugin Name:       BPID Suite
  * Plugin URI:        https://github.com/GobernaciondeNarino/bpid-suite
  * Description:       Plugin para importar, filtrar, graficar y visualizar datos del Banco de Proyectos de Inversión y Desarrollo (BPID) de la Gobernación de Nariño.
- * Version:           1.2.0
+ * Version:           1.3.0
  * Requires at least: 6.0
  * Requires PHP:      8.1
  * Author:            Gobernación de Nariño — Secretaría de TIC, Innovación y Gobierno Abierto
@@ -27,7 +27,7 @@ if (!defined('WPINC')) {
 /**
  * Plugin constants
  */
-define('BPID_SUITE_VERSION', '1.2.0');
+define('BPID_SUITE_VERSION', '1.3.0');
 define('BPID_SUITE_PATH', plugin_dir_path(__FILE__));
 define('BPID_SUITE_URL', plugin_dir_url(__FILE__));
 define('BPID_SUITE_BASENAME', plugin_basename(__FILE__));
@@ -145,18 +145,18 @@ final class BPID_Suite {
             __('BPID Suite', 'bpid-suite'),
             'manage_options',
             'bpid-suite',
-            [$this, 'render_config_page'],
+            [$this, 'render_dashboard_page'],
             'dashicons-chart-area',
             30
         );
 
         add_submenu_page(
             'bpid-suite',
-            __('Configuración', 'bpid-suite'),
-            __('Configuración', 'bpid-suite'),
+            __('Dashboard', 'bpid-suite'),
+            __('Dashboard', 'bpid-suite'),
             'manage_options',
             'bpid-suite',
-            [$this, 'render_config_page']
+            [$this, 'render_dashboard_page']
         );
 
         add_submenu_page(
@@ -185,11 +185,27 @@ final class BPID_Suite {
             'bpid-suite-logs',
             [$this, 'render_logs_page']
         );
+
+        add_submenu_page(
+            'bpid-suite',
+            __('Configuración', 'bpid-suite'),
+            __('Configuración', 'bpid-suite'),
+            'manage_options',
+            'bpid-suite-config',
+            [$this, 'render_config_page']
+        );
     }
 
     /**
      * Render admin pages via templates
      */
+    public function render_dashboard_page(): void {
+        if (!current_user_can('manage_options')) {
+            wp_die(__('No autorizado', 'bpid-suite'));
+        }
+        include BPID_SUITE_PATH . 'templates/admin/dashboard-page.php';
+    }
+
     public function render_config_page(): void {
         if (!current_user_can('manage_options')) {
             wp_die(__('No autorizado', 'bpid-suite'));
@@ -283,6 +299,7 @@ final class BPID_Suite {
             'bpid-suite_page_bpid-suite-import',
             'bpid-suite_page_bpid-suite-records',
             'bpid-suite_page_bpid-suite-logs',
+            'bpid-suite_page_bpid-suite-config',
         ];
 
         $screen = get_current_screen();
