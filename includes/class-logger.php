@@ -67,6 +67,15 @@ final class BPID_Suite_Logger {
     }
 
     /**
+     * Log an info-level message.
+     *
+     * @param string $message The info message.
+     */
+    public function info(string $message): void {
+        $this->log($message, 'info');
+    }
+
+    /**
      * Log an error-level message.
      *
      * @param string $message The error message.

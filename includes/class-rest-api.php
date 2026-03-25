@@ -460,17 +460,17 @@ final class BPID_Suite_Rest_API {
         }
 
         $post_module = BPID_Suite_Post::get_instance();
-        $projects    = $post_module->consultar_api();
+        $result      = $post_module->consultar_api();
 
-        if (is_wp_error($projects)) {
+        if (empty($result['success'])) {
             return new \WP_Error(
                 'rest_project_error',
-                $projects->get_error_message(),
+                $result['error'] ?? __('Error al consultar la API.', 'bpid-suite'),
                 ['status' => 500]
             );
         }
 
-        return new \WP_REST_Response($projects, 200);
+        return new \WP_REST_Response($result, 200);
     }
 
     // ------------------------------------------------------------------

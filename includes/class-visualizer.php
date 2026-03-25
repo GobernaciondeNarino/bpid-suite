@@ -500,7 +500,7 @@ final class BPID_Suite_Visualizer {
 
         /** @var BPID_Suite_Database $database */
         $database = BPID_Suite_Database::get_instance();
-        $records  = $database->get_records($limit > 0 ? $limit : 0);
+        $records  = $database->get_all_records($limit > 0 ? $limit : 0);
 
         if (empty($records)) {
             return [];
@@ -513,18 +513,18 @@ final class BPID_Suite_Visualizer {
         $aggregated = [];
 
         foreach ($records as $record) {
-            $x_value = $record->$column_x ?? '';
+            $x_value = $record[$column_x] ?? '';
             $key     = (string) $x_value;
 
             if ($use_group) {
-                $group_value = $record->$group_col ?? '';
+                $group_value = $record[$group_col] ?? '';
                 $key        .= '||' . (string) $group_value;
             }
 
             if (!isset($aggregated[$key])) {
                 $entry = ['x' => $x_value];
                 if ($use_group) {
-                    $entry['group'] = $record->$group_col ?? '';
+                    $entry['group'] = $record[$group_col] ?? '';
                 }
                 $entry['_values'] = [];
                 $entry['_count']  = 0;
@@ -534,7 +534,7 @@ final class BPID_Suite_Visualizer {
             $aggregated[$key]['_count']++;
 
             if ($use_y) {
-                $aggregated[$key]['_values'][] = (float) ($record->$column_y ?? 0);
+                $aggregated[$key]['_values'][] = (float) ($record[$column_y] ?? 0);
             }
         }
 
