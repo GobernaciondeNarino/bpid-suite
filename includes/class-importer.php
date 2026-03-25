@@ -208,8 +208,17 @@ final class BPID_Suite_Importer {
      * @return array{success: bool, inserted: int, updated: int, errors: int, message?: string}
      */
     public function run_import(): array {
+        // Allow enough time for large imports (1899+ contracts).
+        @set_time_limit(300);
+        wp_raise_memory_limit('admin');
+
         $logger   = BPID_Suite_Logger::get_instance();
         $database = BPID_Suite_Database::get_instance();
+
+        // Ensure the database table exists (handles updates without re-activation).
+        if (!$database->table_exists()) {
+            $database->create_table();
+        }
 
         // Clean up any previous cancellation signal.
         delete_transient(self::TRANSIENT_CANCEL);
@@ -327,14 +336,21 @@ final class BPID_Suite_Importer {
             }
 
             foreach ($batch as $contrato) {
-                $result = $database->upsert_contrato($contrato);
+                try {
+                    $result = $database->upsert_contrato($contrato);
 
-                if ('inserted' === $result) {
-                    $progress['inserted']++;
-                } elseif ('updated' === $result) {
-                    $progress['updated']++;
-                } else {
+                    if ('inserted' === $result) {
+                        $progress['inserted']++;
+                    } elseif ('updated' === $result) {
+                        $progress['updated']++;
+                    } else {
+                        $progress['errors']++;
+                    }
+                } catch (\Throwable $e) {
                     $progress['errors']++;
+                    $logger->error(
+                        sprintf('Error procesando contrato: %s', $e->getMessage())
+                    );
                 }
 
                 $progress['processed']++;
@@ -347,6 +363,9 @@ final class BPID_Suite_Importer {
         // Mark as complete.
         $progress['status'] = 'complete';
         set_transient(self::TRANSIENT_PROGRESS, $progress, HOUR_IN_SECONDS);
+
+        // Save last import date for the admin dashboard.
+        update_option('bpid_suite_last_import_date', current_time('mysql'));
 
         $logger->info(
             sprintf(
@@ -386,7 +405,7 @@ final class BPID_Suite_Importer {
         }
 
         $response = wp_remote_get(BPID_SUITE_API_URL, [
-            'timeout'   => 30,
+            'timeout'   => 120,
             'sslverify' => false,
             'headers'   => [
                 'apikey' => $api_key,

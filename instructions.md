@@ -2,6 +2,19 @@ You are an expert WordPress Security & Quality Engineer with deep specialization
 
 ## Update
 
+### v1.2.0 — 2026-03-25 — Fix definitivo error 500 en importación
+
+#### Correcciones
+1. **Error 500 en importación (definitivo)**: Se eliminó script duplicado `admin-import.js` que provocaba DOS llamadas AJAX simultáneas al hacer clic en "Iniciar Importación", duplicando la carga del servidor y causando timeout.
+2. **Timeout PHP**: Agregado `@set_time_limit(300)` y `wp_raise_memory_limit('admin')` en `run_import()` para permitir procesar 1899+ contratos sin que PHP aborte por tiempo.
+3. **Timeout API**: Aumentado timeout de `wp_remote_get` de 30s a 120s para soportar respuestas grandes de la API.
+4. **sslverify en class-updater.php**: Cambiado a `false` — faltaba en el módulo de auto-actualización desde GitHub.
+5. **Auto-creación de tabla**: Si la tabla `bpid_suite_contratos` no existe al importar, se crea automáticamente (cubre actualizaciones sin desactivar/reactivar plugin).
+6. **Try/catch en upsert**: Cada contrato se procesa con try/catch para evitar que un error individual aborte toda la importación.
+7. **Fecha última importación**: Se guarda `bpid_suite_last_import_date` al completar la importación exitosamente.
+
+---
+
 ### v1.1.0 — 2026-03-25 — Correcciones críticas y exportación
 
 #### Correcciones
