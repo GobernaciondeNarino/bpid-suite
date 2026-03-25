@@ -427,6 +427,31 @@ final class BPID_Suite_Database {
     }
 
     /**
+     * Retrieve all records, optionally limited, for chart aggregation.
+     *
+     * @param int $limit Maximum number of rows (0 = unlimited).
+     * @return array<int, array<string, mixed>> Rows as associative arrays.
+     */
+    public function get_all_records(int $limit = 0): array {
+        global $wpdb;
+
+        $table = $this->table_name;
+
+        if ($limit > 0) {
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+            $sql = $wpdb->prepare("SELECT * FROM `{$table}` ORDER BY id ASC LIMIT %d", $limit);
+        } else {
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+            $sql = $wpdb->prepare("SELECT * FROM `{$table}` WHERE %d = %d ORDER BY id ASC", 1, 1);
+        }
+
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+        $results = $wpdb->get_results($sql, ARRAY_A);
+
+        return $results ?: [];
+    }
+
+    /**
      * Get total number of records in the table.
      */
     public function get_record_count(): int {

@@ -4,14 +4,20 @@ You are an expert WordPress Security & Quality Engineer with deep specialization
 
 ### v1.2.0 — 2026-03-25 — Fix definitivo error 500 en importación
 
-#### Correcciones
-1. **Error 500 en importación (definitivo)**: Se eliminó script duplicado `admin-import.js` que provocaba DOS llamadas AJAX simultáneas al hacer clic en "Iniciar Importación", duplicando la carga del servidor y causando timeout.
-2. **Timeout PHP**: Agregado `@set_time_limit(300)` y `wp_raise_memory_limit('admin')` en `run_import()` para permitir procesar 1899+ contratos sin que PHP aborte por tiempo.
-3. **Timeout API**: Aumentado timeout de `wp_remote_get` de 30s a 120s para soportar respuestas grandes de la API.
-4. **sslverify en class-updater.php**: Cambiado a `false` — faltaba en el módulo de auto-actualización desde GitHub.
-5. **Auto-creación de tabla**: Si la tabla `bpid_suite_contratos` no existe al importar, se crea automáticamente (cubre actualizaciones sin desactivar/reactivar plugin).
-6. **Try/catch en upsert**: Cada contrato se procesa con try/catch para evitar que un error individual aborte toda la importación.
-7. **Fecha última importación**: Se guarda `bpid_suite_last_import_date` al completar la importación exitosamente.
+#### Correcciones críticas (causas de error 500)
+1. **`Logger::info()` no existía (CAUSA RAÍZ)**: `$logger->info()` causaba `Fatal Error: Call to undefined method` en la primera línea de `run_import()`. Agregado método `info()` a `class-logger.php`.
+2. **`Database::get_records()` no existía**: `class-visualizer.php` llamaba método inexistente. Agregado `get_all_records()` a `class-database.php`.
+3. **Acceso con `->` a arrays en visualizer**: Usaba `$record->$column_x` (objeto) pero la DB retorna arrays asociativos. Corregido a `$record[$column_x]`.
+4. **REST API `get_projects()` — error lógico**: `consultar_api()` retorna `array`, nunca `WP_Error`. Corregido manejo de error.
+
+#### Correcciones adicionales
+5. **Script duplicado eliminado**: `admin-import.js` (jQuery) causaba 2 llamadas AJAX simultáneas.
+6. **Timeout PHP**: `@set_time_limit(300)` + `wp_raise_memory_limit('admin')` para 1899+ contratos.
+7. **Timeout API**: 30s → 120s en `wp_remote_get`.
+8. **`sslverify => false` en `class-updater.php`**: Faltaba en auto-actualización.
+9. **Auto-creación de tabla**: Cubre actualizaciones sin desactivar/reactivar.
+10. **Try/catch en upsert**: Un error individual no aborta toda la importación.
+11. **Fecha última importación**: Se guarda al completar importación.
 
 ---
 
