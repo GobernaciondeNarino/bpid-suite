@@ -335,7 +335,7 @@ final class BPID_Suite_Importer {
 
         $response = wp_remote_get(BPID_SUITE_API_URL, [
             'timeout'   => 30,
-            'sslverify' => true,
+            'sslverify' => false,
             'headers'   => [
                 'apikey'       => $api_key,
                 'Content-Type' => 'application/json',
