@@ -1,6 +1,49 @@
 You are an expert WordPress Security & Quality Engineer with deep specialization in PHP 8.1+, WordPress plugin architecture, Colombian government open data systems (datascience analytic), D3plus data visualization library, and secure government web development. You combine the rigor of an OWASP security auditor with the practical knowledge of a senior WordPress developer and a D3plus visualization expert.
 
-##Update
+## Update
+
+### v1.0.0 — 2026-03-25 — Implementación inicial completa
+
+#### Acciones realizadas
+1. **Plugin principal** (`bpid-suite.php`): Clase Singleton `BPID_Suite` con autoload de módulos, menú admin con 4 páginas (Configuración, Importación, Registros, Logs), hooks de activación/desactivación, cron scheduling con soporte mensual, enqueue condicional de assets.
+2. **Módulo Base de Datos** (`class-database.php`): Tabla `bpid_suite_contratos` con esquema completo BPID, UPSERT con clave compuesta (numero + numero_proyecto), whitelist de columnas, consultas paginadas y estadísticas.
+3. **Módulo de Importación** (`class-importer.php`): Consumo de API BPID con `wp_remote_get()`, procesamiento por lotes de 100, progreso en tiempo real vía AJAX, cancelación, cron programable, logging detallado.
+4. **Módulo de Configuración** (`config-page.php`): Panel de API key con toggle visibilidad, prueba de conexión AJAX, info del sistema, control de cron, regeneración de tabla con confirmación doble.
+5. **Módulo de Gráficos** (`class-visualizer.php`): CPT `bpid_chart` con 15 tipos D3plus (bar, line, area, pie, donut, treemap, stacked_bar, grouped_bar, tree, pack, network, scatter, box_whisker, matrix, bump), shortcode `[bpid_chart]`.
+6. **Módulo de Filtros** (`class-filter.php`): CPT `bpid_filter` con 5 tipos de campo, AJAX con rate limiting (60 req/min por IP), validación de columnas y operadores contra whitelist, `$wpdb->prepare()` en todas las consultas.
+7. **Módulo Post** (`class-post.php`): CPT `bpid_post`, shortcode `[bpid_grid_visualizador]`, consulta API en tiempo real con caché configurable, función `agrupar_por_proyecto()`, filtro por dependencia, colores personalizables.
+8. **API REST** (`class-rest-api.php`): Namespace `bpid-suite/v1` con 10 endpoints (6 públicos + 4 autenticados), rate limiting, sanitización, validación.
+9. **WP-CLI** (`class-cli.php`): 6 comandos — import, stats, truncate, logs, test-connection, clear-cache.
+10. **Auto-actualización** (`class-updater.php`): Verificación de releases en GitHub, integración con sistema de updates de WordPress.
+11. **Logger** (`class-logger.php`): Logging con rotación automática (5 MB), visor en admin.
+12. **Templates**: 7 templates admin + 3 templates frontend, todos con escaping completo.
+13. **Assets**: 2 CSS (admin + frontend) + 7 JS (4 admin + 3 frontend).
+14. **Seguridad**: Nonces en todos los formularios/AJAX, `$wpdb->prepare()` en todas las consultas, escaping completo, `index.php` en todos los directorios, `.htaccess` en logs.
+15. **Documentación**: README.md, CHANGELOG.md, INSTALACION.md completos.
+
+#### Mejoras aplicadas sobre las instrucciones base
+- Corrección de `HOUR_IN_SECONDS` como valor de propiedad de clase (reemplazado por `3600` literal para evitar error de constante en tiempo de carga).
+- Template `post.php` reescrito para usar correctamente los nombres de campo de `agrupar_por_proyecto()` (`numeroProyecto`, `dependenciaProyecto`, `odssProyecto`, `metasProyecto`, `municipiosEjecContractual`).
+- Beneficiarios se calculan correctamente desde los contratos (nivel `municipiosEjecContractual`) en vez de nivel proyecto.
+- Filtro por dependencia implementado directamente en el shortcode_render del Módulo Post.
+- Hash SHA-256 para rate limiting en REST API (más seguro que MD5).
+
+#### Acciones y mejoras posteriores a realizar
+1. **Internacionalización**: Generar archivo `.pot` con `wp i18n make-pot` y crear traducciones `.po`/`.mo` para español colombiano.
+2. **Tests unitarios**: Crear suite de tests PHPUnit para las clases Database, Importer y Post usando WP_UnitTestCase.
+3. **Tests de integración**: Verificar shortcodes dentro de Gutenberg, Elementor y Divi.
+4. **Cifrado de API key**: Implementar cifrado AES-256 de la API key en `wp_options` (actualmente se almacena en texto plano sanitizado).
+5. **Caché de D3plus**: Servir D3plus desde assets locales como fallback si CDN no está disponible.
+6. **Exportación CSV**: Agregar botón de exportación CSV en la página de Registros admin.
+7. **Paginación AJAX**: Implementar paginación AJAX en el grid del Módulo Post para sitios con muchos proyectos (+500).
+8. **Dashboard widget**: Agregar widget al dashboard de WordPress con resumen de datos BPID.
+9. **Accesibilidad WCAG 2.1**: Auditar y mejorar accesibilidad del modal, acordeones y filtros (roles ARIA, navegación por teclado).
+10. **Multisite**: Verificar y ajustar compatibilidad completa con WordPress Multisite.
+11. **REST API v2**: Agregar endpoints para ODS, municipios y dependencias como recursos independientes.
+12. **Validación de imágenes**: Verificar URLs de imágenes antes de renderizar (HEAD request con caché).
+13. **Performance**: Implementar lazy loading del grid con Intersection Observer para muchas tarjetas.
+14. **Logs estructurados**: Migrar a formato JSON para facilitar análisis con herramientas externas.
+15. **GitHub Actions**: Crear workflow CI/CD para linting PHP (PHPCS con WordPress-Coding-Standards), tests y release automático.
 
 # BPID Suite — Instrucciones para Agente de IA
 

@@ -1,0 +1,88 @@
+/* ========================================
+   BPID Suite — Admin Styles
+   Gobernación de Nariño
+   ======================================== */
+
+/* General */
+.bpid-admin-wrap { max-width: 1200px; margin: 20px auto; }
+.bpid-admin-wrap h1 { font-size: 24px; margin-bottom: 20px; color: #1d2327; }
+
+/* Cards / Sections */
+.bpid-admin-card { background: #fff; border: 1px solid #c3c4c7; border-radius: 4px; padding: 20px; margin-bottom: 20px; box-shadow: 0 1px 1px rgba(0,0,0,.04); }
+.bpid-admin-card h2 { font-size: 16px; margin: 0 0 15px; padding-bottom: 10px; border-bottom: 1px solid #eee; }
+
+/* Form Elements */
+.bpid-form-group { margin-bottom: 15px; }
+.bpid-form-group label { display: block; font-weight: 600; margin-bottom: 5px; }
+.bpid-form-group input[type="text"],
+.bpid-form-group input[type="password"],
+.bpid-form-group input[type="number"],
+.bpid-form-group select,
+.bpid-form-group textarea { width: 100%; max-width: 500px; padding: 8px; border: 1px solid #8c8f94; border-radius: 4px; }
+.bpid-form-group .description { color: #646970; font-size: 13px; margin-top: 4px; }
+
+/* API Key field */
+.bpid-api-key-wrap { display: flex; gap: 8px; align-items: center; max-width: 600px; }
+.bpid-api-key-wrap input { flex: 1; }
+.bpid-toggle-visibility { cursor: pointer; padding: 8px 12px; background: #f0f0f1; border: 1px solid #8c8f94; border-radius: 4px; }
+
+/* Buttons */
+.bpid-btn { display: inline-block; padding: 8px 16px; border-radius: 4px; cursor: pointer; font-size: 14px; text-decoration: none; border: 1px solid transparent; }
+.bpid-btn-primary { background: #2271b1; color: #fff; border-color: #2271b1; }
+.bpid-btn-primary:hover { background: #135e96; }
+.bpid-btn-secondary { background: #f0f0f1; color: #1d2327; border-color: #8c8f94; }
+.bpid-btn-danger { background: #d63638; color: #fff; border-color: #d63638; }
+.bpid-btn-danger:hover { background: #b32d2e; }
+.bpid-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Connection test */
+.bpid-connection-result { margin-top: 10px; padding: 10px 15px; border-radius: 4px; display: none; }
+.bpid-connection-result.success { display: block; background: #d4edda; border: 1px solid #c3e6cb; color: #155724; }
+.bpid-connection-result.error { display: block; background: #f8d7da; border: 1px solid #f5c6cb; color: #721c24; }
+
+/* Progress bar */
+.bpid-progress-container { display: none; margin: 20px 0; }
+.bpid-progress-bar-wrap { width: 100%; height: 30px; background: #f0f0f1; border-radius: 4px; overflow: hidden; }
+.bpid-progress-bar { height: 100%; background: linear-gradient(90deg, #2271b1, #72aee6); color: #fff; text-align: center; line-height: 30px; font-size: 13px; font-weight: 600; transition: width 0.3s ease; min-width: 2%; border-radius: 4px; }
+.bpid-progress-text { margin-top: 8px; color: #646970; font-size: 13px; }
+
+/* System info */
+.bpid-system-info { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+.bpid-system-info-item { padding: 12px; background: #f6f7f7; border-radius: 4px; }
+.bpid-system-info-item .label { font-weight: 600; font-size: 12px; text-transform: uppercase; color: #646970; }
+.bpid-system-info-item .value { font-size: 16px; margin-top: 4px; color: #1d2327; }
+.bpid-status-ok { color: #00a32a; }
+.bpid-status-error { color: #d63638; }
+
+/* Records table */
+.bpid-records-table { width: 100%; border-collapse: collapse; }
+.bpid-records-table th, .bpid-records-table td { padding: 10px 12px; text-align: left; border-bottom: 1px solid #eee; font-size: 13px; }
+.bpid-records-table th { background: #f6f7f7; font-weight: 600; }
+.bpid-records-table tr:hover td { background: #f9f9f9; }
+
+/* Pagination */
+.bpid-pagination { display: flex; gap: 5px; margin: 20px 0; justify-content: center; }
+.bpid-pagination a, .bpid-pagination span { padding: 6px 12px; border: 1px solid #c3c4c7; border-radius: 3px; text-decoration: none; color: #2271b1; }
+.bpid-pagination span.current { background: #2271b1; color: #fff; border-color: #2271b1; }
+
+/* Logs */
+.bpid-logs-container { background: #1d2327; color: #a7aaad; padding: 20px; border-radius: 4px; font-family: 'Courier New', monospace; font-size: 12px; line-height: 1.6; max-height: 600px; overflow-y: auto; white-space: pre-wrap; word-wrap: break-word; }
+.bpid-logs-container .log-info { color: #72aee6; }
+.bpid-logs-container .log-error { color: #d63638; }
+.bpid-logs-container .log-warning { color: #dba617; }
+
+/* Metabox styles */
+.bpid-metabox-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+.bpid-metabox-grid .bpid-form-group { margin-bottom: 0; }
+.bpid-shortcode-preview { background: #f0f0f1; padding: 10px; border-radius: 4px; font-family: monospace; margin-top: 15px; }
+.bpid-shortcode-preview code { background: #fff; padding: 4px 8px; border-radius: 3px; }
+
+/* Import results */
+.bpid-import-results { margin-top: 20px; }
+.bpid-import-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-top: 10px; }
+.bpid-import-stat { text-align: center; padding: 15px; background: #f6f7f7; border-radius: 4px; }
+.bpid-import-stat .number { font-size: 24px; font-weight: 700; color: #2271b1; }
+.bpid-import-stat .label { font-size: 12px; color: #646970; text-transform: uppercase; }
+
+/* Cron info */
+.bpid-cron-info { background: #f6f7f7; padding: 10px 15px; border-radius: 4px; margin-top: 10px; font-size: 13px; color: #646970; }
