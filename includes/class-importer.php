@@ -167,15 +167,34 @@ final class BPID_Suite_Importer {
             ]);
         }
 
-        $contratos = $data['contratos'] ?? [];
+        // Count total items — API may return 'contratos' or 'proyectos'.
+        $total_contratos = 0;
+        $total_proyectos = 0;
+
+        if (!empty($data['contratos']) && is_array($data['contratos'])) {
+            $total_contratos = count($data['contratos']);
+        }
+        if (!empty($data['proyectos']) && is_array($data['proyectos'])) {
+            $total_proyectos = count($data['proyectos']);
+            if (0 === $total_contratos) {
+                foreach ($data['proyectos'] as $p) {
+                    $total_contratos += count($p['contratosProyecto'] ?? []);
+                }
+            }
+        }
+
+        $total_display = $data['total'] ?? $data['totalProyectos'] ?? $total_contratos;
 
         wp_send_json_success([
             'message' => sprintf(
-                /* translators: %d: number of contracts */
-                __('Conexión exitosa. Se encontraron %d contratos.', 'bpid-suite'),
-                count($contratos)
+                /* translators: 1: total items, 2: total projects */
+                __('Conexión exitosa. Se encontraron %1$d contratos en %2$d proyectos.', 'bpid-suite'),
+                $total_contratos,
+                $total_proyectos
             ),
-            'total' => count($contratos),
+            'total'     => (int) $total_display,
+            'contratos' => $total_contratos,
+            'proyectos' => $total_proyectos,
         ]);
     }
 
@@ -220,8 +239,41 @@ final class BPID_Suite_Importer {
             ];
         }
 
-        $contratos = $data['contratos'] ?? [];
-        $total     = count($contratos);
+        // The API may return data under 'contratos' key (flat list)
+        // or under 'proyectos' key (grouped by project). Handle both.
+        $contratos = [];
+
+        if (!empty($data['contratos']) && is_array($data['contratos'])) {
+            $contratos = $data['contratos'];
+        } elseif (!empty($data['proyectos']) && is_array($data['proyectos'])) {
+            // Extract individual contracts from the grouped project structure.
+            foreach ($data['proyectos'] as $proyecto) {
+                $contratos_proyecto = $proyecto['contratosProyecto'] ?? [];
+                if (!is_array($contratos_proyecto)) {
+                    continue;
+                }
+                foreach ($contratos_proyecto as $contrato) {
+                    // Map project-level fields into each contract for flat storage.
+                    $contratos[] = [
+                        'dependencia'    => $proyecto['dependenciaProyecto'] ?? '',
+                        'numeroProyecto' => $proyecto['numeroProyecto'] ?? '',
+                        'nombreProyecto' => $proyecto['nombreProyecto'] ?? '',
+                        'entidadEjecutora' => $proyecto['entidadEjecutora'] ?? '',
+                        'odss'           => $proyecto['odssProyecto'] ?? [],
+                        'numero'         => $contrato['numeroContrato'] ?? '',
+                        'objeto'         => $contrato['objetoContrato'] ?? '',
+                        'descripcion'    => $contrato['descripcionContrato'] ?? ($contrato['objetoContrato'] ?? ''),
+                        'valor'          => $contrato['valorContrato'] ?? 0,
+                        'avanceFisico'   => $contrato['procentajeAvanceFisico'] ?? 0,
+                        'esOps'          => $contrato['esOpsEjecContractual'] ?? 'No',
+                        'municipios'     => $contrato['municipiosEjecContractual'] ?? [],
+                        'imagenes'       => $contrato['imagenesEjecContractual'] ?? [],
+                    ];
+                }
+            }
+        }
+
+        $total = count($contratos);
 
         if (0 === $total) {
             $logger->warning(__('La API no devolvió contratos.', 'bpid-suite'));
@@ -337,8 +389,7 @@ final class BPID_Suite_Importer {
             'timeout'   => 30,
             'sslverify' => false,
             'headers'   => [
-                'apikey'       => $api_key,
-                'Content-Type' => 'application/json',
+                'apikey' => $api_key,
             ],
         ]);
 

@@ -988,3 +988,85 @@
         padding: 16px;
     }
 }
+
+/* ----------------------------------------
+   Export Controls
+   ---------------------------------------- */
+.bpid-grid-controls {
+    background: #fff;
+    border: 2px solid var(--bpid-color-primario, #348afb);
+    padding: 20px 25px;
+    border-radius: 12px;
+    margin-bottom: 20px;
+}
+
+.bpid-grid-controls h3 {
+    margin: 0 0 15px;
+    color: #334155;
+    font-size: 16px;
+}
+
+.bpid-grid-export-btns {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.bpid-grid-btn--word {
+    background: #2b579a;
+    color: #fff;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.bpid-grid-btn--word:hover {
+    background: #1e3a6b;
+    transform: translateY(-2px);
+}
+
+.bpid-grid-btn--excel {
+    background: #217346;
+    color: #fff;
+    border: none;
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.bpid-grid-btn--excel:hover {
+    background: #185c37;
+    transform: translateY(-2px);
+}
+
+.bpid-grid-export-status {
+    margin-top: 12px;
+    padding: 10px 15px;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+.bpid-grid-export-status.loading {
+    background: #dbeafe;
+    color: #1e40af;
+    border: 1px solid #3b82f6;
+}
+
+.bpid-grid-export-status.success {
+    background: #d1fae5;
+    color: #065f46;
+    border: 1px solid #10b981;
+}
+
+.bpid-grid-export-status.error {
+    background: #fee2e2;
+    color: #991b1b;
+    border: 1px solid #ef4444;
+}

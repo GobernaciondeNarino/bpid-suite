@@ -59,6 +59,10 @@ final class BPID_Suite_Post {
         add_action('save_post', [$this, 'save_meta_box'], 10, 2);
         add_shortcode('bpid_grid_visualizador', [$this, 'shortcode_render']);
         add_action('wp_ajax_bpid_post_clear_cache', [$this, 'ajax_clear_cache']);
+        add_action('wp_ajax_bpid_suite_export_word', [$this, 'ajax_export_word']);
+        add_action('wp_ajax_nopriv_bpid_suite_export_word', [$this, 'ajax_export_word']);
+        add_action('wp_ajax_bpid_suite_export_excel', [$this, 'ajax_export_excel']);
+        add_action('wp_ajax_nopriv_bpid_suite_export_excel', [$this, 'ajax_export_excel']);
     }
 
     private function __clone() {}
@@ -493,10 +497,9 @@ final class BPID_Suite_Post {
 
         $response = wp_remote_get(BPID_SUITE_API_URL, [
             'timeout'   => 30,
-            'sslverify' => true,
+            'sslverify' => false,
             'headers'   => [
-                'apikey'       => $api_key,
-                'Content-Type' => 'application/json',
+                'apikey' => $api_key,
             ],
         ]);
 
@@ -640,5 +643,432 @@ final class BPID_Suite_Post {
         wp_send_json_success([
             'message' => __('Caché limpiada correctamente.', 'bpid-suite'),
         ]);
+    }
+
+    // ------------------------------------------------------------------
+    // AJAX: Export Word
+    // ------------------------------------------------------------------
+
+    /**
+     * AJAX handler to export filtered project data as a Word document.
+     */
+    public function ajax_export_word(): void {
+        check_ajax_referer('bpid_suite_export_nonce', 'nonce');
+
+        $dependencia = isset($_POST['dependencia'])
+            ? sanitize_text_field(wp_unslash($_POST['dependencia']))
+            : '';
+
+        $api_result = $this->consultar_api();
+
+        if (
+            $api_result['success'] &&
+            isset($api_result['data']['contratos']) &&
+            !isset($api_result['data']['proyectos'])
+        ) {
+            $api_result['data']['proyectos'] = $this->agrupar_por_proyecto($api_result['data']['contratos']);
+        }
+
+        $proyectos = $api_result['data']['proyectos'] ?? [];
+
+        if ($dependencia && is_array($proyectos)) {
+            $dep_normalizado = $this->normalizar_texto($dependencia);
+            $proyectos = array_values(array_filter($proyectos, function (array $p) use ($dep_normalizado): bool {
+                return $this->normalizar_texto($p['dependenciaProyecto'] ?? '') === $dep_normalizado;
+            }));
+        }
+
+        $html = $this->generar_html_word($dependencia, $proyectos);
+
+        $filename = 'Informe_' . preg_replace('/[^a-zA-Z0-9_-]/', '_', $dependencia) . '_' . gmdate('Y-m-d') . '.doc';
+
+        nocache_headers();
+        header('Content-Type: application/msword; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Cache-Control: no-cache, no-store, must-revalidate');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+
+        echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- HTML is fully escaped in generar_html_word.
+        exit;
+    }
+
+    // ------------------------------------------------------------------
+    // AJAX: Export Excel
+    // ------------------------------------------------------------------
+
+    /**
+     * AJAX handler to export filtered project data as an Excel file.
+     */
+    public function ajax_export_excel(): void {
+        check_ajax_referer('bpid_suite_export_nonce', 'nonce');
+
+        $dependencia = isset($_POST['dependencia'])
+            ? sanitize_text_field(wp_unslash($_POST['dependencia']))
+            : '';
+
+        $api_result = $this->consultar_api();
+
+        if (
+            $api_result['success'] &&
+            isset($api_result['data']['contratos']) &&
+            !isset($api_result['data']['proyectos'])
+        ) {
+            $api_result['data']['proyectos'] = $this->agrupar_por_proyecto($api_result['data']['contratos']);
+        }
+
+        $proyectos = $api_result['data']['proyectos'] ?? [];
+
+        if ($dependencia && is_array($proyectos)) {
+            $dep_normalizado = $this->normalizar_texto($dependencia);
+            $proyectos = array_values(array_filter($proyectos, function (array $p) use ($dep_normalizado): bool {
+                return $this->normalizar_texto($p['dependenciaProyecto'] ?? '') === $dep_normalizado;
+            }));
+        }
+
+        $html = $this->generar_html_excel($dependencia, $proyectos);
+
+        $filename = 'Informe_' . preg_replace('/[^a-zA-Z0-9_-]/', '_', $dependencia) . '_' . gmdate('Y-m-d') . '.xls';
+
+        nocache_headers();
+        header('Content-Type: application/vnd.ms-excel; charset=UTF-8');
+        header('Content-Disposition: attachment; filename="' . $filename . '"');
+        header('Cache-Control: no-cache, no-store, must-revalidate');
+        header('Pragma: no-cache');
+        header('Expires: 0');
+
+        echo $html; // phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- HTML is fully escaped in generar_html_excel.
+        exit;
+    }
+
+    // ------------------------------------------------------------------
+    // Helper: Normalize text for comparison
+    // ------------------------------------------------------------------
+
+    /**
+     * Normalize a string for fuzzy comparison: lowercase, remove accents and non-alphanumeric chars.
+     *
+     * @param string $texto Input text.
+     * @return string Normalized text.
+     */
+    private function normalizar_texto(string $texto): string {
+        $texto = mb_strtolower($texto, 'UTF-8');
+        $texto = remove_accents($texto);
+        $texto = preg_replace('/[^a-z0-9]/', '', $texto);
+        return $texto;
+    }
+
+    // ------------------------------------------------------------------
+    // Helper: Generate Word HTML
+    // ------------------------------------------------------------------
+
+    /**
+     * Generate a Word-compatible HTML document with project tables.
+     *
+     * @param string $dependencia Dependency name.
+     * @param array  $proyectos   Array of project data.
+     * @return string Full HTML document.
+     */
+    private function generar_html_word(string $dependencia, array $proyectos): string {
+        $dep_escaped = esc_html($dependencia);
+        $fecha = esc_html(gmdate('d/m/Y'));
+
+        $html = '<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:w="urn:schemas-microsoft-com:office:word"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<!--[if gte mso 9]>
+<xml>
+<w:WordDocument>
+<w:View>Print</w:View>
+<w:Zoom>100</w:Zoom>
+<w:DoNotOptimizeForBrowser/>
+</w:WordDocument>
+</xml>
+<![endif]-->
+<style>
+body { font-family: "Calibri", Arial, sans-serif; font-size: 11pt; color: #333; margin: 40px; }
+h1 { font-size: 18pt; color: #1a5276; text-align: center; margin-bottom: 5px; }
+h2 { font-size: 14pt; color: #2c3e50; border-bottom: 2px solid #348afb; padding-bottom: 5px; margin-top: 30px; }
+.subtitle { text-align: center; font-size: 12pt; color: #666; margin-bottom: 30px; }
+table { width: 100%; border-collapse: collapse; margin-bottom: 25px; }
+th { background-color: #348afb; color: #fff; font-weight: bold; padding: 10px 8px; text-align: left; font-size: 10pt; }
+td { padding: 8px; border: 1px solid #ddd; font-size: 10pt; vertical-align: top; }
+tr:nth-child(even) td { background-color: #f8f9fa; }
+.footer { text-align: center; margin-top: 40px; padding-top: 15px; border-top: 2px solid #348afb; font-size: 9pt; color: #888; }
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+</style>
+</head>
+<body>';
+
+        $html .= '<h1>' . esc_html__('Informe de Gestión', 'bpid-suite') . '</h1>';
+        $html .= '<p class="subtitle">' . $dep_escaped . ' &mdash; ' . $fecha . '</p>';
+
+        // Table 1: Cumplimiento de Metas
+        $html .= '<h2>' . esc_html__('Cumplimiento de Metas', 'bpid-suite') . '</h2>';
+        $html .= '<table>';
+        $html .= '<thead><tr>';
+        $html .= '<th>' . esc_html__('No.', 'bpid-suite') . '</th>';
+        $html .= '<th>' . esc_html__('Programa / Proyecto', 'bpid-suite') . '</th>';
+        $html .= '<th>' . esc_html__('Meta', 'bpid-suite') . '</th>';
+        $html .= '<th>' . esc_html__('% Cumplimiento', 'bpid-suite') . '</th>';
+        $html .= '<th>' . esc_html__('Logro Destacado', 'bpid-suite') . '</th>';
+        $html .= '</tr></thead><tbody>';
+
+        $num = 0;
+        foreach ($proyectos as $proyecto) {
+            $num++;
+            $contratos = $proyecto['contratosProyecto'] ?? [];
+            $total_avance = 0;
+            $count_contratos = 0;
+
+            if (is_array($contratos)) {
+                foreach ($contratos as $contrato) {
+                    $total_avance += (float) ($contrato['procentajeAvanceFisico'] ?? 0);
+                    $count_contratos++;
+                }
+            }
+
+            $avance = $count_contratos > 0 ? $total_avance / $count_contratos : 0;
+
+            $metas = $proyecto['metasProyecto'] ?? [];
+            $meta_text = '';
+            if (is_array($metas) && !empty($metas)) {
+                $meta_parts = [];
+                foreach ($metas as $m) {
+                    $meta_parts[] = is_string($m) ? $m : wp_json_encode($m);
+                }
+                $meta_text = implode('; ', $meta_parts);
+            }
+
+            $logro = $avance >= 80
+                ? __('Avance significativo', 'bpid-suite')
+                : ($avance >= 50 ? __('En progreso', 'bpid-suite') : __('En etapa inicial', 'bpid-suite'));
+
+            $html .= '<tr>';
+            $html .= '<td class="text-center">' . esc_html((string) $num) . '</td>';
+            $html .= '<td>' . esc_html($proyecto['nombreProyecto'] ?? '') . '</td>';
+            $html .= '<td>' . esc_html($meta_text) . '</td>';
+            $html .= '<td class="text-center">' . esc_html(number_format($avance, 1, ',', '.')) . '%</td>';
+            $html .= '<td>' . esc_html($logro) . '</td>';
+            $html .= '</tr>';
+        }
+
+        $html .= '</tbody></table>';
+
+        // Table 2: Inversión y Ejecución Presupuestal
+        $html .= '<h2>' . esc_html__('Inversión y Ejecución Presupuestal', 'bpid-suite') . '</h2>';
+        $html .= '<table>';
+        $html .= '<thead><tr>';
+        $html .= '<th>' . esc_html__('No.', 'bpid-suite') . '</th>';
+        $html .= '<th>' . esc_html__('Proyecto', 'bpid-suite') . '</th>';
+        $html .= '<th>' . esc_html__('Presupuesto Asignado', 'bpid-suite') . '</th>';
+        $html .= '<th>' . esc_html__('Ejecutado', 'bpid-suite') . '</th>';
+        $html .= '<th>' . esc_html__('% Ejecución', 'bpid-suite') . '</th>';
+        $html .= '</tr></thead><tbody>';
+
+        $num = 0;
+        foreach ($proyectos as $proyecto) {
+            $num++;
+            $contratos = $proyecto['contratosProyecto'] ?? [];
+            $presupuesto = (float) ($proyecto['valorProyecto'] ?? 0);
+            $ejecutado = 0;
+
+            if (is_array($contratos)) {
+                foreach ($contratos as $contrato) {
+                    $valor = (float) ($contrato['valorContrato'] ?? 0);
+                    $avance_fisico = (float) ($contrato['procentajeAvanceFisico'] ?? 0);
+                    $ejecutado += $valor * $avance_fisico / 100;
+                }
+            }
+
+            $porcentaje_ejecucion = $presupuesto > 0
+                ? min(($ejecutado / $presupuesto) * 100, 100)
+                : 0;
+
+            $html .= '<tr>';
+            $html .= '<td class="text-center">' . esc_html((string) $num) . '</td>';
+            $html .= '<td>' . esc_html($proyecto['nombreProyecto'] ?? '') . '</td>';
+            $html .= '<td class="text-right">$' . esc_html(number_format($presupuesto, 0, ',', '.')) . '</td>';
+            $html .= '<td class="text-right">$' . esc_html(number_format($ejecutado, 0, ',', '.')) . '</td>';
+            $html .= '<td class="text-center">' . esc_html(number_format($porcentaje_ejecucion, 1, ',', '.')) . '%</td>';
+            $html .= '</tr>';
+        }
+
+        $html .= '</tbody></table>';
+
+        // Footer
+        $html .= '<div class="footer">';
+        $html .= '<p>' . esc_html__('Gobernación de Nariño', 'bpid-suite') . '</p>';
+        $html .= '<p>' . esc_html__('Documento generado automáticamente por BPID Suite', 'bpid-suite') . ' &mdash; ' . $fecha . '</p>';
+        $html .= '</div>';
+
+        $html .= '</body></html>';
+
+        return $html;
+    }
+
+    // ------------------------------------------------------------------
+    // Helper: Generate Excel HTML
+    // ------------------------------------------------------------------
+
+    /**
+     * Generate an Excel-compatible HTML document with project tables.
+     *
+     * @param string $dependencia Dependency name.
+     * @param array  $proyectos   Array of project data.
+     * @return string Full HTML document.
+     */
+    private function generar_html_excel(string $dependencia, array $proyectos): string {
+        $dep_escaped = esc_html($dependencia);
+        $fecha = esc_html(gmdate('d/m/Y'));
+
+        $html = '<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office"
+      xmlns:x="urn:schemas-microsoft-com:office:excel"
+      xmlns="http://www.w3.org/TR/REC-html40">
+<head>
+<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+<!--[if gte mso 9]>
+<xml>
+<x:ExcelWorkbook>
+<x:ExcelWorksheets>
+<x:ExcelWorksheet>
+<x:Name>Informe</x:Name>
+<x:WorksheetOptions>
+<x:DisplayGridlines/>
+</x:WorksheetOptions>
+</x:ExcelWorksheet>
+</x:ExcelWorksheets>
+</x:ExcelWorkbook>
+</xml>
+<![endif]-->
+<style>
+body { font-family: "Calibri", Arial, sans-serif; }
+table { border-collapse: collapse; width: 100%; margin-bottom: 20px; }
+th { background-color: #348afb; color: #fff; font-weight: bold; padding: 8px; border: 1px solid #999; text-align: left; }
+td { padding: 6px 8px; border: 1px solid #ccc; vertical-align: top; }
+tr:nth-child(even) td { background-color: #f2f2f2; }
+.header-row td { font-size: 14pt; font-weight: bold; color: #1a5276; border: none; }
+.subtitle-row td { font-size: 10pt; color: #666; border: none; }
+.section-title td { font-size: 12pt; font-weight: bold; color: #2c3e50; border: none; padding-top: 15px; }
+.text-right { text-align: right; }
+.text-center { text-align: center; }
+</style>
+</head>
+<body>';
+
+        // Header rows
+        $html .= '<table>';
+        $html .= '<tr class="header-row"><td colspan="5">' . esc_html__('Informe de Gestión', 'bpid-suite') . '</td></tr>';
+        $html .= '<tr class="subtitle-row"><td colspan="5">' . $dep_escaped . ' — ' . $fecha . '</td></tr>';
+        $html .= '<tr><td colspan="5"></td></tr>';
+
+        // Table 1: Cumplimiento de Metas
+        $html .= '<tr class="section-title"><td colspan="5">' . esc_html__('Cumplimiento de Metas', 'bpid-suite') . '</td></tr>';
+        $html .= '<tr>';
+        $html .= '<th>' . esc_html__('No.', 'bpid-suite') . '</th>';
+        $html .= '<th>' . esc_html__('Programa / Proyecto', 'bpid-suite') . '</th>';
+        $html .= '<th>' . esc_html__('Meta', 'bpid-suite') . '</th>';
+        $html .= '<th>' . esc_html__('% Cumplimiento', 'bpid-suite') . '</th>';
+        $html .= '<th>' . esc_html__('Logro Destacado', 'bpid-suite') . '</th>';
+        $html .= '</tr>';
+
+        $num = 0;
+        foreach ($proyectos as $proyecto) {
+            $num++;
+            $contratos = $proyecto['contratosProyecto'] ?? [];
+            $total_avance = 0;
+            $count_contratos = 0;
+
+            if (is_array($contratos)) {
+                foreach ($contratos as $contrato) {
+                    $total_avance += (float) ($contrato['procentajeAvanceFisico'] ?? 0);
+                    $count_contratos++;
+                }
+            }
+
+            $avance = $count_contratos > 0 ? $total_avance / $count_contratos : 0;
+
+            $metas = $proyecto['metasProyecto'] ?? [];
+            $meta_text = '';
+            if (is_array($metas) && !empty($metas)) {
+                $meta_parts = [];
+                foreach ($metas as $m) {
+                    $meta_parts[] = is_string($m) ? $m : wp_json_encode($m);
+                }
+                $meta_text = implode('; ', $meta_parts);
+            }
+
+            $logro = $avance >= 80
+                ? __('Avance significativo', 'bpid-suite')
+                : ($avance >= 50 ? __('En progreso', 'bpid-suite') : __('En etapa inicial', 'bpid-suite'));
+
+            $html .= '<tr>';
+            $html .= '<td class="text-center">' . esc_html((string) $num) . '</td>';
+            $html .= '<td>' . esc_html($proyecto['nombreProyecto'] ?? '') . '</td>';
+            $html .= '<td>' . esc_html($meta_text) . '</td>';
+            $html .= '<td class="text-center">' . esc_html(number_format($avance, 1, ',', '.')) . '%</td>';
+            $html .= '<td>' . esc_html($logro) . '</td>';
+            $html .= '</tr>';
+        }
+
+        // Spacer row
+        $html .= '<tr><td colspan="5"></td></tr>';
+
+        // Table 2: Inversión y Ejecución Presupuestal
+        $html .= '<tr class="section-title"><td colspan="5">' . esc_html__('Inversión y Ejecución Presupuestal', 'bpid-suite') . '</td></tr>';
+        $html .= '<tr>';
+        $html .= '<th>' . esc_html__('No.', 'bpid-suite') . '</th>';
+        $html .= '<th>' . esc_html__('Proyecto', 'bpid-suite') . '</th>';
+        $html .= '<th>' . esc_html__('Presupuesto Asignado', 'bpid-suite') . '</th>';
+        $html .= '<th>' . esc_html__('Ejecutado', 'bpid-suite') . '</th>';
+        $html .= '<th>' . esc_html__('% Ejecución', 'bpid-suite') . '</th>';
+        $html .= '</tr>';
+
+        $num = 0;
+        foreach ($proyectos as $proyecto) {
+            $num++;
+            $contratos = $proyecto['contratosProyecto'] ?? [];
+            $presupuesto = (float) ($proyecto['valorProyecto'] ?? 0);
+            $ejecutado = 0;
+
+            if (is_array($contratos)) {
+                foreach ($contratos as $contrato) {
+                    $valor = (float) ($contrato['valorContrato'] ?? 0);
+                    $avance_fisico = (float) ($contrato['procentajeAvanceFisico'] ?? 0);
+                    $ejecutado += $valor * $avance_fisico / 100;
+                }
+            }
+
+            $porcentaje_ejecucion = $presupuesto > 0
+                ? min(($ejecutado / $presupuesto) * 100, 100)
+                : 0;
+
+            $html .= '<tr>';
+            $html .= '<td class="text-center">' . esc_html((string) $num) . '</td>';
+            $html .= '<td>' . esc_html($proyecto['nombreProyecto'] ?? '') . '</td>';
+            $html .= '<td class="text-right">$' . esc_html(number_format($presupuesto, 0, ',', '.')) . '</td>';
+            $html .= '<td class="text-right">$' . esc_html(number_format($ejecutado, 0, ',', '.')) . '</td>';
+            $html .= '<td class="text-center">' . esc_html(number_format($porcentaje_ejecucion, 1, ',', '.')) . '%</td>';
+            $html .= '</tr>';
+        }
+
+        $html .= '</table>';
+
+        // Footer
+        $html .= '<table><tr><td style="text-align:center;font-size:9pt;color:#888;border:none;">';
+        $html .= esc_html__('Gobernación de Nariño', 'bpid-suite') . ' — ';
+        $html .= esc_html__('Documento generado automáticamente por BPID Suite', 'bpid-suite') . ' — ' . $fecha;
+        $html .= '</td></tr></table>';
+
+        $html .= '</body></html>';
+
+        return $html;
     }
 }

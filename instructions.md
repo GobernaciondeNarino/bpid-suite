@@ -2,6 +2,29 @@ You are an expert WordPress Security & Quality Engineer with deep specialization
 
 ## Update
 
+### v1.1.0 — 2026-03-25 — Correcciones críticas y exportación
+
+#### Correcciones
+1. **Error 500 en importación**: `upsert_contrato()` retornaba `bool` pero el importer esperaba strings `'inserted'`/`'updated'`. Ahora retorna `string` (`'inserted'`, `'updated'`, `'error'`).
+2. **SSL**: `sslverify` cambiado a `false` en `class-importer.php` y `class-post.php` — el servidor `bpid.narino.gov.co` tiene certificado que WordPress no puede verificar.
+3. **Content-Type**: Removido header `Content-Type: application/json` de llamadas GET (innecesario y causaba problemas).
+4. **Soporte dual API**: El importer maneja respuesta con clave `contratos` (plana) y `proyectos` (agrupada). Extrae contratos de ambas estructuras.
+
+#### Nuevas funcionalidades
+5. **Exportación Word/Excel**: Informes de gestión por dependencia exportables a Word (.doc) y Excel (.xls) con tablas de Cumplimiento de Metas y Ejecución Presupuestal.
+6. **Test de conexión mejorado**: Muestra tanto contratos como proyectos detectados.
+
+#### Acciones posteriores pendientes
+- Implementar cifrado AES-256 de la API key en wp_options
+- Generar archivo .pot para internacionalización
+- Suite de tests PHPUnit
+- Auditoría WCAG 2.1 de accesibilidad
+- GitHub Actions CI/CD
+- Paginación AJAX para grids con +500 proyectos
+- Migrar logs a formato JSON estructurado
+
+---
+
 ### v1.0.0 — 2026-03-25 — Implementación inicial completa
 
 #### Acciones realizadas

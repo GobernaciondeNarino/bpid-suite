@@ -212,4 +212,72 @@
         return html;
     }
 
+    // ── Export ──
+    var gridConfig = {};
+    try {
+        var cfgEl = document.getElementById('bpid-grid-config');
+        if (cfgEl) gridConfig = JSON.parse(cfgEl.textContent);
+    } catch(e) {
+        console.error('[BPID Post] Error al parsear config:', e);
+    }
+
+    function bpidExport(format) {
+        var depSelect = document.getElementById('bpid-grid-filter-dependencia');
+        var dep = depSelect ? depSelect.value : '';
+
+        if (!dep) {
+            alert('Seleccione una dependencia primero');
+            return;
+        }
+
+        var status = document.getElementById('bpid-grid-export-status');
+        if (status) {
+            status.style.display = 'block';
+            status.textContent = 'Generando documento...';
+            status.className = 'bpid-grid-export-status loading';
+        }
+
+        var formData = new FormData();
+        formData.append('action', format === 'word' ? 'bpid_suite_export_word' : 'bpid_suite_export_excel');
+        formData.append('nonce', gridConfig.nonce || '');
+        formData.append('dependencia', dep);
+
+        fetch(gridConfig.ajaxUrl || '/wp-admin/admin-ajax.php', {
+            method: 'POST',
+            credentials: 'same-origin',
+            body: formData
+        })
+        .then(function(response) {
+            if (!response.ok) throw new Error('Error HTTP ' + response.status);
+            return response.blob();
+        })
+        .then(function(blob) {
+            var url = window.URL.createObjectURL(blob);
+            var a = document.createElement('a');
+            a.href = url;
+            var ext = format === 'word' ? 'doc' : 'xls';
+            a.download = 'Informe_' + dep.replace(/ /g, '_') + '_' + new Date().toISOString().split('T')[0] + '.' + ext;
+            document.body.appendChild(a);
+            a.click();
+            window.URL.revokeObjectURL(url);
+            a.remove();
+            if (status) {
+                status.textContent = 'Documento generado exitosamente';
+                status.className = 'bpid-grid-export-status success';
+                setTimeout(function() { status.style.display = 'none'; }, 5000);
+            }
+        })
+        .catch(function(error) {
+            if (status) {
+                status.textContent = 'Error: ' + error.message;
+                status.className = 'bpid-grid-export-status error';
+            }
+        });
+    }
+
+    var wordBtn = document.getElementById('bpid-grid-export-word');
+    var excelBtn = document.getElementById('bpid-grid-export-excel');
+    if (wordBtn) wordBtn.addEventListener('click', function() { bpidExport('word'); });
+    if (excelBtn) excelBtn.addEventListener('click', function() { bpidExport('excel'); });
+
 })();
