@@ -126,7 +126,7 @@ final class BPID_Suite_Database {
      * @param array<string, mixed> $contrato Raw contract data from the API.
      * @return bool True on success, false on failure.
      */
-    public function upsert_contrato(array $contrato): bool {
+    public function upsert_contrato(array $contrato): string {
         global $wpdb;
 
         $dependencia      = sanitize_text_field((string) ($contrato['dependencia'] ?? ''));
@@ -196,7 +196,18 @@ final class BPID_Suite_Database {
         // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- already prepared above.
         $result = $wpdb->query($sql);
 
-        return false !== $result;
+        if (false === $result) {
+            return 'error';
+        }
+
+        // $wpdb->query returns number of affected rows.
+        // INSERT = 1 row affected. ON DUPLICATE KEY UPDATE = 2 rows affected.
+        // 0 rows = no change (duplicate with same values).
+        if ($result >= 2) {
+            return 'updated';
+        }
+
+        return 'inserted';
     }
 
     /**

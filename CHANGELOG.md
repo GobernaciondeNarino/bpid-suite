@@ -5,6 +5,21 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
 ---
 
+## [1.1.0] - 2026-03-25
+
+### Correcciones críticas
+- **Fix 500 en importación**: Corregido `upsert_contrato()` que retornaba `bool` pero el importer esperaba strings `'inserted'`/`'updated'`/`'error'`. Ahora retorna string según el resultado de `ON DUPLICATE KEY UPDATE`.
+- **Fix SSL**: Cambiado `sslverify` a `false` en `class-importer.php` y `class-post.php` — el servidor BPID tiene certificado SSL que WordPress no puede verificar.
+- **Fix Content-Type**: Removido header `Content-Type: application/json` de las llamadas GET a la API (causaba rechazos en algunos servidores).
+
+### Mejoras
+- **Soporte dual de respuesta API**: El importer ahora maneja tanto la respuesta con clave `contratos` (lista plana) como con clave `proyectos` (agrupada). Los contratos se extraen automáticamente de la estructura agrupada.
+- **Exportación Word/Excel**: Nuevo sistema de exportación de informes de gestión por dependencia con tablas de Cumplimiento de Metas y Ejecución Presupuestal.
+- **Test de conexión mejorado**: Ahora muestra conteo de contratos y proyectos detectados.
+- **Versión actualizada**: Bump a v1.1.0.
+
+---
+
 ## [1.0.0] - 2026-03-25
 
 ### Nuevas funcionalidades

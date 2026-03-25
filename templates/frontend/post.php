@@ -183,6 +183,21 @@ sort( $ods_unicos );
 		</div>
 	<?php endif; ?>
 
+	<?php if ( is_array( $proyectos ) && count( $proyectos ) > 0 ) : ?>
+	<div class="bpid-grid-controls">
+		<h3><?php esc_html_e( 'Exportar Informes de Gestión', 'bpid-suite' ); ?></h3>
+		<div class="bpid-grid-export-btns">
+			<button type="button" class="bpid-grid-btn bpid-grid-btn--word" id="bpid-grid-export-word">
+				<?php esc_html_e( 'Exportar a Word', 'bpid-suite' ); ?>
+			</button>
+			<button type="button" class="bpid-grid-btn bpid-grid-btn--excel" id="bpid-grid-export-excel">
+				<?php esc_html_e( 'Exportar a Excel', 'bpid-suite' ); ?>
+			</button>
+		</div>
+		<div id="bpid-grid-export-status" class="bpid-grid-export-status" style="display:none;"></div>
+	</div>
+	<?php endif; ?>
+
 	<div id="bpid-grid-proyectos" class="bpid-grid-proyectos" style="display:grid;grid-template-columns:repeat(<?php echo esc_attr( (string) $cols ); ?>, 1fr);gap:20px;">
 		<?php if ( is_array( $proyectos ) ) : ?>
 			<?php foreach ( $proyectos as $index => $proyecto ) :
@@ -347,4 +362,11 @@ sort( $ods_unicos );
 
 <script type="application/json" id="bpid-grid-data">
 <?php echo wp_json_encode( is_array( $proyectos ) ? $proyectos : [], JSON_HEX_TAG | JSON_HEX_AMP ); ?>
+</script>
+
+<script type="application/json" id="bpid-grid-config">
+<?php echo wp_json_encode( [
+	'ajaxUrl' => admin_url( 'admin-ajax.php' ),
+	'nonce'   => wp_create_nonce( 'bpid_suite_export_nonce' ),
+], JSON_HEX_TAG | JSON_HEX_AMP ); ?>
 </script>
