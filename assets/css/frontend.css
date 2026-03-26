@@ -90,23 +90,72 @@
 }
 
 /* ----------------------------------------
-   Chart Toolbar
+   Chart.js Wrapper (Instructions v2)
+   ---------------------------------------- */
+.bpid-chart-wrapper {
+    background: #fdfdf8;
+    border-radius: 8px;
+    padding: 16px 20px 12px;
+    position: relative;
+    font-family: inherit;
+}
+
+.bpid-chart-canvas-container {
+    position: relative;
+    width: 100%;
+}
+
+/* ----------------------------------------
+   Chart Toolbar (v2 — always visible)
    ---------------------------------------- */
 .bpid-chart-toolbar {
-    display: flex;
-    gap: 4px;
     position: absolute;
-    top: 8px;
-    right: 8px;
+    top: 12px;
+    right: 16px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
     z-index: 10;
-    opacity: 0;
-    transition: opacity 0.2s ease;
 }
 
-.bpid-chart-container:hover .bpid-chart-toolbar {
-    opacity: 1;
+.sct-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 10px;
+    border: none;
+    background: transparent;
+    color: #555;
+    font-size: 13px;
+    font-weight: 400;
+    cursor: pointer;
+    border-radius: 4px;
+    transition: color 0.15s, background 0.15s;
+    white-space: nowrap;
 }
 
+.sct-btn svg {
+    width: 15px;
+    height: 15px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.8;
+    flex-shrink: 0;
+}
+
+.sct-btn:hover {
+    color: #2271b1;
+    background: rgba(34, 113, 177, 0.07);
+}
+
+.sct-btn.active,
+.sct-btn:focus-visible {
+    color: #2271b1;
+    outline: 2px solid rgba(34, 113, 177, 0.35);
+    outline-offset: 1px;
+}
+
+/* Legacy toolbar compat */
 .bpid-chart-toolbar-btn {
     display: flex;
     align-items: center;
@@ -125,6 +174,64 @@
     background: var(--bpid-color-primario-light);
     color: var(--bpid-color-primario);
     border-color: var(--bpid-color-primario);
+}
+
+/* ----------------------------------------
+   Inline Data Table (toggle via Datos btn)
+   ---------------------------------------- */
+.bpid-chart-inline-data-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+    font-size: 13px;
+}
+
+.bpid-chart-inline-data-table th {
+    background: #f0f0f0;
+    padding: 8px 12px;
+    text-align: left;
+    border-bottom: 2px solid #ddd;
+    font-weight: 600;
+    color: #333;
+}
+
+.bpid-chart-inline-data-table td {
+    padding: 7px 12px;
+    border-bottom: 1px solid #eee;
+    color: #444;
+}
+
+.bpid-chart-inline-data-table tr:hover td {
+    background: #fafafa;
+}
+
+.bpid-chart-inline-data-table td:not(:first-child) {
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+}
+
+/* ----------------------------------------
+   Toast Notification
+   ---------------------------------------- */
+.bpid-chart-toast {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    background: #1d2327;
+    color: #fff;
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-size: 13px;
+    z-index: 99999;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.25s, transform 0.25s;
+    pointer-events: none;
+}
+
+.bpid-chart-toast.visible {
+    opacity: 1;
+    transform: translateY(0);
 }
 
 /* Chart Fullscreen */

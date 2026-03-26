@@ -1,13 +1,15 @@
 /**
- * BPID Suite — Frontend Chart Manager v1.3.0
+ * BPID Suite — Frontend Chart Manager v2.0.0
  * Gobernación de Nariño
  *
- * Handles D3plus chart rendering with:
+ * Dual rendering engine: Chart.js (primary) + D3plus (legacy fallback).
+ * Features:
  * - ChartManager class for lifecycle management
  * - IntersectionObserver lazy loading
- * - Colombian number formatting
- * - Chart toolbar (fullscreen, download image, view data)
+ * - Colombian number formatting (COP)
+ * - Configurable toolbar (Detalle, Compartir, Datos, Imagen, CSV)
  * - Responsive resize handling
+ * - Multiple Y-axis with individual colors
  */
 (function () {
     'use strict';
@@ -16,6 +18,15 @@
        Number Formatter (Colombian locale)
        ======================================== */
     var NumberFormatter = {
+        formatCOP: function (value) {
+            if (value == null || isNaN(value)) return '0';
+            var num = Number(value);
+            if (Math.abs(num) >= 1e12) return (num / 1e12).toFixed(2) + 'B';
+            if (Math.abs(num) >= 1e9)  return (num / 1e9).toFixed(2)  + 'MMII';
+            if (Math.abs(num) >= 1e6)  return (num / 1e6).toFixed(2)  + 'MM';
+            if (Math.abs(num) >= 1e3)  return (num / 1e3).toFixed(1)  + 'K';
+            return num.toLocaleString('es-CO');
+        },
         currency: function (value) {
             if (value == null || isNaN(value)) return '$0';
             var num = Number(value);
@@ -31,183 +42,240 @@
         number: function (value) {
             if (value == null || isNaN(value)) return '0';
             return Number(value).toLocaleString('es-CO');
+        },
+        byFormat: function (format) {
+            var self = this;
+            switch (format) {
+                case 'es-CO':    return function (v) { return self.number(v); };
+                case 'en-US':    return function (v) { return Number(v).toLocaleString('en-US'); };
+                case 'de-DE':    return function (v) { return Number(v).toLocaleString('de-DE'); };
+                case 'compact':  return function (v) { return self.formatCOP(v); };
+                case 'raw':      return function (v) { return String(v); };
+                default:         return function (v) { return self.number(v); };
+            }
         }
     };
 
     /* ========================================
-       D3plus Chart Factory
+       Chart.js Type Mapping
        ======================================== */
-    function createChart(chartType) {
-        if (typeof d3plus === 'undefined') {
-            console.error('[BPID Suite] D3plus no está disponible');
-            return null;
-        }
-
+    function mapChartType(internal) {
         var map = {
-            'bar':         function () { return new d3plus.BarChart(); },
-            'line':        function () { return new d3plus.LinePlot(); },
-            'area':        function () { return new d3plus.AreaPlot(); },
-            'pie':         function () { return new d3plus.Pie(); },
-            'donut':       function () { return new d3plus.Donut(); },
-            'treemap':     function () { return new d3plus.Treemap(); },
-            'stacked_bar': function () { return new d3plus.BarChart().stacked(true); },
-            'grouped_bar': function () { return new d3plus.BarChart().stacked(false); },
-            'tree':        function () { return new d3plus.Tree(); },
-            'pack':        function () { return new d3plus.Pack(); },
-            'network':     function () { return new d3plus.Network(); },
-            'scatter':     function () { return new d3plus.Plot(); },
-            'box_whisker': function () { return new d3plus.BoxWhisker(); },
-            'matrix':      function () { return new d3plus.Matrix(); },
-            'bump':        function () { return new d3plus.BumpChart(); }
+            bar: 'bar',
+            bar_horizontal: 'bar',
+            bar_stacked: 'bar',
+            bar_grouped: 'bar',
+            line: 'line',
+            area: 'line',
+            area_stacked: 'line',
+            pie: 'pie',
+            donut: 'doughnut',
+            radar: 'radar'
         };
+        return map[internal] || 'bar';
+    }
 
-        var factory = map[chartType];
-        if (!factory) {
-            console.warn('[BPID Suite] Tipo de gráfico no reconocido:', chartType);
-            return new d3plus.BarChart();
-        }
+    function isStacked(type) {
+        return type === 'bar_stacked' || type === 'area_stacked';
+    }
 
-        try {
-            return factory();
-        } catch (e) {
-            console.error('[BPID Suite] Error instanciando gráfico:', chartType, e);
-            return new d3plus.BarChart();
-        }
+    function isHorizontal(type) {
+        return type === 'bar_horizontal';
+    }
+
+    function isAreaType(type) {
+        return type === 'area' || type === 'area_stacked';
     }
 
     /* ========================================
-       Chart Toolbar
+       Build Chart.js Config
        ======================================== */
-    function createToolbar(container, chartInstance, chartData) {
-        var toolbar = document.createElement('div');
-        toolbar.className = 'bpid-chart-toolbar';
+    function buildChartConfig(config, data) {
+        var chartJsType = mapChartType(config.type);
+        var formatter = NumberFormatter.byFormat(config.number_format);
+        var yColumns = config.y_columns || [];
+        var yColors = config.y_colors || [];
+        var palette = config.color_palette || [];
 
-        // Fullscreen button
-        var fullscreenBtn = document.createElement('button');
-        fullscreenBtn.className = 'bpid-chart-toolbar-btn';
-        fullscreenBtn.title = 'Pantalla completa';
-        fullscreenBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3m18 0V5a2 2 0 00-2-2h-3m0 18h3a2 2 0 002-2v-3M3 16v3a2 2 0 002 2h3"/></svg>';
-        fullscreenBtn.addEventListener('click', function () {
-            toggleFullscreen(container);
+        var labels = data.map(function (row) { return row[config.axis_x] || ''; });
+
+        var datasets = yColumns.map(function (col, i) {
+            var color = yColors[i] || palette[i % palette.length] || '#3eba6a';
+            return {
+                label: col,
+                data: data.map(function (row) { return parseFloat(row[col]) || 0; }),
+                backgroundColor: isAreaType(config.type) ? hexToRgba(color, 0.3) : color,
+                borderColor: color,
+                borderWidth: (chartJsType === 'line') ? 2 : 0,
+                fill: isAreaType(config.type),
+                tension: 0.3
+            };
         });
-        toolbar.appendChild(fullscreenBtn);
 
-        // Download image button
-        var downloadBtn = document.createElement('button');
-        downloadBtn.className = 'bpid-chart-toolbar-btn';
-        downloadBtn.title = 'Descargar imagen';
-        downloadBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>';
-        downloadBtn.addEventListener('click', function () {
-            downloadChartImage(container);
-        });
-        toolbar.appendChild(downloadBtn);
-
-        // View data button
-        var dataBtn = document.createElement('button');
-        dataBtn.className = 'bpid-chart-toolbar-btn';
-        dataBtn.title = 'Ver datos';
-        dataBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>';
-        dataBtn.addEventListener('click', function () {
-            showDataModal(container, chartData);
-        });
-        toolbar.appendChild(dataBtn);
-
-        container.insertBefore(toolbar, container.firstChild);
-    }
-
-    function toggleFullscreen(container) {
-        if (container.classList.contains('bpid-chart-fullscreen')) {
-            container.classList.remove('bpid-chart-fullscreen');
-            document.body.style.overflow = '';
-        } else {
-            container.classList.add('bpid-chart-fullscreen');
-            document.body.style.overflow = 'hidden';
-        }
-    }
-
-    function downloadChartImage(container) {
-        var svg = container.querySelector('svg.d3plus-viz');
-        if (!svg) {
-            svg = container.querySelector('svg');
-        }
-        if (!svg) return;
-
-        var clone = svg.cloneNode(true);
-        clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
-        var svgData = new XMLSerializer().serializeToString(clone);
-        var canvas = document.createElement('canvas');
-        var ctx = canvas.getContext('2d');
-        var img = new Image();
-        var svgBlob = new Blob([svgData], { type: 'image/svg+xml;charset=utf-8' });
-        var url = URL.createObjectURL(svgBlob);
-
-        img.onload = function () {
-            canvas.width = img.width * 2;
-            canvas.height = img.height * 2;
-            ctx.scale(2, 2);
-            ctx.fillStyle = '#ffffff';
-            ctx.fillRect(0, 0, img.width, img.height);
-            ctx.drawImage(img, 0, 0);
-            URL.revokeObjectURL(url);
-
-            var a = document.createElement('a');
-            a.download = 'bpid-grafico.png';
-            a.href = canvas.toDataURL('image/png');
-            a.click();
-        };
-        img.src = url;
-    }
-
-    function showDataModal(container, chartData) {
-        // Remove existing modal
-        var existing = document.getElementById('bpid-data-modal');
-        if (existing) existing.remove();
-
-        var modal = document.createElement('div');
-        modal.id = 'bpid-data-modal';
-        modal.className = 'bpid-chart-data-modal';
-
-        var content = '<div class="bpid-chart-data-modal-content">';
-        content += '<div class="bpid-chart-data-modal-header">';
-        content += '<h3>Datos del gráfico</h3>';
-        content += '<button class="bpid-chart-data-modal-close" id="bpid-data-modal-close">&times;</button>';
-        content += '</div>';
-        content += '<div class="bpid-chart-data-modal-body">';
-        content += '<table class="bpid-chart-data-table">';
-
-        if (chartData && chartData.length > 0) {
-            var keys = Object.keys(chartData[0]);
-            content += '<thead><tr>';
-            keys.forEach(function (k) {
-                content += '<th>' + escapeHtml(k) + '</th>';
-            });
-            content += '</tr></thead><tbody>';
-
-            chartData.forEach(function (row) {
-                content += '<tr>';
-                keys.forEach(function (k) {
-                    var val = row[k];
-                    if (typeof val === 'number') {
-                        val = NumberFormatter.number(val);
-                    }
-                    content += '<td>' + escapeHtml(String(val != null ? val : '')) + '</td>';
+        // Single series with per-bar colors
+        if (datasets.length === 1 && (chartJsType === 'bar' || chartJsType === 'pie' || chartJsType === 'doughnut')) {
+            var singleDs = datasets[0];
+            if (chartJsType === 'bar') {
+                singleDs.backgroundColor = labels.map(function (_, i) {
+                    return palette[i % palette.length] || yColors[0] || '#3eba6a';
                 });
-                content += '</tr>';
-            });
-            content += '</tbody>';
+                singleDs.borderColor = singleDs.backgroundColor;
+            }
         }
 
-        content += '</table></div></div>';
-        modal.innerHTML = content;
+        var options = {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: isHorizontal(config.type) ? 'y' : 'x',
+            plugins: {
+                legend: { display: !!config.show_legend },
+                tooltip: {
+                    callbacks: {
+                        label: function (ctx) {
+                            return ctx.dataset.label + ': ' + formatter(ctx.parsed.y || ctx.parsed.x || ctx.raw);
+                        }
+                    }
+                }
+            },
+            scales: {}
+        };
+
+        // Scales for non-pie/donut/radar types
+        if (chartJsType !== 'pie' && chartJsType !== 'doughnut' && chartJsType !== 'radar') {
+            options.scales = {
+                x: {
+                    title: { display: !!config.title_x, text: config.title_x || '', color: '#555' },
+                    grid: { display: false },
+                    ticks: { font: { size: 11 }, color: '#666' },
+                    stacked: isStacked(config.type)
+                },
+                y: {
+                    title: { display: !!config.title_y, text: config.title_y || '', color: '#555' },
+                    grid: { color: 'rgba(0,0,0,0.06)' },
+                    ticks: {
+                        font: { size: 11 },
+                        color: '#666',
+                        callback: function (value) { return formatter(value); }
+                    },
+                    stacked: isStacked(config.type)
+                }
+            };
+        }
+
+        return {
+            type: chartJsType,
+            data: { labels: labels, datasets: datasets },
+            options: options
+        };
+    }
+
+    function hexToRgba(hex, alpha) {
+        var r = parseInt(hex.slice(1, 3), 16);
+        var g = parseInt(hex.slice(3, 5), 16);
+        var b = parseInt(hex.slice(5, 7), 16);
+        return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+    }
+
+    /* ========================================
+       Toolbar Builder
+       ======================================== */
+    function createToolbar(wrapper, chartInstance, chartData, config) {
+        var toolbar = config.toolbar || {};
+        if (!toolbar.show) return;
+
+        var container = document.createElement('div');
+        container.className = 'bpid-chart-toolbar';
+        container.setAttribute('role', 'toolbar');
+        container.setAttribute('aria-label', 'Herramientas del gráfico');
+
+        var uid = wrapper.id || 'bpid-chart-' + Date.now();
+
+        // Detalle
+        if (toolbar.info) {
+            container.appendChild(makeToolbarBtn('info', 'Detalle',
+                '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>',
+                function () { showInfoModal(uid, config); }
+            ));
+        }
+
+        // Compartir
+        if (toolbar.share) {
+            container.appendChild(makeToolbarBtn('share', 'Compartir',
+                '<svg viewBox="0 0 24 24"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>',
+                function () {
+                    if (navigator.clipboard) {
+                        navigator.clipboard.writeText(window.location.href);
+                    }
+                    showToast('Enlace copiado al portapapeles');
+                }
+            ));
+        }
+
+        // Datos
+        if (toolbar.data) {
+            var dataTableId = uid + '-data-table';
+            container.appendChild(makeToolbarBtn('data', 'Datos',
+                '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="3" y1="15" x2="21" y2="15"/><line x1="9" y1="3" x2="9" y2="21"/></svg>',
+                function () { toggleDataTable(wrapper, dataTableId, chartData, config); }
+            ));
+        }
+
+        // Imagen
+        if (toolbar.save_img) {
+            container.appendChild(makeToolbarBtn('image', 'Imagen',
+                '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>',
+                function () { downloadChartImage(chartInstance, config); }
+            ));
+        }
+
+        // CSV
+        if (toolbar.csv) {
+            container.appendChild(makeToolbarBtn('csv', 'Descarga',
+                '<svg viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>',
+                function () { downloadCSV(chartData, config); }
+            ));
+        }
+
+        wrapper.insertBefore(container, wrapper.firstChild);
+    }
+
+    function makeToolbarBtn(action, label, iconSvg, onClick) {
+        var btn = document.createElement('button');
+        btn.className = 'sct-btn';
+        btn.setAttribute('data-action', action);
+        btn.title = label;
+        btn.innerHTML = iconSvg + ' ' + label;
+        btn.addEventListener('click', onClick);
+        return btn;
+    }
+
+    /* ========================================
+       Toolbar Actions
+       ======================================== */
+    function showInfoModal(uid, config) {
+        var existing = document.getElementById(uid + '-info-modal');
+        if (existing) {
+            existing.remove();
+            return;
+        }
+        var modal = document.createElement('div');
+        modal.id = uid + '-info-modal';
+        modal.className = 'bpid-chart-data-modal';
+        modal.innerHTML = '<div class="bpid-chart-data-modal-content">' +
+            '<div class="bpid-chart-data-modal-header">' +
+            '<h3>Detalle del Gráfico</h3>' +
+            '<button class="bpid-chart-data-modal-close">&times;</button>' +
+            '</div>' +
+            '<div class="bpid-chart-data-modal-body" style="padding:20px;">' +
+            '<p><strong>Título:</strong> ' + escapeHtml(config.title || 'Sin título') + '</p>' +
+            '<p><strong>Tipo:</strong> ' + escapeHtml(config.type || '') + '</p>' +
+            '<p><strong>Fuente:</strong> ' + escapeHtml(config.table || '') + '</p>' +
+            '<p><strong>Eje X:</strong> ' + escapeHtml(config.axis_x || '') + '</p>' +
+            '<p><strong>Columnas Y:</strong> ' + escapeHtml((config.y_columns || []).join(', ')) + '</p>' +
+            '</div></div>';
         document.body.appendChild(modal);
-
-        // Show with animation
-        requestAnimationFrame(function () {
-            modal.classList.add('is-open');
-        });
-
-        // Close handlers
-        document.getElementById('bpid-data-modal-close').addEventListener('click', function () {
+        requestAnimationFrame(function () { modal.classList.add('is-open'); });
+        modal.querySelector('.bpid-chart-data-modal-close').addEventListener('click', function () {
             modal.classList.remove('is-open');
             setTimeout(function () { modal.remove(); }, 200);
         });
@@ -219,10 +287,112 @@
         });
     }
 
+    function toggleDataTable(wrapper, tableId, chartData, config) {
+        var existing = document.getElementById(tableId);
+        if (existing) {
+            existing.hidden = !existing.hidden;
+            return;
+        }
+        var table = document.createElement('table');
+        table.id = tableId;
+        table.className = 'bpid-chart-inline-data-table';
+        var formatter = NumberFormatter.byFormat(config.number_format);
+        var headers = [config.axis_x].concat(config.y_columns || []);
+        var thead = '<thead><tr>';
+        headers.forEach(function (h) { thead += '<th>' + escapeHtml(h) + '</th>'; });
+        thead += '</tr></thead>';
+        var tbody = '<tbody>';
+        chartData.forEach(function (row) {
+            tbody += '<tr>';
+            headers.forEach(function (h, i) {
+                var val = row[h];
+                if (i > 0 && typeof val === 'number') val = formatter(val);
+                tbody += '<td>' + escapeHtml(String(val != null ? val : '')) + '</td>';
+            });
+            tbody += '</tr>';
+        });
+        tbody += '</tbody>';
+        table.innerHTML = thead + tbody;
+        wrapper.appendChild(table);
+    }
+
+    function downloadChartImage(chartInstance, config) {
+        if (!chartInstance) return;
+        var link = document.createElement('a');
+        link.download = slugify(config.title || 'grafico') + '.png';
+        link.href = chartInstance.toBase64Image('image/png', 1.0);
+        link.click();
+    }
+
+    function downloadCSV(chartData, config) {
+        var headers = [config.axis_x].concat(config.y_columns || []);
+        var rows = chartData.map(function (row) {
+            return headers.map(function (h) {
+                return JSON.stringify(row[h] != null ? row[h] : '');
+            }).join(',');
+        });
+        var bom = '\uFEFF';
+        var csv = bom + [headers.join(',')].concat(rows).join('\r\n');
+        var blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+        var url = URL.createObjectURL(blob);
+        var link = document.createElement('a');
+        link.href = url;
+        link.download = slugify(config.title || 'datos') + '-datos.csv';
+        link.click();
+        URL.revokeObjectURL(url);
+    }
+
+    /* ========================================
+       Toast
+       ======================================== */
+    function showToast(message, duration) {
+        duration = duration || 2500;
+        var toast = document.createElement('div');
+        toast.className = 'bpid-chart-toast';
+        toast.textContent = message;
+        document.body.appendChild(toast);
+        requestAnimationFrame(function () { toast.classList.add('visible'); });
+        setTimeout(function () {
+            toast.classList.remove('visible');
+            setTimeout(function () { toast.remove(); }, 300);
+        }, duration);
+    }
+
+    /* ========================================
+       Utilities
+       ======================================== */
     function escapeHtml(text) {
         var div = document.createElement('div');
         div.appendChild(document.createTextNode(text));
         return div.innerHTML;
+    }
+
+    function slugify(text) {
+        return text.toString().toLowerCase()
+            .replace(/\s+/g, '-')
+            .replace(/[^\w\-]+/g, '')
+            .replace(/\-\-+/g, '-')
+            .replace(/^-+|-+$/g, '');
+    }
+
+    /* ========================================
+       D3plus Fallback Factory (legacy charts)
+       ======================================== */
+    function createD3plusChart(chartType) {
+        if (typeof d3plus === 'undefined') return null;
+        var map = {
+            'treemap':     function () { return new d3plus.Treemap(); },
+            'tree':        function () { return new d3plus.Tree(); },
+            'pack':        function () { return new d3plus.Pack(); },
+            'network':     function () { return new d3plus.Network(); },
+            'scatter':     function () { return new d3plus.Plot(); },
+            'box_whisker': function () { return new d3plus.BoxWhisker(); },
+            'matrix':      function () { return new d3plus.Matrix(); },
+            'bump':        function () { return new d3plus.BumpChart(); }
+        };
+        var factory = map[chartType];
+        if (!factory) return null;
+        try { return factory(); } catch (e) { return null; }
     }
 
     /* ========================================
@@ -238,10 +408,8 @@
     ChartManager.prototype.init = function () {
         var self = this;
         var containers = document.querySelectorAll('.bpid-chart-container');
-
         if (!containers.length) return;
 
-        // Set up IntersectionObserver for lazy loading
         if ('IntersectionObserver' in window) {
             this.observer = new IntersectionObserver(function (entries) {
                 entries.forEach(function (entry) {
@@ -253,15 +421,13 @@
             }, { rootMargin: '100px' });
 
             containers.forEach(function (c) {
-                // Add loading indicator
-                c.innerHTML = '<div class="bpid-chart-loading"></div>';
+                if (!c.querySelector('canvas') && !c.querySelector('.bpid-chart-wrapper')) {
+                    c.innerHTML = '<div class="bpid-chart-loading"></div>';
+                }
                 self.observer.observe(c);
             });
         } else {
-            // Fallback: load all immediately
-            containers.forEach(function (c) {
-                self.loadChart(c);
-            });
+            containers.forEach(function (c) { self.loadChart(c); });
         }
 
         // Responsive resize
@@ -269,18 +435,14 @@
             clearTimeout(self.resizeTimer);
             self.resizeTimer = setTimeout(function () {
                 self.charts.forEach(function (entry) {
-                    if (entry.instance && typeof entry.instance.render === 'function') {
-                        try {
-                            entry.instance.render();
-                        } catch (e) {
-                            // Ignore resize render errors
-                        }
+                    if (entry.instance && typeof entry.instance.resize === 'function') {
+                        entry.instance.resize();
                     }
                 });
             }, 300);
         });
 
-        // ESC to exit fullscreen
+        // ESC fullscreen
         document.addEventListener('keydown', function (e) {
             if (e.key === 'Escape') {
                 var fs = document.querySelector('.bpid-chart-fullscreen');
@@ -294,23 +456,25 @@
 
     ChartManager.prototype.loadChart = function (container) {
         var chartId = container.dataset.chartId;
-        var chartType = container.dataset.chartType;
-        var columnX = container.dataset.columnX;
-        var columnY = container.dataset.columnY;
-        var group = container.dataset.group;
-        var color = container.dataset.color;
-        var aggregation = container.dataset.aggregation;
 
-        // Get data from JSON script tag
-        var dataEl = document.getElementById('bpid-chart-' + chartId + '-data');
+        // Get config from JSON script tag
+        var configEl = document.getElementById('bpid-chart-config-' + chartId);
+        var dataEl = document.getElementById('bpid-chart-data-' + chartId);
+
+        // Fallback to legacy data format
+        if (!configEl && !dataEl) {
+            dataEl = document.getElementById('bpid-chart-' + chartId + '-data');
+        }
+
         if (!dataEl) {
             container.innerHTML = '<div class="bpid-chart-no-data">Sin datos disponibles</div>';
             return;
         }
 
-        var chartData;
+        var chartData, config;
         try {
             chartData = JSON.parse(dataEl.textContent);
+            config = configEl ? JSON.parse(configEl.textContent) : this.buildLegacyConfig(container);
         } catch (e) {
             console.error('[BPID Suite] Error parsing chart data:', e);
             container.innerHTML = '<div class="bpid-chart-no-data">Error al cargar datos</div>';
@@ -322,84 +486,117 @@
             return;
         }
 
-        // Clear loading indicator
+        // Use Chart.js for supported types, D3plus for legacy
+        var d3plusOnlyTypes = ['treemap', 'tree', 'pack', 'network', 'scatter', 'box_whisker', 'matrix', 'bump'];
+        var useD3plus = d3plusOnlyTypes.indexOf(config.type) !== -1 && typeof d3plus !== 'undefined';
+
+        if (useD3plus) {
+            this.renderD3plus(container, chartData, config, chartId);
+        } else if (typeof Chart !== 'undefined') {
+            this.renderChartJs(container, chartData, config, chartId);
+        } else {
+            container.innerHTML = '<div class="bpid-chart-no-data">Librería de gráficos no disponible</div>';
+        }
+    };
+
+    ChartManager.prototype.renderChartJs = function (container, chartData, config, chartId) {
         container.innerHTML = '';
 
-        // Create chart render target
+        // Create wrapper
+        var wrapper = document.createElement('div');
+        wrapper.className = 'bpid-chart-wrapper';
+        wrapper.id = 'bpid-chart-wrapper-' + chartId;
+
+        var canvasContainer = document.createElement('div');
+        canvasContainer.className = 'bpid-chart-canvas-container';
+        canvasContainer.style.height = (config.height || 400) + 'px';
+
+        var canvas = document.createElement('canvas');
+        canvas.id = 'bpid-canvas-' + chartId;
+        canvasContainer.appendChild(canvas);
+        wrapper.appendChild(canvasContainer);
+        container.appendChild(wrapper);
+
+        // Build config and render
+        try {
+            var chartJsConfig = buildChartConfig(config, chartData);
+            var instance = new Chart(canvas.getContext('2d'), chartJsConfig);
+
+            // Add toolbar
+            createToolbar(wrapper, instance, chartData, config);
+
+            this.charts.push({
+                id: chartId,
+                container: container,
+                instance: instance,
+                data: chartData,
+                config: config
+            });
+        } catch (e) {
+            console.error('[BPID Suite] Error rendering Chart.js:', e);
+            container.innerHTML = '<div class="bpid-chart-no-data" style="color:var(--bpid-color-danger,#c00);">Error al renderizar la gráfica</div>';
+        }
+    };
+
+    ChartManager.prototype.renderD3plus = function (container, chartData, config, chartId) {
+        container.innerHTML = '';
         var renderDiv = document.createElement('div');
         renderDiv.id = 'bpid-chart-render-' + chartId;
         renderDiv.style.width = '100%';
-        renderDiv.style.height = '100%';
+        renderDiv.style.height = (config.height || 400) + 'px';
         container.appendChild(renderDiv);
 
-        // Render chart
         try {
-            var chart = createChart(chartType);
-            if (!chart) return;
-
-            chart
-                .select('#' + renderDiv.id)
-                .data(chartData);
-
-            // Configure axes
-            if (columnX) chart.x('x');
-            if (columnY) chart.y('y');
-            if (group) chart.groupBy('group');
-
-            // Color configuration
-            if (color) {
-                chart.shapeConfig({ fill: color });
+            var chart = createD3plusChart(config.type);
+            if (!chart) {
+                container.innerHTML = '<div class="bpid-chart-no-data">Tipo de gráfico no soportado</div>';
+                return;
             }
 
-            // Tooltip with Colombian formatting
-            chart.tooltipConfig({
-                title: function (d) {
-                    return d.x || d.group || '';
-                },
-                body: function (d) {
-                    var parts = [];
-                    if (d.y != null) {
-                        if (aggregation === 'sum' || columnY === 'valor') {
-                            parts.push('Valor: ' + NumberFormatter.currency(d.y));
-                        } else if (columnY === 'avance_fisico') {
-                            parts.push('Avance: ' + NumberFormatter.percent(d.y));
-                        } else {
-                            parts.push('Valor: ' + NumberFormatter.number(d.y));
-                        }
-                    }
-                    if (d.group) {
-                        parts.push('Grupo: ' + d.group);
-                    }
-                    return parts.join('<br>');
-                }
-            });
-
+            chart.select('#' + renderDiv.id).data(chartData);
+            if (config.axis_x) chart.x('x');
+            if (config.y_columns && config.y_columns[0]) chart.y('y');
+            if (config.group) chart.groupBy('group');
+            if (config.y_colors && config.y_colors[0]) {
+                chart.shapeConfig({ fill: config.y_colors[0] });
+            }
             chart.render();
 
-            // Add toolbar after render
-            createToolbar(container, chart, chartData);
-
-            // Store reference
             this.charts.push({
                 id: chartId,
                 container: container,
                 instance: chart,
-                data: chartData
+                data: chartData,
+                config: config
             });
-
         } catch (e) {
-            console.error('[BPID Suite] Error rendering chart:', chartType, e);
-            container.innerHTML = '<div class="bpid-chart-no-data" style="color:var(--bpid-color-danger,#c00);">Error al renderizar la gráfica</div>';
+            console.error('[BPID Suite] D3plus error:', e);
+            container.innerHTML = '<div class="bpid-chart-no-data" style="color:var(--bpid-color-danger,#c00);">Error al renderizar</div>';
         }
+    };
+
+    ChartManager.prototype.buildLegacyConfig = function (container) {
+        return {
+            type: container.dataset.chartType || 'bar',
+            axis_x: container.dataset.columnX || 'x',
+            y_columns: container.dataset.columnY ? [container.dataset.columnY] : ['y'],
+            y_colors: container.dataset.color ? [container.dataset.color] : ['#3eba6a'],
+            color_palette: ['#3eba6a', '#e84c4c', '#4a90d9', '#f5a623', '#9b59b6', '#1abc9c'],
+            height: parseInt(container.style.height) || 400,
+            number_format: 'es-CO',
+            show_legend: false,
+            toolbar: { show: true, info: false, share: false, data: true, save_img: true, csv: false },
+            title: '',
+            title_y: '',
+            title_x: ''
+        };
     };
 
     /* ========================================
        Initialize on DOM ready
        ======================================== */
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', function () {
-            new ChartManager();
-        });
+        document.addEventListener('DOMContentLoaded', function () { new ChartManager(); });
     } else {
         new ChartManager();
     }

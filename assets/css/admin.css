@@ -1045,6 +1045,358 @@
 }
 
 /* ========================================
+   Chart Editor — Type Grid (Instructions v2)
+   ======================================== */
+.chart-type-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 8px;
+    margin: 12px 0;
+}
+
+.chart-type-card {
+    border: 2px solid var(--bpid-gray-300);
+    border-radius: 6px;
+    padding: 10px 6px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s;
+    background: #fff;
+}
+
+.chart-type-card:hover {
+    border-color: var(--bpid-gray-500);
+    background: var(--bpid-gray-50);
+}
+
+.chart-type-card.active {
+    border-color: #2271b1;
+    background: #f0f6fc;
+}
+
+.chart-type-card input[type="radio"] {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+}
+
+.chart-type-card svg {
+    width: 36px;
+    height: 32px;
+    display: block;
+    margin: 0 auto 6px;
+    color: var(--bpid-gray-700);
+}
+
+.chart-type-card.active svg {
+    color: #2271b1;
+}
+
+.chart-type-card span {
+    font-size: 11px;
+    color: var(--bpid-gray-700);
+    font-weight: 500;
+    display: block;
+}
+
+.chart-type-card.active span {
+    color: #2271b1;
+    font-weight: 600;
+}
+
+/* Chart Editor — Context Notice */
+.chart-type-notice {
+    padding: 10px 14px;
+    background: #fcf0c0;
+    border-left: 4px solid var(--bpid-warning);
+    border-radius: 0 4px 4px 0;
+    font-size: 13px;
+    color: #6b5900;
+    margin-bottom: 16px;
+}
+
+/* Chart Editor — Y Axis Rows */
+#chart-y-axes-container {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 10px;
+}
+
+.y-axis-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.y-axis-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #2271b1;
+    color: #fff;
+    font-size: 11px;
+    font-weight: 700;
+    flex-shrink: 0;
+}
+
+.y-column-select {
+    flex: 1;
+    min-width: 0;
+}
+
+.y-color-picker-wrapper {
+    position: relative;
+    flex-shrink: 0;
+}
+
+.y-color-input {
+    width: 40px;
+    height: 34px;
+    padding: 2px;
+    border: 1px solid #8c8f94;
+    border-radius: 4px;
+    cursor: pointer;
+    background: none;
+}
+
+.y-axis-remove {
+    color: #b32d2e;
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    flex-shrink: 0;
+    display: inline-flex;
+    align-items: center;
+}
+
+.y-axis-remove:hover {
+    color: #8a1f1f;
+}
+
+/* Chart Editor — Y Axis Warning */
+#y-axis-warning {
+    padding: 8px 12px;
+    background: #fcf0c0;
+    border-left: 3px solid var(--bpid-warning);
+    border-radius: 0 4px 4px 0;
+    font-size: 12px;
+    color: #6b5900;
+    margin-top: 8px;
+}
+
+/* Chart Editor — Section Headers */
+.bpid-chart-section {
+    margin-bottom: 24px;
+    padding: 16px 20px;
+    background: var(--bpid-gray-50);
+    border-radius: var(--bpid-radius);
+    border: 1px solid var(--bpid-gray-200);
+}
+
+.bpid-chart-section:last-child {
+    margin-bottom: 0;
+}
+
+.bpid-chart-section h3 {
+    margin: 0 0 14px;
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--bpid-primary-dark);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.bpid-chart-section h3 .dashicons {
+    color: var(--bpid-primary);
+    font-size: 18px;
+    width: 18px;
+    height: 18px;
+}
+
+/* Chart Editor — Filter Row */
+.bpid-chart-filter-row {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-end;
+}
+
+.bpid-chart-filter-row .bpid-form-group {
+    margin-bottom: 0;
+    flex: 0 1 auto;
+    min-width: 120px;
+}
+
+/* Chart Editor — Appearance Grid */
+.bpid-chart-appearance-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 16px;
+}
+
+.bpid-chart-appearance-grid .bpid-form-group {
+    margin-bottom: 0;
+}
+
+/* Chart Editor — Color Swatches */
+#color-swatches {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-top: 8px;
+}
+
+.color-swatch {
+    display: inline-block;
+    width: 28px;
+    height: 28px;
+    border-radius: 4px;
+    border: 2px solid rgba(0, 0, 0, 0.15);
+    cursor: pointer;
+    transition: transform 0.15s;
+}
+
+.color-swatch:hover {
+    transform: scale(1.15);
+    border-color: #555;
+}
+
+/* Chart Editor — Toolbar Options */
+.bpid-toolbar-options {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 16px;
+    margin-top: 10px;
+    padding-left: 24px;
+}
+
+.bpid-toolbar-options label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    color: var(--bpid-gray-700);
+    cursor: pointer;
+}
+
+/* Chart Editor — Custom Query */
+.bpid-custom-query-section details {
+    border: 1px solid var(--bpid-gray-300);
+    border-radius: var(--bpid-radius-sm);
+    overflow: hidden;
+}
+
+.bpid-custom-query-section details summary {
+    padding: 10px 14px;
+    background: var(--bpid-gray-100);
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 13px;
+    color: var(--bpid-gray-700);
+}
+
+.bpid-custom-query-section details summary:hover {
+    background: var(--bpid-gray-200);
+}
+
+.bpid-custom-query-section details[open] summary {
+    border-bottom: 1px solid var(--bpid-gray-300);
+}
+
+.bpid-custom-query-section textarea {
+    width: 100%;
+    min-height: 120px;
+    font-family: 'JetBrains Mono', 'Fira Code', monospace;
+    font-size: 12px;
+    padding: 12px;
+    border: none;
+    resize: vertical;
+}
+
+.bpid-custom-query-warning {
+    padding: 8px 12px;
+    background: rgba(231, 76, 60, 0.08);
+    border-left: 3px solid var(--bpid-danger);
+    font-size: 12px;
+    color: #721c24;
+    margin: 8px 12px 12px;
+    border-radius: 0 4px 4px 0;
+}
+
+/* Chart Editor — Data Source Overlay */
+#data-source-section.has-overlay {
+    position: relative;
+}
+
+#data-source-section.has-overlay::after {
+    content: 'Deshabilitado: usando Query Personalizada';
+    position: absolute;
+    inset: 0;
+    background: rgba(255, 255, 255, 0.85);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 600;
+    color: var(--bpid-gray-600);
+    font-size: 14px;
+    border-radius: var(--bpid-radius);
+    z-index: 5;
+    pointer-events: all;
+}
+
+/* Chart Editor — Preview */
+#chart-preview-container {
+    min-height: 200px;
+    background: #fdfdf8;
+    border-radius: var(--bpid-radius-sm);
+    padding: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#chart-preview-container .bpid-preview-placeholder {
+    color: var(--bpid-gray-500);
+    font-style: italic;
+    font-size: 13px;
+    text-align: center;
+}
+
+/* Chart Editor — Shortcode Sidebar */
+.bpid-shortcode-box {
+    padding: 12px;
+}
+
+.bpid-shortcode-box code {
+    display: block;
+    padding: 8px 12px;
+    background: var(--bpid-gray-100);
+    border: 1px solid var(--bpid-gray-200);
+    border-radius: 4px;
+    font-size: 13px;
+    word-break: break-all;
+    margin-bottom: 8px;
+}
+
+.bpid-shortcode-box .button {
+    width: 100%;
+    text-align: center;
+}
+
+.bpid-shortcode-help {
+    margin-top: 8px;
+    font-size: 12px;
+    color: var(--bpid-gray-500);
+    font-style: italic;
+}
+
+/* ========================================
    Accessibility
    ======================================== */
 @media (prefers-contrast: high) {
