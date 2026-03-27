@@ -324,10 +324,23 @@ final class BPID_Suite {
             wp_enqueue_script(
                 'bpid-suite-admin-charts',
                 BPID_SUITE_URL . 'assets/js/admin-charts.js',
-                ['jquery'],
+                [],
                 BPID_SUITE_VERSION,
                 true
             );
+
+            $post_id = get_the_ID();
+            $saved_y_columns = get_post_meta((int) $post_id, '_chart_y_columns', true);
+            $saved_y_colors  = get_post_meta((int) $post_id, '_chart_y_colors', true);
+
+            wp_localize_script('bpid-suite-admin-charts', 'bpidCharts', [
+                'ajaxUrl'       => admin_url('admin-ajax.php'),
+                'nonce'         => wp_create_nonce('bpid_charts_nonce'),
+                'savedTable'    => get_post_meta((int) $post_id, '_chart_data_table', true) ?: '',
+                'savedAxisX'    => get_post_meta((int) $post_id, '_chart_axis_x', true) ?: '',
+                'savedYColumns' => is_array($saved_y_columns) ? $saved_y_columns : [],
+                'savedYColors'  => is_array($saved_y_colors) ? $saved_y_colors : [],
+            ]);
         }
 
         if ($screen && $screen->post_type === 'bpid_filter') {

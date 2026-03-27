@@ -2,12 +2,76 @@ You are an expert WordPress Security & Quality Engineer with deep specialization
 
 # Update
 
+## Cambios Implementados — v2.0.0 (Marzo 2026)
 
+### Editor de Gráficos (Admin)
+- **Grid de tipos de gráfico**: Reemplazado el select dropdown por un grid visual de cards con íconos SVG para 11 tipos de gráfico (bar, bar_horizontal, bar_stacked, bar_grouped, line, area, area_stacked, pie, donut, treemap, radar).
+- **Fuente de datos dinámica**: Selector de tabla por AJAX (`bpid_get_tables`), columnas cargadas dinámicamente (`bpid_get_columns`).
+- **Múltiples columnas Y con color individual**: Soporte completo para N variables en el Eje Y, cada una con color independiente asignado mediante color picker. Badges Y1, Y2, Y3... con re-indexación automática.
+- **Sección de Filtros**: Filtros por Año y Mes integrados en el editor de gráficos.
+- **Sección de Apariencia**: Altura configurable, títulos de ejes, formato de números (Colombiano, Internacional, Europeo, Abreviado, Sin formato), paleta de colores con swatches interactivos, leyenda y timeline opcionales.
+- **Barra de herramientas configurable**: Checkboxes para habilitar/deshabilitar cada botón de la toolbar (Detalle, Compartir, Datos, Imagen, CSV).
+- **Query SQL personalizada**: Sección colapsable para consultas SELECT avanzadas con validación de seguridad.
+- **Vista previa en vivo**: Meta box de preview con renderizado AJAX sin necesidad de guardar.
+- **Shortcode en sidebar**: Meta box lateral con shortcode copiable y texto de ayuda.
+- **Avisos contextuales**: Notificaciones dinámicas según el tipo de gráfico seleccionado.
+- **Validaciones UX**: Advertencias para bar_stacked con <2 Y columns, pie/donut con >1 Y column.
+
+### Renderizado Frontend
+- **Motor dual Chart.js + D3plus**: Chart.js como motor primario para los 11 tipos principales, D3plus como fallback para tipos legacy (treemap, network, scatter, etc.).
+- **Barra de herramientas v2**: Siempre visible con botones Detalle, Compartir, Datos, Imagen y Descarga CSV con íconos SVG.
+- **Tabla de datos inline**: Toggle para mostrar/ocultar tabla de datos debajo del gráfico.
+- **Exportación CSV con BOM UTF-8**: Compatible con Excel en español.
+- **Exportación de imagen PNG**: Descarga directa desde Chart.js.
+- **Toast de confirmación**: Notificaciones no intrusivas para acciones como "Enlace copiado".
+- **Formato de números colombiano**: Soporte para notación COP (MMII, MM, K) en ejes Y.
+- **Estética mejorada**: Fondo #fdfdf8, sin cuadrícula vertical, tipografía heredada del tema.
+
+### Backend PHP
+- **5 AJAX endpoints seguros**: `bpid_get_tables`, `bpid_get_columns`, `bpid_get_filter_values`, `bpid_chart_preview`, `bpid_chart_data` — todos con verificación de nonce y capacidad.
+- **20+ meta fields**: Soporte completo para todos los campos de configuración del gráfico.
+- **Validación de seguridad**: Tablas validadas contra BD real, columnas validadas contra tabla, queries personalizadas solo SELECT, sanitización de colores hex.
+- **Funciones de agregación extendidas**: SUM, AVG, COUNT, MAX, MIN.
+- **Múltiples Y columns en data query**: Soporte para construir datasets con N columnas de valor.
+
+### CSS
+- **Admin**: Estilos para chart type grid, Y-axis rows, color swatches, toolbar options, custom query section, preview container, shortcode sidebar.
+- **Frontend**: Estilos para chart wrapper, toolbar v2 con botones etiquetados, tabla de datos inline, toast de confirmación.
+
+## Mejoras Futuras a Realizar
+
+### Prioridad Alta
+1. **Filtros dinámicos adicionales**: Implementar el botón `[+ Agregar Filtro]` para filtros tipo `[Columna] [Operador] [Valor]` con filas dinámicas en el editor.
+2. **Filtro por Destino**: Select dinámico poblado por AJAX según la tabla seleccionada.
+3. **Plugin chartjs-plugin-datalabels**: Integrar etiquetas flotantes dentro de las barras (año/categoría en texto blanco centrado).
+4. **Treemap con Chart.js**: Evaluar migración de treemap de D3plus a librería Chart.js compatible o mantener dual.
+5. **Cache de consultas**: Implementar transient cache para las queries de datos de gráficos con TTL configurable.
+
+### Prioridad Media
+6. **Línea de referencia de valor máximo**: Mostrar el valor máximo formateado con línea horizontal en el eje Y.
+7. **Timeline interactivo**: Implementar slider de rango temporal para tipos line/area cuando `show_timeline` está habilitado.
+8. **Presets de paletas de colores**: Ofrecer paletas predefinidas (Gobierno, Corporativo, Accesibilidad, Monocromático) seleccionables con un clic.
+9. **Duplicar gráfico**: Botón para clonar un gráfico existente con toda su configuración.
+10. **Drag & drop para filas Y**: Reordenar columnas Y mediante arrastrar y soltar.
+11. **Importación/Exportación de configuración**: Exportar config de gráfico como JSON e importar en otro gráfico.
+
+### Prioridad Baja
+12. **Modo oscuro frontend**: Detectar `prefers-color-scheme: dark` y adaptar colores de gráficos.
+13. **Animaciones de entrada**: Transiciones suaves al renderizar gráficos (fade-in, grow).
+14. **Responsive breakpoints en gráficos**: Adaptar labels y leyendas según ancho del contenedor.
+15. **Embed externo**: Endpoint para embeber gráficos en sitios externos via iframe seguro.
+16. **API pública de gráficos**: Extender REST API para exponer datos de gráficos con autenticación por API key.
+17. **Gutenberg Block**: Crear bloque nativo de Gutenberg para insertar gráficos con preview en el editor.
+18. **Widget Elementor**: Widget dedicado para insertar gráficos BPID en Elementor.
+19. **Accesibilidad WCAG 2.1**: Describir gráficos con `aria-label` dinámico, soporte keyboard para toolbar, tabla de datos como alternativa accesible.
+20. **Tests unitarios**: PHPUnit para AJAX handlers, validación de meta fields y query builder.
+
+---
 
 # BPID Suite — Instrucciones para Agente de IA
 
 > **Gobernación de Nariño · Secretaría de TIC, Innovación y Gobierno Abierto**
-> Versión de instrucciones: v1.3.0 · Marzo 2026
+> Versión de instrucciones: v2.0.0 · Marzo 2026
 
 name: charts module
 description: >

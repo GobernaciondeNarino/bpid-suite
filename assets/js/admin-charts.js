@@ -1,52 +1,531 @@
-(function($) {
+(function() {
     'use strict';
 
-    var $chartType     = $('#bpid_chart_type');
-    var $groupByRow    = $('.bpid-field-groupby').closest('tr');
-    var $xAxisRow      = $('.bpid-field-x').closest('tr');
-    var $yAxisRow      = $('.bpid-field-y').closest('tr');
-    var $sizeRow       = $('.bpid-field-size').closest('tr');
-    var $colorRow      = $('.bpid-field-color').closest('tr');
-    var $timeRow       = $('.bpid-field-time').closest('tr');
+    var DEFAULT_COLORS = ['#3eba6a','#e84c4c','#4a90d9','#f5a623','#9b59b6','#1abc9c','#844c00','#ff7300'];
 
-    // Chart types that use specific axis configurations
-    var typesWithXY     = ['bar', 'line', 'area', 'stacked_bar', 'grouped_bar', 'scatter', 'box_whisker', 'bump'];
-    var typesWithSize   = ['treemap', 'pack', 'network', 'scatter'];
-    var typesWithTime   = ['line', 'area', 'bump'];
-    var typesWithColor  = ['bar', 'line', 'area', 'pie', 'donut', 'treemap', 'stacked_bar', 'grouped_bar',
-                           'tree', 'pack', 'network', 'scatter', 'box_whisker', 'matrix', 'bump'];
+    var yRowCounter = 0;
 
-    function toggleFields() {
-        var type = $chartType.val();
+    // -------------------------------------------------------------------------
+    // Helpers
+    // -------------------------------------------------------------------------
 
-        $xAxisRow.toggle(typesWithXY.indexOf(type) !== -1);
-        $yAxisRow.toggle(typesWithXY.indexOf(type) !== -1);
-        $sizeRow.toggle(typesWithSize.indexOf(type) !== -1);
-        $timeRow.toggle(typesWithTime.indexOf(type) !== -1);
-        $colorRow.toggle(typesWithColor.indexOf(type) !== -1);
-        $groupByRow.toggle(type !== 'scatter' && type !== 'box_whisker');
-
-        updateShortcodePreview();
+    function qs(selector, root) {
+        return (root || document).querySelector(selector);
     }
 
-    function updateShortcodePreview() {
-        var $preview = $('#bpid-chart-shortcode-preview');
-        if (!$preview.length) return;
-
-        var postId = $('#post_ID').val() || '0';
-        var shortcode = '[bpid_chart id="' + postId + '"]';
-        $preview.text(shortcode);
+    function qsa(selector, root) {
+        return (root || document).querySelectorAll(selector);
     }
 
-    // Bind events
-    $chartType.on('change', toggleFields);
+    function ajaxPost(action, data, callback) {
+        var fd = new FormData();
+        fd.append('action', action);
+        fd.append('_ajax_nonce', bpidCharts.nonce);
+        if (data) {
+            Object.keys(data).forEach(function(k) {
+                fd.append(k, data[k]);
+            });
+        }
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', bpidCharts.ajaxUrl, true);
+        xhr.onreadystatechange = function() {
+            if (xhr.readyState === 4) {
+                if (xhr.status === 200) {
+                    try {
+                        var json = JSON.parse(xhr.responseText);
+                        callback(null, json);
+                    } catch (e) {
+                        callback(e, null);
+                    }
+                } else {
+                    callback(new Error('HTTP ' + xhr.status), null);
+                }
+            }
+        };
+        xhr.send(fd);
+    }
 
-    // Update preview when title changes
-    $('#title').on('input', updateShortcodePreview);
+    // -------------------------------------------------------------------------
+    // 1. Chart Type Grid Selection
+    // -------------------------------------------------------------------------
 
-    // Initialize on load
-    $(document).ready(function() {
-        toggleFields();
+    function initChartTypeGrid() {
+        var cards = qsa('.chart-type-card');
+
+        cards.forEach(function(card) {
+            card.addEventListener('click', function() {
+                // Remove active from all cards
+                cards.forEach(function(c) { c.classList.remove('active'); });
+                // Activate this card
+                card.classList.add('active');
+
+                // Update hidden radio input inside this label
+                var radio = qs('input[type="radio"]', card);
+                if (radio) {
+                    radio.checked = true;
+                }
+
+                var type = radio ? radio.value : '';
+                showChartTypeNotice(type);
+                validateYColumns(type);
+            });
+        });
+
+        // Initialize from already-checked radio
+        var checkedRadio = qs('.chart-type-card input[type="radio"]:checked');
+        if (checkedRadio) {
+            var parentCard = checkedRadio.closest('.chart-type-card');
+            if (parentCard) {
+                parentCard.classList.add('active');
+                showChartTypeNotice(checkedRadio.value);
+            }
+        }
+    }
+
+    function showChartTypeNotice(type) {
+        var container = qs('#chart-type-notice');
+        if (!container) return;
+
+        var notices = {
+            bar_stacked: 'Barras apiladas: agregue 2 o más valores Y. Cada valor se apila como un segmento de color diferente.',
+            pie: 'Pie/Donut: use exactamente 1 valor Y y 1 columna de agrupación.',
+            donut: 'Pie/Donut: use exactamente 1 valor Y y 1 columna de agrupación.',
+            line: 'Líneas/Área: cada columna Y genera una serie independiente.',
+            area: 'Líneas/Área: cada columna Y genera una serie independiente.',
+            area_stacked: 'Líneas/Área: cada columna Y genera una serie independiente.'
+        };
+
+        if (notices[type]) {
+            container.textContent = notices[type];
+            container.style.display = 'block';
+        } else {
+            container.textContent = '';
+            container.style.display = 'none';
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 2. AJAX Data Source Loading
+    // -------------------------------------------------------------------------
+
+    function loadTables() {
+        var tableSelect = qs('#chart_data_table');
+        if (!tableSelect) return;
+
+        ajaxPost('bpid_get_tables', null, function(err, res) {
+            if (err || !res || !res.success) return;
+
+            tableSelect.innerHTML = '<option value="">— Seleccionar tabla —</option>';
+            var tables = res.data || [];
+            tables.forEach(function(t) {
+                var opt = document.createElement('option');
+                opt.value = t;
+                opt.textContent = t;
+                tableSelect.appendChild(opt);
+            });
+
+            // Restore saved table
+            var saved = bpidCharts.savedTable || tableSelect.getAttribute('data-saved');
+            if (saved) {
+                tableSelect.value = saved;
+                loadColumns(saved);
+            }
+        });
+    }
+
+    function loadColumns(table) {
+        if (!table) return;
+
+        ajaxPost('bpid_get_columns', { table: table }, function(err, res) {
+            if (err || !res || !res.success) return;
+
+            var columns = res.data || [];
+
+            // Populate X axis select
+            var xSelect = qs('#chart_axis_x');
+            if (xSelect) {
+                xSelect.innerHTML = '<option value="">— Seleccionar columna —</option>';
+                columns.forEach(function(col) {
+                    var opt = document.createElement('option');
+                    opt.value = col;
+                    opt.textContent = col;
+                    xSelect.appendChild(opt);
+                });
+
+                // Restore saved X axis
+                var savedX = bpidCharts.savedAxisX || xSelect.getAttribute('data-saved');
+                if (savedX) {
+                    xSelect.value = savedX;
+                }
+            }
+
+            // Populate all existing Y column selects
+            populateYColumnSelects(columns);
+
+            // Restore saved Y columns/colors if not already initialized
+            if (yRowCounter === 0) {
+                restoreSavedYRows(columns);
+            }
+        });
+    }
+
+    function populateYColumnSelects(columns) {
+        var selects = qsa('.y-column-select');
+        selects.forEach(function(sel) {
+            var currentVal = sel.value;
+            sel.innerHTML = '<option value="">— Columna Y —</option>';
+            columns.forEach(function(col) {
+                var opt = document.createElement('option');
+                opt.value = col;
+                opt.textContent = col;
+                sel.appendChild(opt);
+            });
+            if (currentVal) {
+                sel.value = currentVal;
+            }
+        });
+    }
+
+    function getCurrentColumns() {
+        var xSelect = qs('#chart_axis_x');
+        if (!xSelect) return [];
+        var cols = [];
+        var options = xSelect.querySelectorAll('option');
+        options.forEach(function(opt) {
+            if (opt.value) cols.push(opt.value);
+        });
+        return cols;
+    }
+
+    function restoreSavedYRows(columns) {
+        var savedCols = bpidCharts.savedYColumns || [];
+        var savedColors = bpidCharts.savedYColors || [];
+
+        if (savedCols.length > 0) {
+            savedCols.forEach(function(col, i) {
+                var color = savedColors[i] || DEFAULT_COLORS[i % DEFAULT_COLORS.length];
+                addYAxisRow(col, color, columns);
+            });
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 3. Dynamic Y-Axis Rows
+    // -------------------------------------------------------------------------
+
+    function addYAxisRow(columnValue, colorValue, columns) {
+        var container = qs('#y-axis-rows');
+        if (!container) return;
+
+        yRowCounter++;
+        var index = yRowCounter;
+        var color = colorValue || DEFAULT_COLORS[(index - 1) % DEFAULT_COLORS.length];
+
+        // Use provided columns or get current ones from X select
+        var cols = columns || getCurrentColumns();
+
+        var row = document.createElement('div');
+        row.className = 'y-axis-row';
+        row.setAttribute('data-index', index);
+
+        // Badge
+        var badge = document.createElement('span');
+        badge.className = 'y-axis-badge';
+        badge.textContent = 'Y' + container.querySelectorAll('.y-axis-row').length + 1;
+        updateBadgeNumber(badge, container);
+
+        // Column select
+        var select = document.createElement('select');
+        select.className = 'y-column-select';
+        select.name = 'chart_y_columns[]';
+        var defaultOpt = document.createElement('option');
+        defaultOpt.value = '';
+        defaultOpt.textContent = '— Columna Y —';
+        select.appendChild(defaultOpt);
+        cols.forEach(function(col) {
+            var opt = document.createElement('option');
+            opt.value = col;
+            opt.textContent = col;
+            select.appendChild(opt);
+        });
+        if (columnValue) {
+            select.value = columnValue;
+        }
+
+        // Color input
+        var colorInput = document.createElement('input');
+        colorInput.type = 'color';
+        colorInput.className = 'y-color-input';
+        colorInput.name = 'chart_y_colors[]';
+        colorInput.value = color;
+
+        // Remove button
+        var removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'y-axis-remove button';
+        removeBtn.textContent = '✕';
+        removeBtn.addEventListener('click', function() {
+            row.remove();
+            reindexYRows();
+            validateYColumnsFromCurrent();
+        });
+
+        row.appendChild(badge);
+        row.appendChild(select);
+        row.appendChild(colorInput);
+        row.appendChild(removeBtn);
+        container.appendChild(row);
+
+        reindexYRows();
+        validateYColumnsFromCurrent();
+    }
+
+    function updateBadgeNumber(badge, container) {
+        var count = container.querySelectorAll('.y-axis-row').length + 1;
+        badge.textContent = 'Y' + count;
+    }
+
+    function reindexYRows() {
+        var container = qs('#y-axis-rows');
+        if (!container) return;
+        var rows = container.querySelectorAll('.y-axis-row');
+        rows.forEach(function(row, i) {
+            var badge = qs('.y-axis-badge', row);
+            if (badge) {
+                badge.textContent = 'Y' + (i + 1);
+            }
+        });
+    }
+
+    function initYAxisControls() {
+        var addBtn = qs('#add-y-axis');
+        if (addBtn) {
+            addBtn.addEventListener('click', function() {
+                addYAxisRow(null, null);
+            });
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 4. Color Palette Swatches
+    // -------------------------------------------------------------------------
+
+    function initColorPalette() {
+        var paletteInput = qs('#chart_color_palette');
+        if (!paletteInput) return;
+
+        paletteInput.addEventListener('input', function() {
+            renderSwatches(paletteInput.value);
+        });
+
+        // Initialize from saved value
+        if (paletteInput.value) {
+            renderSwatches(paletteInput.value);
+        }
+    }
+
+    function renderSwatches(value) {
+        var container = qs('#color-swatches');
+        if (!container) return;
+
+        container.innerHTML = '';
+        var colors = value.split(',').map(function(c) { return c.trim(); }).filter(function(c) {
+            return /^#[0-9a-fA-F]{3,8}$/.test(c);
+        });
+
+        colors.forEach(function(color, index) {
+            var swatch = document.createElement('span');
+            swatch.className = 'color-swatch';
+            swatch.style.backgroundColor = color;
+            swatch.style.display = 'inline-block';
+            swatch.style.width = '28px';
+            swatch.style.height = '28px';
+            swatch.style.cursor = 'pointer';
+            swatch.style.borderRadius = '4px';
+            swatch.style.marginRight = '4px';
+            swatch.style.border = '2px solid #ccc';
+            swatch.title = color;
+
+            // Hidden color input for native picker
+            var picker = document.createElement('input');
+            picker.type = 'color';
+            picker.value = color;
+            picker.style.position = 'absolute';
+            picker.style.opacity = '0';
+            picker.style.width = '0';
+            picker.style.height = '0';
+            picker.style.pointerEvents = 'none';
+
+            picker.addEventListener('input', function() {
+                swatch.style.backgroundColor = picker.value;
+                swatch.title = picker.value;
+                updatePaletteFromSwatches();
+            });
+
+            swatch.addEventListener('click', function() {
+                picker.click();
+            });
+
+            var wrapper = document.createElement('span');
+            wrapper.style.position = 'relative';
+            wrapper.style.display = 'inline-block';
+            wrapper.appendChild(swatch);
+            wrapper.appendChild(picker);
+            container.appendChild(wrapper);
+        });
+    }
+
+    function updatePaletteFromSwatches() {
+        var container = qs('#color-swatches');
+        var paletteInput = qs('#chart_color_palette');
+        if (!container || !paletteInput) return;
+
+        var pickers = container.querySelectorAll('input[type="color"]');
+        var colors = [];
+        pickers.forEach(function(p) {
+            colors.push(p.value);
+        });
+        paletteInput.value = colors.join(', ');
+    }
+
+    // -------------------------------------------------------------------------
+    // 5. Chart Preview
+    // -------------------------------------------------------------------------
+
+    function initChartPreview() {
+        var btn = qs('#btn-update-preview');
+        if (!btn) return;
+
+        btn.addEventListener('click', function() {
+            var form = qs('#post');
+            if (!form) return;
+
+            var previewContainer = qs('#chart-preview-container');
+            if (!previewContainer) return;
+
+            // Show loading state
+            previewContainer.innerHTML = '<p class="loading">Cargando vista previa…</p>';
+            btn.disabled = true;
+
+            var formData = new FormData(form);
+            formData.append('action', 'bpid_chart_preview');
+            formData.append('_ajax_nonce', bpidCharts.nonce);
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', bpidCharts.ajaxUrl, true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4) {
+                    btn.disabled = false;
+                    if (xhr.status === 200) {
+                        try {
+                            var json = JSON.parse(xhr.responseText);
+                            if (json.success && json.data) {
+                                previewContainer.innerHTML = json.data;
+                            } else {
+                                previewContainer.innerHTML = '<p class="error">Error al generar la vista previa.</p>';
+                            }
+                        } catch (e) {
+                            previewContainer.innerHTML = '<p class="error">Respuesta inválida del servidor.</p>';
+                        }
+                    } else {
+                        previewContainer.innerHTML = '<p class="error">Error de conexión.</p>';
+                    }
+                }
+            };
+            xhr.send(formData);
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // 6. Custom Query Toggle
+    // -------------------------------------------------------------------------
+
+    function initCustomQueryToggle() {
+        var textarea = qs('#chart_custom_query');
+        if (!textarea) return;
+
+        var dataSourceSection = qs('#data-source-section');
+        if (!dataSourceSection) return;
+
+        function toggleOverlay() {
+            if (textarea.value.trim().length > 0) {
+                dataSourceSection.classList.add('has-overlay');
+            } else {
+                dataSourceSection.classList.remove('has-overlay');
+            }
+        }
+
+        textarea.addEventListener('input', toggleOverlay);
+        // Initialize on load
+        toggleOverlay();
+    }
+
+    // -------------------------------------------------------------------------
+    // 7. Validation Warnings
+    // -------------------------------------------------------------------------
+
+    function getSelectedChartType() {
+        var checkedRadio = qs('.chart-type-card input[type="radio"]:checked');
+        return checkedRadio ? checkedRadio.value : '';
+    }
+
+    function getYRowCount() {
+        var container = qs('#y-axis-rows');
+        if (!container) return 0;
+        return container.querySelectorAll('.y-axis-row').length;
+    }
+
+    function validateYColumns(type) {
+        var warningEl = qs('#y-axis-warning');
+        if (!warningEl) return;
+
+        var count = getYRowCount();
+
+        if (type === 'bar_stacked' && count < 2) {
+            warningEl.textContent = 'Barras apiladas requiere al menos 2 columnas Y.';
+            warningEl.style.display = 'block';
+        } else if ((type === 'pie' || type === 'donut') && count > 1) {
+            warningEl.textContent = 'Pie/Donut debe usar exactamente 1 columna Y.';
+            warningEl.style.display = 'block';
+        } else {
+            warningEl.textContent = '';
+            warningEl.style.display = 'none';
+        }
+    }
+
+    function validateYColumnsFromCurrent() {
+        validateYColumns(getSelectedChartType());
+    }
+
+    // -------------------------------------------------------------------------
+    // Initialization
+    // -------------------------------------------------------------------------
+
+    document.addEventListener('DOMContentLoaded', function() {
+        // 1. Chart type grid
+        initChartTypeGrid();
+
+        // 2. AJAX data source
+        loadTables();
+
+        var tableSelect = qs('#chart_data_table');
+        if (tableSelect) {
+            tableSelect.addEventListener('change', function() {
+                loadColumns(tableSelect.value);
+            });
+        }
+
+        // 3. Y-Axis controls
+        initYAxisControls();
+
+        // 4. Color palette
+        initColorPalette();
+
+        // 5. Chart preview
+        initChartPreview();
+
+        // 6. Custom query toggle
+        initCustomQueryToggle();
     });
 
-})(jQuery);
+})();
