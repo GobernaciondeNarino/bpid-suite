@@ -52,6 +52,7 @@ final class BPID_Suite_Filter {
         add_shortcode('bpid_filter', [$this, 'shortcode_render']);
         add_action('wp_ajax_bpid_suite_filter_query', [$this, 'ajax_filter_query']);
         add_action('wp_ajax_nopriv_bpid_suite_filter_query', [$this, 'ajax_filter_query']);
+        add_action('wp_ajax_bpid_filter_column_values', [$this, 'ajax_column_values']);
     }
 
     private function __clone() {}
@@ -141,104 +142,7 @@ final class BPID_Suite_Filter {
      * @param \WP_Post $post Current post object.
      */
     public function render_meta_box(\WP_Post $post): void {
-        wp_nonce_field('bpid_suite_filter_admin', 'bpid_suite_filter_nonce');
-
-        $columns     = (array) get_post_meta($post->ID, '_bpid_filter_columns', true);
-        $types       = (array) get_post_meta($post->ID, '_bpid_filter_types', true);
-        $per_page    = (int) get_post_meta($post->ID, '_bpid_filter_per_page', true);
-        $show_export = (string) get_post_meta($post->ID, '_bpid_filter_show_export', true);
-
-        if ($per_page < 1) {
-            $per_page = 20;
-        }
-
-        $field_types = $this->get_field_types();
-        ?>
-        <table class="form-table">
-            <tr>
-                <th scope="row">
-                    <label><?php esc_html_e('Columnas', 'bpid-suite'); ?></label>
-                </th>
-                <td>
-                    <?php foreach ($this->allowed_columns as $col) : ?>
-                        <label style="display:block;margin-bottom:4px;">
-                            <input
-                                type="checkbox"
-                                name="_bpid_filter_columns[]"
-                                value="<?php echo esc_attr($col); ?>"
-                                <?php checked(in_array($col, $columns, true)); ?>
-                            />
-                            <?php echo esc_html($col); ?>
-                        </label>
-                    <?php endforeach; ?>
-                </td>
-            </tr>
-            <tr>
-                <th scope="row">
-                    <label><?php esc_html_e('Tipo de campo por columna', 'bpid-suite'); ?></label>
-                </th>
-                <td>
-                    <?php foreach ($this->allowed_columns as $col) : ?>
-                        <?php
-                        $applicable = [];
-                        foreach ($field_types as $type => $type_columns) {
-                            if (in_array($col, $type_columns, true)) {
-                                $applicable[] = $type;
-                            }
-                        }
-                        if (empty($applicable)) {
-                            continue;
-                        }
-                        $current_type = $types[$col] ?? $applicable[0];
-                        ?>
-                        <label style="display:inline-block;margin-right:12px;margin-bottom:6px;">
-                            <strong><?php echo esc_html($col); ?>:</strong>
-                            <select name="_bpid_filter_types[<?php echo esc_attr($col); ?>]">
-                                <?php foreach ($applicable as $type_option) : ?>
-                                    <option
-                                        value="<?php echo esc_attr($type_option); ?>"
-                                        <?php selected($current_type, $type_option); ?>
-                                    >
-                                        <?php echo esc_html($type_option); ?>
-                                    </option>
-                                <?php endforeach; ?>
-                            </select>
-                        </label><br />
-                    <?php endforeach; ?>
-                </td>
-            </tr>
-            <tr>
-                <th scope="row">
-                    <label for="bpid_filter_per_page"><?php esc_html_e('Resultados por p&aacute;gina', 'bpid-suite'); ?></label>
-                </th>
-                <td>
-                    <input
-                        type="number"
-                        id="bpid_filter_per_page"
-                        name="_bpid_filter_per_page"
-                        value="<?php echo esc_attr((string) $per_page); ?>"
-                        min="1"
-                        max="100"
-                        step="1"
-                    />
-                </td>
-            </tr>
-            <tr>
-                <th scope="row">
-                    <label for="bpid_filter_show_export"><?php esc_html_e('Mostrar exportar', 'bpid-suite'); ?></label>
-                </th>
-                <td>
-                    <input
-                        type="checkbox"
-                        id="bpid_filter_show_export"
-                        name="_bpid_filter_show_export"
-                        value="1"
-                        <?php checked($show_export, '1'); ?>
-                    />
-                </td>
-            </tr>
-        </table>
-        <?php
+        include BPID_SUITE_PATH . 'templates/admin/filter-config.php';
     }
 
     /**
@@ -304,6 +208,21 @@ final class BPID_Suite_Filter {
         // Save show export.
         $show_export = !empty($_POST['_bpid_filter_show_export']) ? '1' : '0';
         update_post_meta($post_id, '_bpid_filter_show_export', $show_export);
+
+        // Save operators per column.
+        $allowed_operators = ['=', '!=', '>', '<', '>=', '<=', 'LIKE'];
+        $raw_operators = isset($_POST['_bpid_filter_operators']) && is_array($_POST['_bpid_filter_operators'])
+            ? array_map('sanitize_text_field', wp_unslash($_POST['_bpid_filter_operators']))
+            : [];
+        $operators = [];
+        foreach ($raw_operators as $col => $op) {
+            $col = sanitize_text_field($col);
+            $op  = strtoupper(trim(sanitize_text_field($op)));
+            if (in_array($col, $this->allowed_columns, true) && in_array($op, $allowed_operators, true)) {
+                $operators[$col] = $op;
+            }
+        }
+        update_post_meta($post_id, '_bpid_filter_operators', $operators);
     }
 
     /**
@@ -533,5 +452,32 @@ final class BPID_Suite_Filter {
             'page'     => $page,
             'per_page' => $per_page,
         ]);
+    }
+
+    /**
+     * AJAX handler to return distinct column values for select-type fields.
+     */
+    public function ajax_column_values(): void {
+        check_ajax_referer('bpid_filter_admin_nonce');
+
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized', 403);
+        }
+
+        $column = sanitize_text_field(wp_unslash($_POST['column'] ?? ''));
+        if (!in_array($column, $this->allowed_columns, true)) {
+            wp_send_json_error('Invalid column');
+        }
+
+        global $wpdb;
+        $db    = BPID_Suite_Database::get_instance();
+        $table = $db->get_table_name();
+
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        $values = $wpdb->get_col(
+            "SELECT DISTINCT `{$column}` FROM `{$table}` WHERE `{$column}` IS NOT NULL AND `{$column}` != '' ORDER BY `{$column}` ASC LIMIT 500"
+        );
+
+        wp_send_json_success($values ?: []);
     }
 }

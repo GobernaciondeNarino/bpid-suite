@@ -50,16 +50,18 @@
     // -------------------------------------------------------------------------
 
     function initChartTypeGrid() {
-        var cards = qsa('.chart-type-card');
+        var cards = qsa('.bpid-chart-type-card');
 
         cards.forEach(function(card) {
-            card.addEventListener('click', function() {
+            card.addEventListener('click', function(e) {
+                e.preventDefault();
+
                 // Remove active from all cards
                 cards.forEach(function(c) { c.classList.remove('active'); });
                 // Activate this card
                 card.classList.add('active');
 
-                // Update hidden radio input inside this label
+                // Check the radio input
                 var radio = qs('input[type="radio"]', card);
                 if (radio) {
                     radio.checked = true;
@@ -72,9 +74,9 @@
         });
 
         // Initialize from already-checked radio
-        var checkedRadio = qs('.chart-type-card input[type="radio"]:checked');
+        var checkedRadio = qs('.bpid-chart-type-card input[type="radio"]:checked');
         if (checkedRadio) {
-            var parentCard = checkedRadio.closest('.chart-type-card');
+            var parentCard = checkedRadio.closest('.bpid-chart-type-card');
             if (parentCard) {
                 parentCard.classList.add('active');
                 showChartTypeNotice(checkedRadio.value);
@@ -87,12 +89,12 @@
         if (!container) return;
 
         var notices = {
-            bar_stacked: 'Barras apiladas: agregue 2 o más valores Y. Cada valor se apila como un segmento de color diferente.',
-            pie: 'Pie/Donut: use exactamente 1 valor Y y 1 columna de agrupación.',
-            donut: 'Pie/Donut: use exactamente 1 valor Y y 1 columna de agrupación.',
-            line: 'Líneas/Área: cada columna Y genera una serie independiente.',
-            area: 'Líneas/Área: cada columna Y genera una serie independiente.',
-            area_stacked: 'Líneas/Área: cada columna Y genera una serie independiente.'
+            bar_stacked: 'Barras apiladas: agregue 2 o m\u00e1s valores Y para apilar las series en cada categor\u00eda del eje X.',
+            pie: 'Pie/Donut: use exactamente 1 valor Y y 1 columna de agrupaci\u00f3n.',
+            donut: 'Pie/Donut: use exactamente 1 valor Y y 1 columna de agrupaci\u00f3n.',
+            line: 'L\u00edneas/\u00c1rea: cada columna Y genera una serie independiente.',
+            area: 'L\u00edneas/\u00c1rea: cada columna Y genera una serie independiente.',
+            area_stacked: '\u00c1rea Apilada: cada columna Y genera una capa apilada.'
         };
 
         if (notices[type]) {
@@ -125,7 +127,7 @@
             });
 
             // Restore saved table
-            var saved = bpidCharts.savedTable || tableSelect.getAttribute('data-saved');
+            var saved = (typeof bpidChartSavedTable !== 'undefined' && bpidChartSavedTable) ? bpidChartSavedTable : '';
             if (saved) {
                 tableSelect.value = saved;
                 loadColumns(saved);
@@ -153,7 +155,7 @@
                 });
 
                 // Restore saved X axis
-                var savedX = bpidCharts.savedAxisX || xSelect.getAttribute('data-saved');
+                var savedX = (typeof bpidChartSavedAxisX !== 'undefined' && bpidChartSavedAxisX) ? bpidChartSavedAxisX : '';
                 if (savedX) {
                     xSelect.value = savedX;
                 }
@@ -198,10 +200,10 @@
     }
 
     function restoreSavedYRows(columns) {
-        var savedCols = bpidCharts.savedYColumns || [];
-        var savedColors = bpidCharts.savedYColors || [];
+        var savedCols = (typeof bpidChartSavedYColumns !== 'undefined') ? bpidChartSavedYColumns : [];
+        var savedColors = (typeof bpidChartSavedYColors !== 'undefined') ? bpidChartSavedYColors : [];
 
-        if (savedCols.length > 0) {
+        if (savedCols && savedCols.length > 0) {
             savedCols.forEach(function(col, i) {
                 var color = savedColors[i] || DEFAULT_COLORS[i % DEFAULT_COLORS.length];
                 addYAxisRow(col, color, columns);
@@ -231,8 +233,8 @@
         // Badge
         var badge = document.createElement('span');
         badge.className = 'y-axis-badge';
-        badge.textContent = 'Y' + container.querySelectorAll('.y-axis-row').length + 1;
-        updateBadgeNumber(badge, container);
+        var badgeNum = container.querySelectorAll('.y-axis-row').length + 1;
+        badge.textContent = 'Y' + badgeNum;
 
         // Column select
         var select = document.createElement('select');
@@ -262,8 +264,9 @@
         // Remove button
         var removeBtn = document.createElement('button');
         removeBtn.type = 'button';
-        removeBtn.className = 'y-axis-remove button';
-        removeBtn.textContent = '✕';
+        removeBtn.className = 'y-axis-remove button button-small';
+        removeBtn.innerHTML = '<span class="dashicons dashicons-no-alt" style="font-size:16px;width:16px;height:16px;margin-top:2px;"></span>';
+        removeBtn.title = 'Eliminar';
         removeBtn.addEventListener('click', function() {
             row.remove();
             reindexYRows();
@@ -278,11 +281,6 @@
 
         reindexYRows();
         validateYColumnsFromCurrent();
-    }
-
-    function updateBadgeNumber(badge, container) {
-        var count = container.querySelectorAll('.y-axis-row').length + 1;
-        badge.textContent = 'Y' + count;
     }
 
     function reindexYRows() {
@@ -300,7 +298,8 @@
     function initYAxisControls() {
         var addBtn = qs('#add-y-axis');
         if (addBtn) {
-            addBtn.addEventListener('click', function() {
+            addBtn.addEventListener('click', function(e) {
+                e.preventDefault();
                 addYAxisRow(null, null);
             });
         }
@@ -333,28 +332,16 @@
             return /^#[0-9a-fA-F]{3,8}$/.test(c);
         });
 
-        colors.forEach(function(color, index) {
+        colors.forEach(function(color) {
             var swatch = document.createElement('span');
             swatch.className = 'color-swatch';
             swatch.style.backgroundColor = color;
-            swatch.style.display = 'inline-block';
-            swatch.style.width = '28px';
-            swatch.style.height = '28px';
-            swatch.style.cursor = 'pointer';
-            swatch.style.borderRadius = '4px';
-            swatch.style.marginRight = '4px';
-            swatch.style.border = '2px solid #ccc';
             swatch.title = color;
 
-            // Hidden color input for native picker
             var picker = document.createElement('input');
             picker.type = 'color';
             picker.value = color;
-            picker.style.position = 'absolute';
-            picker.style.opacity = '0';
-            picker.style.width = '0';
-            picker.style.height = '0';
-            picker.style.pointerEvents = 'none';
+            picker.style.cssText = 'position:absolute;opacity:0;width:0;height:0;pointer-events:none;';
 
             picker.addEventListener('input', function() {
                 swatch.style.backgroundColor = picker.value;
@@ -367,8 +354,7 @@
             });
 
             var wrapper = document.createElement('span');
-            wrapper.style.position = 'relative';
-            wrapper.style.display = 'inline-block';
+            wrapper.style.cssText = 'position:relative;display:inline-block;';
             wrapper.appendChild(swatch);
             wrapper.appendChild(picker);
             container.appendChild(wrapper);
@@ -403,7 +389,6 @@
             var previewContainer = qs('#chart-preview-container');
             if (!previewContainer) return;
 
-            // Show loading state
             previewContainer.innerHTML = '<p class="loading">Cargando vista previa…</p>';
             btn.disabled = true;
 
@@ -425,10 +410,10 @@
                                 previewContainer.innerHTML = '<p class="error">Error al generar la vista previa.</p>';
                             }
                         } catch (e) {
-                            previewContainer.innerHTML = '<p class="error">Respuesta inválida del servidor.</p>';
+                            previewContainer.innerHTML = '<p class="error">Respuesta inv\u00e1lida del servidor.</p>';
                         }
                     } else {
-                        previewContainer.innerHTML = '<p class="error">Error de conexión.</p>';
+                        previewContainer.innerHTML = '<p class="error">Error de conexi\u00f3n.</p>';
                     }
                 }
             };
@@ -437,7 +422,7 @@
     }
 
     // -------------------------------------------------------------------------
-    // 6. Custom Query Toggle
+    // 6. Custom Query Toggle & Generator
     // -------------------------------------------------------------------------
 
     function initCustomQueryToggle() {
@@ -456,16 +441,99 @@
         }
 
         textarea.addEventListener('input', toggleOverlay);
-        // Initialize on load
         toggleOverlay();
     }
 
+    function initQueryGenerator() {
+        var generateBtn = qs('#bpid-query-generate');
+        var clearBtn = qs('#bpid-query-clear');
+        var textarea = qs('#chart_custom_query');
+
+        if (generateBtn && textarea) {
+            generateBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+
+                var table = qs('#chart_data_table');
+                var axisX = qs('#chart_axis_x');
+                var aggFunc = qs('#chart_agg_function');
+
+                if (!table || !table.value) {
+                    textarea.value = '-- Seleccione una tabla primero';
+                    textarea.dispatchEvent(new Event('input'));
+                    return;
+                }
+
+                var tableName = table.value;
+                var xCol = axisX ? axisX.value : '';
+                var agg = aggFunc ? aggFunc.value : 'SUM';
+
+                // Gather Y columns
+                var ySelects = qsa('.y-column-select');
+                var yCols = [];
+                ySelects.forEach(function(sel) {
+                    if (sel.value) yCols.push(sel.value);
+                });
+
+                if (!xCol || yCols.length === 0) {
+                    textarea.value = '-- Configure el eje X y al menos una variable Y';
+                    textarea.dispatchEvent(new Event('input'));
+                    return;
+                }
+
+                var selectParts = ['`' + xCol + '`'];
+                yCols.forEach(function(yCol) {
+                    selectParts.push(agg + '(`' + yCol + '`) AS `' + yCol + '`');
+                });
+
+                var query = 'SELECT ' + selectParts.join(', ') +
+                    '\nFROM `' + tableName + '`' +
+                    '\nGROUP BY `' + xCol + '`' +
+                    '\nORDER BY `' + xCol + '` ASC' +
+                    '\nLIMIT 1000';
+
+                textarea.value = query;
+                textarea.dispatchEvent(new Event('input'));
+            });
+        }
+
+        if (clearBtn && textarea) {
+            clearBtn.addEventListener('click', function(e) {
+                e.preventDefault();
+                textarea.value = '';
+                textarea.dispatchEvent(new Event('input'));
+            });
+        }
+    }
+
     // -------------------------------------------------------------------------
-    // 7. Validation Warnings
+    // 7. Copy Shortcode
+    // -------------------------------------------------------------------------
+
+    function initCopyShortcode() {
+        var btns = qsa('.bpid-copy-shortcode');
+        btns.forEach(function(btn) {
+            btn.addEventListener('click', function(e) {
+                e.preventDefault();
+                var targetId = btn.getAttribute('data-target');
+                var target = qs('#' + targetId);
+                if (target) {
+                    var text = target.textContent || target.innerText;
+                    if (navigator.clipboard) {
+                        navigator.clipboard.writeText(text);
+                    }
+                    btn.textContent = '\u00a1Copiado!';
+                    setTimeout(function() { btn.textContent = 'Copiar'; }, 1500);
+                }
+            });
+        });
+    }
+
+    // -------------------------------------------------------------------------
+    // 8. Validation Warnings
     // -------------------------------------------------------------------------
 
     function getSelectedChartType() {
-        var checkedRadio = qs('.chart-type-card input[type="radio"]:checked');
+        var checkedRadio = qs('.bpid-chart-type-card input[type="radio"]:checked');
         return checkedRadio ? checkedRadio.value : '';
     }
 
@@ -502,6 +570,9 @@
     // -------------------------------------------------------------------------
 
     document.addEventListener('DOMContentLoaded', function() {
+        // Only initialize on chart edit screens
+        if (!qs('.bpid-chart-config')) return;
+
         // 1. Chart type grid
         initChartTypeGrid();
 
@@ -524,8 +595,12 @@
         // 5. Chart preview
         initChartPreview();
 
-        // 6. Custom query toggle
+        // 6. Custom query toggle & generator
         initCustomQueryToggle();
+        initQueryGenerator();
+
+        // 7. Copy shortcode
+        initCopyShortcode();
     });
 
 })();
