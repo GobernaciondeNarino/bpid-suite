@@ -2,918 +2,1114 @@ You are an expert WordPress Security & Quality Engineer with deep specialization
 
 # Update
 
-## Cambios Implementados — v2.0.0 (Marzo 2026)
-
-### Editor de Gráficos (Admin)
-- **Grid de tipos de gráfico**: Reemplazado el select dropdown por un grid visual de cards con íconos SVG para 11 tipos de gráfico (bar, bar_horizontal, bar_stacked, bar_grouped, line, area, area_stacked, pie, donut, treemap, radar).
-- **Fuente de datos dinámica**: Selector de tabla por AJAX (`bpid_get_tables`), columnas cargadas dinámicamente (`bpid_get_columns`).
-- **Múltiples columnas Y con color individual**: Soporte completo para N variables en el Eje Y, cada una con color independiente asignado mediante color picker. Badges Y1, Y2, Y3... con re-indexación automática.
-- **Sección de Filtros**: Filtros por Año y Mes integrados en el editor de gráficos.
-- **Sección de Apariencia**: Altura configurable, títulos de ejes, formato de números (Colombiano, Internacional, Europeo, Abreviado, Sin formato), paleta de colores con swatches interactivos, leyenda y timeline opcionales.
-- **Barra de herramientas configurable**: Checkboxes para habilitar/deshabilitar cada botón de la toolbar (Detalle, Compartir, Datos, Imagen, CSV).
-- **Query SQL personalizada**: Sección colapsable para consultas SELECT avanzadas con validación de seguridad.
-- **Vista previa en vivo**: Meta box de preview con renderizado AJAX sin necesidad de guardar.
-- **Shortcode en sidebar**: Meta box lateral con shortcode copiable y texto de ayuda.
-- **Avisos contextuales**: Notificaciones dinámicas según el tipo de gráfico seleccionado.
-- **Validaciones UX**: Advertencias para bar_stacked con <2 Y columns, pie/donut con >1 Y column.
-
-### Renderizado Frontend
-- **Motor dual Chart.js + D3plus**: Chart.js como motor primario para los 11 tipos principales, D3plus como fallback para tipos legacy (treemap, network, scatter, etc.).
-- **Barra de herramientas v2**: Siempre visible con botones Detalle, Compartir, Datos, Imagen y Descarga CSV con íconos SVG.
-- **Tabla de datos inline**: Toggle para mostrar/ocultar tabla de datos debajo del gráfico.
-- **Exportación CSV con BOM UTF-8**: Compatible con Excel en español.
-- **Exportación de imagen PNG**: Descarga directa desde Chart.js.
-- **Toast de confirmación**: Notificaciones no intrusivas para acciones como "Enlace copiado".
-- **Formato de números colombiano**: Soporte para notación COP (MMII, MM, K) en ejes Y.
-- **Estética mejorada**: Fondo #fdfdf8, sin cuadrícula vertical, tipografía heredada del tema.
-
-### Backend PHP
-- **5 AJAX endpoints seguros**: `bpid_get_tables`, `bpid_get_columns`, `bpid_get_filter_values`, `bpid_chart_preview`, `bpid_chart_data` — todos con verificación de nonce y capacidad.
-- **20+ meta fields**: Soporte completo para todos los campos de configuración del gráfico.
-- **Validación de seguridad**: Tablas validadas contra BD real, columnas validadas contra tabla, queries personalizadas solo SELECT, sanitización de colores hex.
-- **Funciones de agregación extendidas**: SUM, AVG, COUNT, MAX, MIN.
-- **Múltiples Y columns en data query**: Soporte para construir datasets con N columnas de valor.
-
-### CSS
-- **Admin**: Estilos para chart type grid, Y-axis rows, color swatches, toolbar options, custom query section, preview container, shortcode sidebar.
-- **Frontend**: Estilos para chart wrapper, toolbar v2 con botones etiquetados, tabla de datos inline, toast de confirmación.
-
-## Mejoras Futuras a Realizar
-
-### Prioridad Alta
-1. **Filtros dinámicos adicionales**: Implementar el botón `[+ Agregar Filtro]` para filtros tipo `[Columna] [Operador] [Valor]` con filas dinámicas en el editor.
-2. **Filtro por Destino**: Select dinámico poblado por AJAX según la tabla seleccionada.
-3. **Plugin chartjs-plugin-datalabels**: Integrar etiquetas flotantes dentro de las barras (año/categoría en texto blanco centrado).
-4. **Treemap con Chart.js**: Evaluar migración de treemap de D3plus a librería Chart.js compatible o mantener dual.
-5. **Cache de consultas**: Implementar transient cache para las queries de datos de gráficos con TTL configurable.
-
-### Prioridad Media
-6. **Línea de referencia de valor máximo**: Mostrar el valor máximo formateado con línea horizontal en el eje Y.
-7. **Timeline interactivo**: Implementar slider de rango temporal para tipos line/area cuando `show_timeline` está habilitado.
-8. **Presets de paletas de colores**: Ofrecer paletas predefinidas (Gobierno, Corporativo, Accesibilidad, Monocromático) seleccionables con un clic.
-9. **Duplicar gráfico**: Botón para clonar un gráfico existente con toda su configuración.
-10. **Drag & drop para filas Y**: Reordenar columnas Y mediante arrastrar y soltar.
-11. **Importación/Exportación de configuración**: Exportar config de gráfico como JSON e importar en otro gráfico.
-
-### Prioridad Baja
-12. **Modo oscuro frontend**: Detectar `prefers-color-scheme: dark` y adaptar colores de gráficos.
-13. **Animaciones de entrada**: Transiciones suaves al renderizar gráficos (fade-in, grow).
-14. **Responsive breakpoints en gráficos**: Adaptar labels y leyendas según ancho del contenedor.
-15. **Embed externo**: Endpoint para embeber gráficos en sitios externos via iframe seguro.
-16. **API pública de gráficos**: Extender REST API para exponer datos de gráficos con autenticación por API key.
-17. **Gutenberg Block**: Crear bloque nativo de Gutenberg para insertar gráficos con preview en el editor.
-18. **Widget Elementor**: Widget dedicado para insertar gráficos BPID en Elementor.
-19. **Accesibilidad WCAG 2.1**: Describir gráficos con `aria-label` dinámico, soporte keyboard para toolbar, tabla de datos como alternativa accesible.
-20. **Tests unitarios**: PHPUnit para AJAX handlers, validación de meta fields y query builder.
-
----
-
-# BPID Suite — Instrucciones para Agente de IA
-
-> **Gobernación de Nariño · Secretaría de TIC, Innovación y Gobierno Abierto**
-> Versión de instrucciones: v2.0.0 · Marzo 2026
-
-name: charts module
-description: >
-  Instrucciones completas para implementar o actualizar el módulo de Gráficos del plugin 
-  en WordPress. Úsalo siempre que el desarrollador necesite construir, modificar o replicar la interfaz
-  de administración de gráficos (Chart Editor), incluyendo: selector de tipo de gráfico con íconos,
-  fuente de datos dinámica, múltiples variables en el Eje Y con asignación individual de color (color swatch),
-  filtros configurables, opciones de apariencia, barra de herramientas y vista previa en vivo.
-  Aplica también cuando se hable de "módulo de gráficos", "editor de gráficos", "Eje Y múltiple",
-  "paleta de colores por variable", "shortcode de gráfico" o "bpid chart".
----
-
-# Charts Module — Skill de Implementación
-
-## Visión General
-
-Este skill describe la arquitectura de interfaz y lógica funcional del módulo **Gráficos** de bpid Suite.
-La imagen de referencia es el editor `Editar Gráfico` del panel de administración de WordPress.
-
-## 1. Shotcode
-El módulo registra un Custom Post Type `[name]_chart`. Cada gráfico es un post con metadatos que
-definen tipo, fuente, columnas, filtros y apariencia. Se renderiza vía shortcode `[bpid_chart]`, `[bpid_chart id="X"]`, ó `[bpid_chart id="X" width="X"]`.
+## Example del modulo Visualizaciones (Post GRID)
 
 
+// Evitar ejecución directa
+if (!defined('ABSPATH')) exit;
 
-## 2. Interfaz de Administración — Especificación Completa
+// =============================================================================
+// CONFIGURACIÓN
+// =============================================================================
 
-### 2.1 Cabecera del Editor
 
-- **Título del gráfico**: Input `post_title` estándar de WordPress, ancho completo.
-- **Shortcode**: Meta box lateral (sidebar) tipo `side`, prioridad `high`.
-  - Muestra `[bpid_chart id="POST_ID"]` en un `<code>` con botón "Copiar".
-  - Texto de ayuda: *"Copia y pega este shortcode en cualquier página o entrada."*
+// =============================================================================
+// SHORTCODE PRINCIPAL
+// =============================================================================
+if (!function_exists('bpid_cs_visualizador_shortcode')) {
+    add_shortcode('visor_bpid_gestion', 'bpid_cs_visualizador_shortcode'); 
 
----
-
-### 2.2 Meta Box: Configuración de la Gráfica
-
-Panel principal (`normal`, prioridad `high`). Secciones en orden vertical:
-
-#### Sección A — Tipo de Gráfica
-
-Grid de botones tipo "card" con ícono SVG + etiqueta. Cada card es un `<label>` con `<input type="radio" name="chart_type">` oculto. La card seleccionada recibe clase `active` con borde azul primario.
-
-| Valor interno | Etiqueta UI | Ícono |
-|---|---|---|
-| `bar` | Barras | Barras verticales agrupadas |
-| `bar_horizontal` | Barras Horizontales | Barras horizontales |
-| `bar_stacked` | Barras Apiladas | Barras apiladas (selección por defecto) |
-| `bar_grouped` | Barras Agrupadas | Barras agrupadas múltiples |
-| `line` | Líneas | Gráfico de líneas |
-| `area` | Área | Área rellena bajo línea |
-| `area_stacked` | Área Apilada | Área apilada |
-| `pie` | Pie / Torta | Gráfico circular |
-| `donut` | Donut | Gráfico de dona |
-| `treemap` | Treemap | Mosaico de áreas |
-| `radar` | Radar | Gráfico de araña |
-
-**CSS clave:**
-```css
-.chart-type-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
-  gap: 8px;
-  margin: 12px 0;
-}
-.chart-type-card {
-  border: 2px solid #ddd;
-  border-radius: 6px;
-  padding: 10px 6px;
-  text-align: center;
-  cursor: pointer;
-  transition: border-color 0.2s, background 0.2s;
-}
-.chart-type-card:hover { border-color: #aaa; background: #f9f9f9; }
-.chart-type-card.active { border-color: #2271b1; background: #f0f6fc; }
-.chart-type-card svg { width: 36px; height: 32px; display: block; margin: 0 auto 6px; }
-.chart-type-card span { font-size: 11px; color: #444; }
-```
-
----
-
-#### Sección B — Fuente de Datos
-
-1. **Aviso contextual** (`.notice-info` amarillo/naranja): Se muestra dinámicamente según el tipo de gráfico.
-   - Para `bar_stacked`: *"Barras apiladas: agregue 2 o más valores Y. Cada valor se apila como un segmento de color diferente. Ideal para ver composición y total."*
-   - Para `pie`/`donut`: *"Pie/Donut: use exactamente 1 valor Y y 1 columna de agrupación."*
-   - Para `line`/`area`: *"Líneas/Área: cada columna Y genera una serie independiente."*
-
-2. **Tabla de Datos** — `<select name="chart_data_table">`:
-   - Se puebla por AJAX llamando a `wp_ajax_bpid_get_tables`.
-   - Retorna tablas disponibles en la BD.
-
-3. **Columna de Agrupación (Eje X / Etiquetas)** — `<select name="chart_axis_x">`:
-   - Se puebla dinámicamente al seleccionar la tabla (AJAX: `bpid_get_columns`).
-   - Hint bajo el select: *"Columna para el eje X (ej. año). Las barras se apilan en cada posición."*
-
-4. **Columnas de Valor (Eje Y)** — Bloque dinámico. Ver **Sección 2.3** para especificación completa.
-
-5. **Función de Agregación** — `<select name="chart_agg_function">`:
-   - Opciones: `SUM – Suma`, `AVG – Promedio`, `COUNT – Conteo`, `MAX – Máximo`, `MIN – Mínimo`.
-
----
-
-#### Sección 2.3 — Columnas de Valor (Eje Y) con Color por Variable ⭐
-
-Esta es la funcionalidad clave. Permite agregar N variables numéricas al Eje Y, cada una con su propio color asignado.
-
-**HTML base del contenedor:**
-```html
-<div id="chart-y-axes-container">
-  <!-- Las filas se generan dinámicamente por JS -->
-</div>
-<button type="button" id="add-y-axis" class="button button-secondary">
-  <span class="dashicons dashicons-plus-alt2"></span> Agregar Valor Y
-</button>
-<p class="description">
-  Cada columna de valor genera una serie independiente en el gráfico.
-  Ej: agregar "nombre" y "valor" para comparar ambas métricas por año.
-</p>
-```
-
-**HTML de una fila Y (generada por JS):**
-```html
-<div class="y-axis-row" data-index="0">
-  <!-- Badge numerado -->
-  <span class="y-axis-badge">Y1</span>
-
-  <!-- Select de columna -->
-  <select name="chart_y_columns[]" class="y-column-select">
-    <!-- Opciones pobladas por AJAX según tabla seleccionada -->
-    <option value="apropiado">Apropiado</option>
-    <option value="recaudos_acumulados">Recaudos Acumulados</option>
-    <option value="por_recaudar">Por Recaudar</option>
-  </select>
-
-  <!-- Selector de color con swatch visual -->
-  <div class="y-color-picker-wrapper">
-    <input
-      type="color"
-      name="chart_y_colors[]"
-      class="y-color-input"
-      value="#3eba6a"
-      title="Color para esta serie"
-    >
-    <!-- Alternativamente: input text + swatch clickable -->
-  </div>
-
-  <!-- Botón eliminar fila -->
-  <button type="button" class="y-axis-remove button-link-delete"
-          title="Eliminar esta variable">
-    <span class="dashicons dashicons-no-alt"></span>
-  </button>
-</div>
-```
-
-**CSS de las filas Y:**
-```css
-#chart-y-axes-container {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  margin-bottom: 10px;
-}
-.y-axis-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-.y-axis-badge {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  background: #2271b1;
-  color: #fff;
-  font-size: 11px;
-  font-weight: 700;
-  flex-shrink: 0;
-}
-.y-column-select {
-  flex: 1;
-  min-width: 0;
-}
-.y-color-picker-wrapper {
-  position: relative;
-  flex-shrink: 0;
-}
-.y-color-input {
-  width: 40px;
-  height: 34px;
-  padding: 2px;
-  border: 1px solid #8c8f94;
-  border-radius: 4px;
-  cursor: pointer;
-  background: none;
-}
-/* Versión swatch alternativa: muestra cuadrado de color + abre color picker */
-.y-color-swatch {
-  width: 34px;
-  height: 34px;
-  border-radius: 4px;
-  border: 2px solid #8c8f94;
-  cursor: pointer;
-  display: inline-block;
-  vertical-align: middle;
-}
-.y-axis-remove {
-  color: #b32d2e;
-  background: none;
-  border: none;
-  cursor: pointer;
-  padding: 4px;
-  flex-shrink: 0;
-}
-.y-axis-remove:hover { color: #8a1f1f; }
-```
-
-**JavaScript — lógica de filas Y (`charts-admin.js`):**
-```javascript
-// Paleta de colores por defecto asignados a cada nueva fila (cíclico)
-const DEFAULT_COLORS = [
-  '#3eba6a', '#e84c4c', '#4a90d9', '#f5a623',
-  '#9b59b6', '#1abc9c', '#844c00', '#ff7300'
-];
-
-let yAxisCount = 0;
-
-function addYAxisRow(columnValue = '', colorValue = null) {
-  const index = yAxisCount++;
-  const color = colorValue || DEFAULT_COLORS[index % DEFAULT_COLORS.length];
-  const badgeLabel = `Y${index + 1}`;
-
-  const row = document.createElement('div');
-  row.className = 'y-axis-row';
-  row.dataset.index = index;
-
-  // Obtener opciones de columna actuales
-  const columnOptions = getAvailableColumnOptions(columnValue);
-
-  row.innerHTML = `
-    <span class="y-axis-badge">${badgeLabel}</span>
-    <select name="chart_y_columns[]" class="y-column-select">
-      ${columnOptions}
-    </select>
-    <input type="color" name="chart_y_colors[]"
-           class="y-color-input" value="${color}" title="Color de la serie ${badgeLabel}">
-    <button type="button" class="y-axis-remove" title="Eliminar">
-      <span class="dashicons dashicons-no-alt"></span>
-    </button>
-  `;
-
-  row.querySelector('.y-axis-remove').addEventListener('click', () => {
-    row.remove();
-    reindexYRows();
-  });
-
-  document.getElementById('chart-y-axes-container').appendChild(row);
+    /**
+     * Función principal del shortcode para renderizar el visor.
+     */
+    function bpid_cs_visualizador_shortcode($atts) {
+        // 1. Consultar API y obtener datos (con caché)
+        $apiResult = bpid_cs_consultar_api();
+        $hasError = !$apiResult['success'];
+        $errorMessage = $hasError ? $apiResult['error'] : '';
+        $datos = $hasError ? null : $apiResult['data'];
+        
+        // 2. Organizar datos por dependencia para el selector
+        $datosPorDependencia = [];
+        if (!$hasError) {
+            $datosPorDependencia = bpid_cs_organizar_datos_por_dependencia($datos);
+        }
+        
+        // 3. Inicio del buffer de salida y carga de estilos
+        ob_start();
+        bpid_cs_incluir_estilos();
+        
+        // 4. Estructura HTML
+        ?>
+        <div class="bpid-cs-container">
+            <?php if ($hasError): ?>
+                <div class="bpid-cs-error">
+                    <strong>⚠️ Error de Conexión</strong><br>
+                    <?php echo esc_html($errorMessage); ?>
+                </div>
+            <?php else: ?>
+                
+                <div class="bpid-cs-stats">
+                    <div class="bpid-cs-stat">
+                        <div class="bpid-cs-stat-num"><?php echo $datos['totalProyectos'] ?? 0; ?></div>
+                        <div class="bpid-cs-stat-label">Total Proyectos</div>
+                    </div>
+                    <div class="bpid-cs-stat">
+                        <div class="bpid-cs-stat-num"><?php echo $datos['totalContratos'] ?? 0; ?></div>
+                        <div class="bpid-cs-stat-label">Total Contratos</div>
+                    </div>
+                    <div class="bpid-cs-stat">
+                        <div class="bpid-cs-stat-num"><?php echo count($datosPorDependencia); ?></div>
+                        <div class="bpid-cs-stat-label">Dependencias</div>
+                    </div>
+                </div>
+                
+                <div class="bpid-cs-controls">
+                    <h3>📊 Exportar Informes de Gestión</h3>
+                    <div class="bpid-cs-export-btns">
+                        <button class="bpid-cs-btn bpid-cs-btn-word" onclick="bpidCSExportar('word')">
+                            <span class="dashicons dashicons-media-document"></span> Exportar a Word
+                        </button>
+                        <button class="bpid-cs-btn bpid-cs-btn-excel" onclick="bpidCSExportar('excel')">
+                            <span class="dashicons dashicons-media-spreadsheet"></span> Exportar a Excel
+                        </button>
+                    </div>
+                    <div id="bpid-cs-status" class="bpid-cs-status"></div>
+                </div>
+                
+                <div class="bpid-cs-selector">
+                    <label for="bpid-cs-dep">Seleccionar Dependencia:</label>
+                    <select id="bpid-cs-dep" onchange="bpidCSCambiarDep(this.value)">
+                        <option value="">-- Seleccione una dependencia --</option>
+                        <?php foreach (array_keys($datosPorDependencia) as $dep): ?>
+                            <option value="<?php echo esc_attr($dep); ?>"><?php echo esc_html($dep); ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                
+                <div id="bpid-cs-tablas">
+                    <div class="bpid-cs-placeholder">
+                        <p>👆 Seleccione una dependencia para ver su informe de gestión</p>
+                    </div>
+                </div>
+                
+                <script type="application/json" id="bpid-cs-datos">
+                    <?php echo json_encode($datosPorDependencia, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP); ?>
+                </script>
+                
+            <?php endif; ?>
+        </div>
+        
+        <?php
+        // 5. Carga de scripts y retorno del contenido
+        bpid_cs_incluir_scripts();
+        return ob_get_clean();
+    }
 }
 
-function reindexYRows() {
-  document.querySelectorAll('.y-axis-row').forEach((row, i) => {
-    row.dataset.index = i;
-    row.querySelector('.y-axis-badge').textContent = `Y${i + 1}`;
-    // Actualizar title del color
-    const colorInput = row.querySelector('.y-color-input');
-    if (colorInput) colorInput.title = `Color de la serie Y${i + 1}`;
-  });
-  yAxisCount = document.querySelectorAll('.y-axis-row').length;
+// =============================================================================
+// UTILIDADES Y DATA
+// =============================================================================
+
+if (!function_exists('bpid_cs_normalizar_texto')) {
+    /**
+     * Normaliza una cadena forzando minúsculas y eliminando todos los caracteres especiales/espacios.
+     */
+    function bpid_cs_normalizar_texto($texto) {
+        if (!is_string($texto) || empty($texto)) return '';
+        
+        $texto = trim($texto); // 1. Elimina espacios al inicio y al final
+        $texto = strtolower($texto); // 2. Convierte a minúsculas
+        
+        // 3. Usa la función nativa de WordPress para eliminar acentos (si existe)
+        if (function_exists('remove_accents')) {
+            $texto = remove_accents($texto);
+        }
+
+        // 4. ELIMINACIÓN AGRESIVA: Elimina todos los caracteres que no sean letras (a-z) o números (0-9)
+        $texto = preg_replace('/[^a-z0-9]/', '', $texto); 
+        
+        return $texto;
+    }
 }
 
-document.getElementById('add-y-axis')?.addEventListener('click', () => addYAxisRow());
+if (!function_exists('bpid_cs_organizar_datos_por_dependencia')) {
+    /**
+     * Organiza los datos de la API por dependencia de proyecto o filtra si se especifica una.
+     */
+    function bpid_cs_organizar_datos_por_dependencia($datos, $dependenciaFiltro = null) {
+        if (!isset($datos['proyectos'])) {
+            return [];
+        }
 
-// Inicialización: restaurar filas guardadas desde los metadatos
-function initYAxisRows(savedColumns, savedColors) {
-  savedColumns.forEach((col, i) => {
-    addYAxisRow(col, savedColors[i] || null);
-  });
-  if (savedColumns.length === 0) {
-    addYAxisRow(); // Al menos una fila vacía
-  }
-}
-```
+        $proyectos = $datos['proyectos'];
+        $nombreDefault = 'Sin dependencia';
 
-**Guardado en PHP:**
-```php
-// En save_post hook
-$y_columns = isset($_POST['chart_y_columns']) ? array_map('sanitize_text_field', $_POST['chart_y_columns']) : [];
-$y_colors  = isset($_POST['chart_y_colors'])  ? array_map('sanitize_hex_color', $_POST['chart_y_colors'])  : [];
+        // 1. Si hay filtro, devolver solo los proyectos de esa dependencia
+        if (!empty($dependenciaFiltro)) {
+            $proyectosFiltrados = [];
+            // Aplicamos normalización agresiva al filtro (eliminar todo excepto letras y números)
+            $filtroNormalizado = preg_replace('/[^a-z0-9]/', '', strtolower(remove_accents(trim($dependenciaFiltro))));
 
-// Emparejar columnas con colores; si faltan colores, asignar paleta por defecto
-$default_palette = ['#3eba6a','#e84c4c','#4a90d9','#f5a623','#9b59b6','#1abc9c','#844c00','#ff7300'];
-foreach ($y_columns as $i => $col) {
-  if (empty($y_colors[$i])) {
-    $y_colors[$i] = $default_palette[$i % count($default_palette)];
-  }
-}
+            foreach ($proyectos as $proyecto) {
+                $depAPI = $proyecto['dependenciaProyecto'] ?? $nombreDefault;
+                
+                // Aplicamos normalización agresiva al valor de la API para la comparación
+                $depAPINormalizada = preg_replace('/[^a-z0-9]/', '', strtolower(remove_accents(trim($depAPI))));
 
-update_post_meta($post_id, '_chart_y_columns', $y_columns);
-update_post_meta($post_id, '_chart_y_colors',  $y_colors);
-```
+                // Comparación usando valores normalizados
+                if ($depAPINormalizada === $filtroNormalizado) {
+                    $proyectosFiltrados[] = $proyecto;
+                }
+            }
+            return $proyectosFiltrados;
+        }
 
----
-
-#### Sección C — Filtros
-
-Fila horizontal con 3 campos + botón para filtros adicionales:
-
-```
-[ Año ] [ Mes ] [ Destino ▼ ]
-[+ Agregar Filtro]
-```
-
-- **Año**: `<input type="number" name="chart_filter_year" min="0">` — `0` = todos los años.
-  - Helper: *"Dejar en 0 para todos los años."*
-- **Mes**: `<input type="number" name="chart_filter_month" min="0" max="12">` — `0` = todos.
-  - Helper: *"Dejar en 0 para todos los meses."*
-- **Destino**: `<select name="chart_filter_destino">` — Se puebla dinámicamente según tabla. Primera opción: `Todos`.
-- **Filtros Adicionales**: Botón `[+ Agregar Filtro]` que abre filas dinámicas con `[Columna ▼] [Operador ▼] [Valor]` + botón eliminar.
-
----
-
-#### Sección D — Apariencia
-
-| Campo | Tipo | Defecto | Notas |
-|---|---|---|---|
-| Altura de la Gráfica | `number` + label `px` | `400` | Rango sugerido 200–900 |
-| Título Eje Y | `text` placeholder | `"Valor en Pesos Colombianos"` | Label del eje vertical |
-| Título Eje X | `text` | `""` | Label del eje horizontal |
-| Formato de Números | `select` | `Colombiano (1.000.000)` | Ver opciones abajo |
-| Paleta de Colores | `text` + swatches | 8 colores hex | Ver subespecificación |
-| Mostrar leyenda | `checkbox` | desmarcado | |
-| Mostrar línea de tiempo interactiva | `checkbox` | desmarcado | Solo tipos compatibles |
-
-**Formato de Números — opciones del select:**
-```
-Colombiano (1.000.000)     → es-CO locale, sin decimales
-Internacional (1,000,000)  → en-US locale
-Europeo (1.000.000,00)     → de-DE locale
-Abreviado (1M, 500K)       → Notación compacta
-Sin formato                → Número plano
-```
-
-**Paleta de Colores — Comportamiento:**
-
-El campo `Paleta de Colores` (`name="chart_color_palette"`) almacena colores hex separados por coma:
-```
-#3eba6a,#e84c4c,#4a90d9,#f5a623,#9b59b6,#1abc9c,#844c00,#ff7300
-```
-
-**Importante:** La paleta global es el fallback. Los colores asignados individualmente en cada fila Y tienen prioridad sobre la paleta.
-
-Bajo el input de texto se renderizan swatches interactivos:
-```javascript
-function renderColorSwatches(paletteString) {
-  const colors = paletteString.split(',').map(c => c.trim()).filter(c => /^#[0-9a-f]{6}$/i.test(c));
-  const container = document.getElementById('color-swatches');
-  container.innerHTML = '';
-  colors.forEach((color, i) => {
-    const swatch = document.createElement('span');
-    swatch.className = 'color-swatch';
-    swatch.style.background = color;
-    swatch.title = color;
-    swatch.addEventListener('click', () => {
-      // Abrir color picker nativo
-      const picker = document.createElement('input');
-      picker.type = 'color';
-      picker.value = color;
-      picker.addEventListener('change', (e) => {
-        colors[i] = e.target.value;
-        document.getElementById('chart_color_palette').value = colors.join(',');
-        renderColorSwatches(colors.join(','));
-      });
-      picker.click();
-    });
-    container.appendChild(swatch);
-  });
-}
-```
-
-CSS swatches:
-```css
-#color-swatches { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-.color-swatch {
-  display: inline-block;
-  width: 28px; height: 28px;
-  border-radius: 4px;
-  border: 2px solid rgba(0,0,0,0.15);
-  cursor: pointer;
-  transition: transform 0.15s;
-}
-.color-swatch:hover { transform: scale(1.15); border-color: #555; }
-```
-
----
-
-#### Sección E — Barra de Herramientas
-
-- **Mostrar Barra** (`checkbox` `name="chart_show_toolbar"`, defecto: marcado).
-- **Opciones a Mostrar** (checkboxes independientes):
-  - `Detalle (Info)` — `chart_toolbar_info`
-  - `Compartir` — `chart_toolbar_share`
-  - `Ver Datos` — `chart_toolbar_data`
-  - `Guardar Imagen` — `chart_toolbar_save_img`
-  - `Descargar CSV` — `chart_toolbar_csv`
-
----
-
-#### Sección F — Query Personalizada (Avanzado)
-
-Sección colapsable (`<details>` o botón toggle). Contiene:
-- `<textarea name="chart_custom_query">` — SQL seguro (solo SELECT).
-- Advertencia en rojo: *"Usar solo consultas SELECT. Esta opción sobreescribe la configuración de Fuente de Datos."*
-- Botón "Expandir" / "Contraer" en el borde derecho.
-
----
-
-### 2.4 Meta Box: Vista Previa
-
-Meta box inferior (`normal`, prioridad `low`) con:
-- Botón `[🔄 Actualizar Vista Previa]` (id: `btn-update-preview`).
-- `<div id="chart-preview-container">` — Muestra el gráfico renderizado vía AJAX.
-- Mensaje inicial: *"Configure la gráfica y haga clic en 'Actualizar Vista Previa' para ver el gráfico D3plus."*
-
-**AJAX de preview:**
-```javascript
-document.getElementById('btn-update-preview')?.addEventListener('click', () => {
-  const formData = new FormData(document.getElementById('post'));
-  formData.append('action', 'bpid_chart_preview');
-  formData.append('nonce', bpidCharts.nonce);
-
-  fetch(ajaxurl, { method: 'POST', body: formData })
-    .then(r => r.json())
-    .then(data => {
-      if (data.success) {
-        document.getElementById('chart-preview-container').innerHTML = data.data.html;
-        // Re-inicializar librería de gráficos en el nuevo contenido
-        initChartLibrary(data.data.chart_config);
-      }
-    });
-});
-```
-
----
-
-## 3. Lógica de Renderizado Frontend
-
-### 3.1 Shortcode `[bpid_chart id="X"]`
-
-```php
-class bpid_Charts_Renderer {
-
-  public function render_shortcode($atts) {
-    $atts = shortcode_atts(['id' => 0], $atts);
-    $post_id = intval($atts['id']);
-    if (!$post_id) return '';
-
-    $config = $this->build_config($post_id);
-    $data   = $this->query_data($config);
-
-    wp_enqueue_script('bpid-charts-frontend');
-    wp_enqueue_style('bpid-charts-frontend');
-
-    $uid = 'bpid-chart-' . $post_id . '-' . uniqid();
-
-    ob_start();
-    include plugin_dir_path(__FILE__) . 'views/shortcode-output.php';
-    return ob_get_clean();
-  }
-
-  private function build_config($post_id): array {
-    $y_columns = get_post_meta($post_id, '_chart_y_columns', true) ?: [];
-    $y_colors  = get_post_meta($post_id, '_chart_y_colors',  true) ?: [];
-
-    return [
-      'type'         => get_post_meta($post_id, '_chart_type', true),
-      'table'        => get_post_meta($post_id, '_chart_data_table', true),
-      'axis_x'       => get_post_meta($post_id, '_chart_axis_x', true),
-      'y_columns'    => $y_columns,                    // array de nombres de columna
-      'y_colors'     => $y_colors,                     // array de hex, mismo índice que y_columns
-      'agg_function' => get_post_meta($post_id, '_chart_agg_function', true) ?: 'SUM',
-      'height'       => intval(get_post_meta($post_id, '_chart_height', true) ?: 400),
-      'title_y'      => get_post_meta($post_id, '_chart_title_y', true),
-      'title_x'      => get_post_meta($post_id, '_chart_title_x', true),
-      'number_format'=> get_post_meta($post_id, '_chart_number_format', true) ?: 'es-CO',
-      'color_palette'=> get_post_meta($post_id, '_chart_color_palette', true),
-      'show_legend'  => (bool) get_post_meta($post_id, '_chart_show_legend', true),
-      'show_timeline'=> (bool) get_post_meta($post_id, '_chart_show_timeline', true),
-      'toolbar'      => $this->get_toolbar_config($post_id),
-      'filters'      => $this->get_filters($post_id),
-    ];
-  }
-}
-```
-
-### 3.2 Generación de Config para Chart.js
-
-```javascript
-// charts-frontend.js
-function buildChartConfig(config, data) {
-  const datasets = config.y_columns.map((col, i) => ({
-    label: col,
-    data: data.map(row => row[col]),
-    backgroundColor: config.y_colors[i] || config.color_palette[i % config.color_palette.length],
-    borderColor:     config.y_colors[i] || config.color_palette[i % config.color_palette.length],
-    borderWidth: config.type.includes('line') ? 2 : 0,
-    fill: config.type === 'area' || config.type === 'area_stacked',
-  }));
-
-  return {
-    type: mapChartType(config.type), // Mapear nombres internos → Chart.js types
-    data: {
-      labels: data.map(row => row[config.axis_x]),
-      datasets,
-    },
-    options: {
-      responsive: true,
-      maintainAspectRatio: false,
-      plugins: {
-        legend: { display: config.show_legend },
-      },
-      scales: {
-        x: { title: { display: !!config.title_x, text: config.title_x } },
-        y: { title: { display: !!config.title_y, text: config.title_y },
-             stacked: config.type === 'bar_stacked' || config.type === 'area_stacked' },
-      },
-    },
-  };
+        // 2. Si no hay filtro, organizar todos por dependencia (para el shortcode)
+        $datosPorDependencia = [];
+        foreach ($proyectos as $proyecto) {
+            $dep = $proyecto['dependenciaProyecto'] ?? $nombreDefault;
+            if (!isset($datosPorDependencia[$dep])) {
+                $datosPorDependencia[$dep] = [];
+            }
+            $datosPorDependencia[$dep][] = $proyecto;
+        }
+        ksort($datosPorDependencia);
+        return $datosPorDependencia;
+    }
 }
 
-function mapChartType(internal) {
-  const map = {
-    bar: 'bar', bar_horizontal: 'bar', bar_stacked: 'bar', bar_grouped: 'bar',
-    line: 'line', area: 'line', area_stacked: 'line',
-    pie: 'pie', donut: 'doughnut', radar: 'radar',
-  };
-  return map[internal] || 'bar';
-}
-```
+if (!function_exists('bpid_cs_consultar_api')) {
+    /**
+     * Consulta la API y cachea los resultados por una hora.
+     */
+    function bpid_cs_consultar_api() {
+        $transient_key = 'bpid_cs_api_data';
+        $cached = get_transient($transient_key);
 
----
+        if ($cached !== false) {
+            return ['success' => true, 'data' => $cached];
+        }
+        
+        $response = wp_remote_get(BPID_API_URL, [
+            'headers' => ['apikey' => BPID_API_KEY],
+            'timeout' => 30,
+            'sslverify' => false
+        ]);
 
-## 4. Registro de Meta Campos (PHP)
+        if (is_wp_error($response)) {
+            return ['success' => false, 'error' => 'Error WP Remote: ' . $response->get_error_message()];
+        }
+        
+        $http_code = wp_remote_retrieve_response_code($response);
+        if ($http_code !== 200) {
+            return ['success' => false, 'error' => 'Error HTTP ' . $http_code];
+        }
+        
+        $body = wp_remote_retrieve_body($response);
+        $data = json_decode($body, true);
 
-```php
-// Todos los meta keys del módulo de gráficos
-const CHART_META_KEYS = [
-  '_chart_type',           // string: bar|bar_horizontal|bar_stacked|...
-  '_chart_data_table',     // string: nombre de tabla BD
-  '_chart_axis_x',         // string: columna para eje X
-  '_chart_y_columns',      // array:  ['apropiado','recaudos_acumulados',...]
-  '_chart_y_colors',       // array:  ['#3eba6a','#e84c4c',...]
-  '_chart_agg_function',   // string: SUM|AVG|COUNT|MAX|MIN
-  '_chart_height',         // int:    400
-  '_chart_title_y',        // string
-  '_chart_title_x',        // string
-  '_chart_number_format',  // string: es-CO|en-US|de-DE|compact|raw
-  '_chart_color_palette',  // string: hex separados por coma
-  '_chart_show_legend',    // bool:   0|1
-  '_chart_show_timeline',  // bool:   0|1
-  '_chart_toolbar_show',   // bool:   0|1
-  '_chart_toolbar_info',   // bool:   0|1
-  '_chart_toolbar_share',  // bool:   0|1
-  '_chart_toolbar_data',   // bool:   0|1
-  '_chart_toolbar_save_img',// bool:  0|1
-  '_chart_toolbar_csv',    // bool:   0|1
-  '_chart_filter_year',    // int:    0=todos
-  '_chart_filter_month',   // int:    0=todos
-  '_chart_custom_query',   // string: SQL SELECT opcional
-];
-```
-
----
-
-## 5. AJAX Endpoints Requeridos
-
-| Action | Handler | Descripción |
-|---|---|---|
-| `bpid_get_tables` | `Ajax::get_tables()` | Lista tablas disponibles para el selector |
-| `bpid_get_columns` | `Ajax::get_columns()` | Columnas de una tabla (para Eje X y Eje Y) |
-| `bpid_get_filter_values` | `Ajax::get_filter_values()` | Valores únicos de una columna para filtros tipo select |
-| `bpid_chart_preview` | `Ajax::chart_preview()` | Renderiza HTML del gráfico con config actual (no guardada aún) |
-| `bpid_chart_data` | `Ajax::chart_data()` | Devuelve JSON de datos para un gráfico publicado |
-
-Todos requieren nonce verificado con `check_ajax_referer('bpid_charts_nonce')`.
-
----
-
-## 6. Validaciones y UX
-
-- Mostrar aviso si se selecciona `bar_stacked` con menos de 2 columnas Y.
-- Mostrar aviso si se selecciona `pie`/`donut` con más de 1 columna Y.
-- Badge Y1, Y2, Y3... se re-numera automáticamente al eliminar filas.
-- Al cambiar tabla, repoblar dinámicamente los selects de Eje X y todas las filas Y.
-- Colores Y individuales tienen **prioridad** sobre la paleta global.
-- Paleta global se usa como fallback si hay más series que colores individuales asignados.
-- Custom Query deshabilita visualmente la sección "Fuente de Datos" (overlay gris + `disabled`).
-
----
-
-7. Visualización Frontend del Shortcode — Estética y Barra de Herramientas
-7.1 Diseño Visual del Gráfico Público
-Cuando el shortcode [sysman_chart id="X"] se renderiza en una página o entrada, el gráfico adopta
-las siguientes características estéticas observadas en la implementación de referencia:
-
-Fondo: blanco roto / crema muy suave (#fdfdf8 o #fafaf5), sin borde ni sombra agresiva.
-El gráfico "respira" dentro del contenedor.
-Barras con colores únicos por año/categoría: cuando hay una sola serie Y (ej. Apropiado),
-cada barra recibe un color distinto tomado cíclicamente de la paleta configurada. Esto se logra
-pasando un array de backgroundColor en lugar de un color único a Chart.js.
-Etiqueta flotante dentro de la barra: el año o categoría del Eje X se imprime en texto blanco
-centrado verticalmente dentro de la barra (si la barra es suficientemente alta). Se implementa
-con el plugin chartjs-plugin-datalabels o renderizado Canvas manual en el callback afterDraw.
-Valor máximo con línea de referencia: la escala Y muestra el valor máximo formateado en
-notación abreviada colombiana (ej. 545.72MMII = miles de millones) alineado al tope del eje.
-Formato de eje Y abreviado: los ticks del eje Y usan notación compacta:
-100MMII, 200MMII, 300MMII... donde MMII = miles de millones (billones en escala corta).
-El formateador personalizado es:
-
-javascript  function formatCOP(value) {
-    if (Math.abs(value) >= 1e12) return (value / 1e12).toFixed(2) + 'B';
-    if (Math.abs(value) >= 1e9)  return (value / 1e9).toFixed(2)  + 'MMII';
-    if (Math.abs(value) >= 1e6)  return (value / 1e6).toFixed(2)  + 'MM';
-    if (Math.abs(value) >= 1e3)  return (value / 1e3).toFixed(1)  + 'K';
-    return value.toLocaleString('es-CO');
-  }
-
-Título del Eje Y rotado verticalmente a la izquierda (Valor en Pesos Colombianos),
-usando scales.y.title en Chart.js con display: true y color: '#555'.
-Sin cuadrícula vertical: scales.x.grid.display = false. Solo líneas horizontales
-suaves (scales.y.grid.color = 'rgba(0,0,0,0.06)').
-Tipografía: familia inherit para heredar la fuente del tema WordPress activo.
-Tamaño de etiquetas de eje: 11–12px, color #666.
-
-CSS del contenedor frontend:
-css.sysman-chart-wrapper {
-  background: #fdfdf8;
-  border-radius: 8px;
-  padding: 16px 20px 12px;
-  position: relative;
-  font-family: inherit;
-}
-.sysman-chart-canvas-container {
-  position: relative;
-  width: 100%;
-  /* La altura se inyecta inline desde config.height */
+        if (json_last_error() !== JSON_ERROR_NONE) {
+            return ['success' => false, 'error' => 'Error JSON: ' . json_last_error_msg()];
+        }
+        
+        set_transient($transient_key, $data, HOUR_IN_SECONDS);
+        return ['success' => true, 'data' => $data];
+    }
 }
 
-7.2 Barra de Herramientas — Especificación Completa
-La barra de herramientas se sitúa en la esquina superior derecha del wrapper, flotando sobre
-el gráfico mediante position: absolute; top: 12px; right: 16px;. Se muestra solo si
-chart_show_toolbar = true.
-HTML generado:
-html<div class="sysman-chart-toolbar" role="toolbar" aria-label="Herramientas del gráfico">
-  <button class="sct-btn" data-action="info"    title="Ver detalle">
-    <svg><!-- ícono info circular --></svg> Detalle
-  </button>
-  <button class="sct-btn" data-action="share"   title="Compartir gráfico">
-    <svg><!-- ícono share/flechas --></svg> Compartir
-  </button>
-  <button class="sct-btn" data-action="data"    title="Ver datos en tabla">
-    <svg><!-- ícono grid/tabla --></svg> Datos
-  </button>
-  <button class="sct-btn" data-action="image"   title="Guardar como imagen">
-    <svg><!-- ícono imagen/foto --></svg> Imagen
-  </button>
-  <button class="sct-btn" data-action="csv"     title="Descargar CSV">
-    <svg><!-- ícono descarga --></svg> Descarga
-  </button>
-</div>
-Cada botón se muestra u oculta condicionalmente según los checkboxes de configuración
-(chart_toolbar_info, chart_toolbar_share, etc.).
-CSS de la barra y botones:
-css.sysman-chart-toolbar {
-  position: absolute;
-  top: 12px;
-  right: 16px;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  z-index: 10;
+if (!function_exists('bpid_cs_formatear_valor')) {
+    /**
+     * Formatea un valor numérico a formato monetario colombiano ($0.000.000).
+     */
+    function bpid_cs_formatear_valor($valor) {
+        if (is_numeric($valor)) {
+            return '$' . number_format($valor, 0, ',', '.');
+        }
+        return $valor;
+    }
 }
-.sct-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-  padding: 5px 10px;
-  border: none;
-  background: transparent;
-  color: #555;
-  font-size: 13px;
-  font-weight: 400;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: color 0.15s, background 0.15s;
-  white-space: nowrap;
-}
-.sct-btn svg {
-  width: 15px;
-  height: 15px;
-  stroke: currentColor;
-  fill: none;
-  stroke-width: 1.8;
-  flex-shrink: 0;
-}
-.sct-btn:hover {
-  color: #2271b1;
-  background: rgba(34, 113, 177, 0.07);
-}
-/* Estado activo (ej. Descarga mientras procesa) */
-.sct-btn.active,
-.sct-btn:focus-visible {
-  color: #2271b1;
-  outline: 2px solid rgba(34, 113, 177, 0.35);
-  outline-offset: 1px;
-}
-/* Separador visual entre grupos de botones (opcional) */
-.sct-btn + .sct-btn { border-left: 1px solid transparent; }
 
-7.3 Funcionalidades de Cada Botón
-Detalle — Información del gráfico
-Abre un modal o tooltip con metadatos del gráfico:
+// =============================================================================
+// HANDLERS AJAX PARA EXPORTACIÓN CON DIAGNÓSTICO
+// =============================================================================
 
-Título, fuente de datos, período cubierto, fecha de última actualización.
-Se implementa con un <dialog> nativo o un div absolutamente posicionado que se togglea.
+if (!function_exists('bpid_cs_exportar_word_ajax')) {
+    add_action('wp_ajax_bpid_cs_exportar_word', 'bpid_cs_exportar_word_ajax');
+    add_action('wp_ajax_nopriv_bpid_cs_exportar_word', 'bpid_cs_exportar_word_ajax');
 
-javascripttoolbarBtn('info', () => {
-  const modal = document.getElementById(`${uid}-info-modal`);
-  modal?.showModal?.() || modal?.classList.toggle('open');
-});
-Compartir — Compartir enlace
-Copia al portapapeles la URL actual con un parámetro ?chart=POST_ID o la URL canónica de la página.
-Muestra confirmación visual (el botón cambia brevemente a color verde + texto "¡Copiado!").
-javascripttoolbarBtn('share', async () => {
-  await navigator.clipboard.writeText(window.location.href);
-  showToast('Enlace copiado al portapapeles');
-});
-Datos — Ver tabla de datos
-Renderiza debajo del gráfico (o en modal) una tabla HTML <table> con los datos crudos
-usados para construir el gráfico. Columnas: Eje X + cada columna Y con su nombre y valores formateados.
-El botón actúa como toggle: un segundo clic oculta la tabla.
-javascripttoolbarBtn('data', () => {
-  const tableEl = document.getElementById(`${uid}-data-table`);
-  tableEl.hidden = !tableEl.hidden;
-  // Generar tabla si es la primera vez
-  if (!tableEl.dataset.rendered) {
-    tableEl.innerHTML = buildDataTable(chartData, config);
-    tableEl.dataset.rendered = '1';
-  }
-});
-CSS de la tabla de datos:
-css.sysman-chart-data-table {
-  width: 100%;
-  border-collapse: collapse;
-  margin-top: 16px;
-  font-size: 13px;
+    /**
+     * Función AJAX para exportar informe a Word. Incluye diagnóstico 400.
+     */
+    function bpid_cs_exportar_word_ajax() {
+        // Seguridad y validación
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'bpid_cs_nonce')) {
+            wp_send_json_error(['message' => 'Seguridad fallida'], 403);
+        }
+        
+        if (!isset($_POST['dependencia']) || empty($_POST['dependencia'])) {
+            wp_send_json_error(['message' => 'Dependencia no especificada'], 400);
+        }
+        
+        $dependencia = sanitize_text_field($_POST['dependencia']);
+        
+        // Consulta la API
+        $apiResult = bpid_cs_consultar_api();
+        if (!$apiResult['success']) {
+            wp_send_json_error(['message' => 'Error API: ' . $apiResult['error']], 500);
+        }
+        
+        // FILTRADO
+        $datos = $apiResult['data'];
+        $proyectos = bpid_cs_organizar_datos_por_dependencia($datos, $dependencia);
+
+        if (empty($proyectos)) {
+            // ERROR DE DIAGNÓSTICO: Devolvemos la dependencia usada y el conteo
+            wp_send_json_error([
+                'message' => 'Error de Filtro 400. Dependencia enviada: "' . esc_html($dependencia) . '". Proyectos encontrados: 0. Revise la coincidencia de nombre.',
+                'dependencia_enviada' => $dependencia
+            ], 400); 
+        }
+        
+        // Generar documento HTML compatible con Word
+        $html = bpid_cs_generar_html_word($dependencia, $proyectos);
+
+        // Headers para forzar la descarga como .doc
+        if (ob_get_level()) ob_end_clean();
+        header('Content-Type: application/msword; charset=utf-8');
+        header('Content-Disposition: attachment; filename="Informe_' . sanitize_file_name($dependencia) . '_' . date('Y-m-d') . '.doc"');
+        header('Cache-Control: max-age=0');
+        
+        echo "\xEF\xBB\xBF"; // BOM UTF-8
+        echo $html;
+        exit;
+    }
 }
-.sysman-chart-data-table th {
-  background: #f0f0f0;
-  padding: 8px 12px;
-  text-align: left;
-  border-bottom: 2px solid #ddd;
-  font-weight: 600;
-  color: #333;
+
+if (!function_exists('bpid_cs_exportar_excel_ajax')) {
+    add_action('wp_ajax_bpid_cs_exportar_excel', 'bpid_cs_exportar_excel_ajax');
+    add_action('wp_ajax_nopriv_bpid_cs_exportar_excel', 'bpid_cs_exportar_excel_ajax');
+
+    /**
+     * Función AJAX para exportar informe a Excel. Incluye diagnóstico 400.
+     */
+    function bpid_cs_exportar_excel_ajax() {
+        // Seguridad y validación
+        if (!isset($_POST['nonce']) || !wp_verify_nonce($_POST['nonce'], 'bpid_cs_nonce')) {
+            wp_send_json_error(['message' => 'Seguridad fallida'], 403);
+        }
+        
+        if (!isset($_POST['dependencia']) || empty($_POST['dependencia'])) {
+            wp_send_json_error(['message' => 'Dependencia no especificada'], 400);
+        }
+        
+        $dependencia = sanitize_text_field($_POST['dependencia']);
+        
+        // Consulta la API
+        $apiResult = bpid_cs_consultar_api();
+        if (!$apiResult['success']) {
+            wp_send_json_error(['message' => 'Error API: ' . $apiResult['error']], 500);
+        }
+        
+        // FILTRADO
+        $datos = $apiResult['data'];
+        $proyectos = bpid_cs_organizar_datos_por_dependencia($datos, $dependencia);
+
+        if (empty($proyectos)) {
+            // ERROR DE DIAGNÓSTICO: Devolvemos la dependencia usada y el conteo
+            wp_send_json_error([
+                'message' => 'Error de Filtro 400. Dependencia enviada: "' . esc_html($dependencia) . '". Proyectos encontrados: 0. Revise la coincidencia de nombre.',
+                'dependencia_enviada' => $dependencia
+            ], 400); 
+        }
+        
+        // Generar HTML compatible con Excel
+        $html = bpid_cs_generar_html_excel($dependencia, $proyectos);
+
+        // Headers para forzar la descarga como .xls
+        if (ob_get_level()) ob_end_clean();
+        header('Content-Type: application/vnd.ms-excel; charset=utf-8');
+        header('Content-Disposition: attachment; filename="Informe_' . sanitize_file_name($dependencia) . '_' . date('Y-m-d') . '.xls"');
+        header('Cache-Control: max-age=0');
+        
+        echo "\xEF\xBB\xBF"; // BOM UTF-8
+        echo $html;
+        exit;
+    }
 }
-.sysman-chart-data-table td {
-  padding: 7px 12px;
-  border-bottom: 1px solid #eee;
-  color: #444;
+
+// =============================================================================
+// GENERADORES DE DOCUMENTOS
+// =============================================================================
+
+if (!function_exists('bpid_cs_generar_html_word')) {
+    /**
+     * Genera el contenido HTML con estilos para exportación a Word.
+     */
+    function bpid_cs_generar_html_word($dependencia, $proyectos) {
+        $html = '<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word">
+<head>
+    <meta charset="UTF-8">
+    <title>Informe de Gestión - ' . esc_html($dependencia) . '</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 11pt; }
+        h1 { color: #334155; text-align: center; font-size: 18pt; }
+        h2 { color: #348afb; font-size: 14pt; margin-top: 20pt; }
+        table { border-collapse: collapse; width: 100%; margin: 10pt 0; }
+        th, td { border: 1px solid #348afb; padding: 8pt; text-align: left; }
+        th { background-color: #348afb; color: white; font-weight: bold; }
+        .info { font-weight: bold; color: #334155; }
+        p { margin: 5pt 0; }
+    </style>
+</head>
+<body>
+    <h1>INFORME DE GESTIÓN</h1>
+    <h1>' . strtoupper(esc_html($dependencia)) . '</h1>
+    <p style="text-align: center;"><strong>Vigencia 2025</strong></p>
+    <p><strong>Fecha:</strong> ' . date('d/m/Y H:i:s') . '</p>
+    <p><strong>Total proyectos:</strong> ' . count($proyectos) . '</p>
+    <hr>
+    
+    <h2>CUMPLIMIENTO DE METAS Y PRINCIPALES LOGROS</h2>
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 50px;">No.</th>
+                <th style="width: 200px;">Programa / Proyecto</th>
+                <th style="width: 150px;">Meta</th>
+                <th style="width: 80px;">% Cumplimiento</th>
+                <th style="width: 200px;">Logro Destacado</th>
+            </tr>
+        </thead>
+        <tbody>';
+
+        $contador = 1;
+        foreach ($proyectos as $proyecto) {
+            // Calcular promedio de avance
+            $totalAvance = 0;
+            $numContratos = 0;
+            if (!empty($proyecto['contratosProyecto'])) {
+                foreach ($proyecto['contratosProyecto'] as $contrato) {
+                    $totalAvance += (float)($contrato['procentajeAvanceFisico'] ?? 0);
+                    $numContratos++;
+                }
+            }
+            $promedioAvance = $numContratos > 0 ? round($totalAvance / $numContratos, 1) : 0;
+            
+            // Metas
+            $metasTexto = 'N/A';
+            if (!empty($proyecto['metasProyecto'])) {
+                $metasTexto = implode('; ', array_slice($proyecto['metasProyecto'], 0, 2));
+            }
+            
+            // Logro
+            $logroTexto = count($proyecto['contratosProyecto'] ?? []) . ' contratos ejecutados. Valor: ' . bpid_cs_formatear_valor($proyecto['valorProyecto'] ?? 0);
+            
+            $html .= '<tr>
+                <td style="text-align: center;">' . $contador . '</td>
+                <td>' . esc_html($proyecto['nombreProyecto'] ?? 'N/A') . '</td>
+                <td>' . esc_html($metasTexto) . '</td>
+                <td style="text-align: center;">' . $promedioAvance . '%</td>
+                <td>' . esc_html($logroTexto) . '</td>
+            </tr>';
+            $contador++;
+        }
+        
+        $html .= '</tbody></table>
+        
+        <h2>INVERSIÓN Y EJECUCIÓN PRESUPUESTAL</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th style="width: 50px;">No.</th>
+                    <th style="width: 250px;">Proyecto</th>
+                    <th style="width: 120px;">Presupuesto Asignado</th>
+                    <th style="width: 120px;">Presupuesto Ejecutado</th>
+                    <th style="width: 80px;">% Ejecución</th>
+                </tr>
+            </thead>
+            <tbody>';
+
+        $contador = 1;
+        $totalAsignado = 0;
+        $totalEjecutado = 0;
+        
+        foreach ($proyectos as $proyecto) {
+            $valorProyecto = (float)($proyecto['valorProyecto'] ?? 0);
+            $totalAsignado += $valorProyecto;
+            
+            // Calcular ejecutado (Valor Contrato * % Avance / 100)
+            $valorEjecutado = 0;
+            if (!empty($proyecto['contratosProyecto'])) {
+                foreach ($proyecto['contratosProyecto'] as $contrato) {
+                    $valorContrato = (float)($contrato['valorContrato'] ?? 0);
+                    $avance = (float)($contrato['procentajeAvanceFisico'] ?? 0);
+                    $valorEjecutado += ($valorContrato * $avance / 100);
+                }
+            }
+            $totalEjecutado += $valorEjecutado;
+            $porcentajeEjecucion = $valorProyecto > 0 ? round(($valorEjecutado / $valorProyecto) * 100, 1) : 0;
+
+            $html .= '<tr>
+                <td style="text-align: center;">' . $contador . '</td>
+                <td>' . esc_html($proyecto['nombreProyecto'] ?? 'N/A') . '</td>
+                <td style="text-align: right;">' . bpid_cs_formatear_valor($valorProyecto) . '</td>
+                <td style="text-align: right;">' . bpid_cs_formatear_valor($valorEjecutado) . '</td>
+                <td style="text-align: center;">' . $porcentajeEjecucion . '%</td>
+            </tr>';
+            $contador++;
+        }
+        
+        // Fila de totales
+        $porcentajeTotal = $totalAsignado > 0 ? round(($totalEjecutado / $totalAsignado) * 100, 1) : 0;
+        
+        $html .= '<tr style="font-weight: bold; background-color: #f0f9ff;">
+                <td colspan="2" style="text-align: right;">TOTAL</td>
+                <td style="text-align: right;">' . bpid_cs_formatear_valor($totalAsignado) . '</td>
+                <td style="text-align: right;">' . bpid_cs_formatear_valor($totalEjecutado) . '</td>
+                <td style="text-align: center;">' . $porcentajeTotal . '%</td>
+            </tr>';
+        
+        $html .= '</tbody></table>
+        
+        <hr>
+        <p style="text-align: center; color: #666; font-size: 9pt;">
+            Documento generado por el Sistema BPID - Gobernación de Nariño<br>
+            Fecha de generación: ' . date('d/m/Y H:i:s') . '
+        </p>
+    </body>
+    </html>';
+        
+        return $html;
+    }
 }
-.sysman-chart-data-table tr:hover td { background: #fafafa; }
-.sysman-chart-data-table td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; }
-Imagen — Guardar como PNG
-Usa chart.toBase64Image('image/png', 1.0) de Chart.js para exportar el canvas a imagen.
-Dispara descarga automática con el título del gráfico como nombre de archivo.
-javascripttoolbarBtn('image', () => {
-  const link = document.createElement('a');
-  link.download = `${config.title || 'grafico'}.png`;
-  link.href = chartInstance.toBase64Image('image/png', 1.0);
-  link.click();
-});
-Descarga — Descargar CSV
-Construye un CSV con BOM UTF-8 para compatibilidad con Excel en español.
-Primera fila: encabezados (columna X + columnas Y). Filas siguientes: datos.
-Nombre del archivo: {titulo-grafico}-datos.csv.
-javascripttoolbarBtn('csv', () => {
-  const headers = [config.axis_x, ...config.y_columns];
-  const rows = chartData.map(row =>
-    headers.map(h => JSON.stringify(row[h] ?? '')).join(',')
-  );
-  const bom = '\uFEFF'; // BOM para Excel
-  const csv = bom + [headers.join(','), ...rows].join('\r\n');
-  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement('a');
-  link.href = url;
-  link.download = `${slugify(config.title || 'datos')}.csv`;
-  link.click();
-  URL.revokeObjectURL(url);
-});
 
-7.4 Toast de Confirmación
-Para acciones que no producen un archivo descargable (como "Compartir"), mostrar un toast
-no intrusivo en la esquina inferior derecha:
-javascriptfunction showToast(message, duration = 2500) {
-  const toast = document.createElement('div');
-  toast.className = 'sysman-chart-toast';
-  toast.textContent = message;
-  document.body.appendChild(toast);
-  requestAnimationFrame(() => toast.classList.add('visible'));
-  setTimeout(() => {
-    toast.classList.remove('visible');
-    setTimeout(() => toast.remove(), 300);
-  }, duration);
+if (!function_exists('bpid_cs_generar_html_excel')) {
+    /**
+     * Genera el contenido HTML con estilos para exportación a Excel.
+     */
+    function bpid_cs_generar_html_excel($dependencia, $proyectos) {
+        $html = '<!DOCTYPE html>
+<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel">
+<head>
+    <meta charset="UTF-8">
+    <title>Informe - ' . esc_html($dependencia) . '</title>
+    <style>
+        table { border-collapse: collapse; }
+        th, td { border: 1px solid #000; padding: 5px; }
+        th { background-color: #348afb; color: white; font-weight: bold; }
+        .header { font-size: 16pt; font-weight: bold; text-align: center; }
+        .section { font-size: 12pt; font-weight: bold; margin-top: 20px; }
+        .number { text-align: right; }
+        .center { text-align: center; }
+    </style>
+</head>
+<body>
+    <div class="header">INFORME DE GESTIÓN - ' . strtoupper(esc_html($dependencia)) . '</div>
+    <div class="header">Vigencia 2025</div>
+    <br>
+    <div>Fecha: ' . date('d/m/Y H:i:s') . '</div>
+    <div>Total de proyectos: ' . count($proyectos) . '</div>
+    <br><br>
+    
+    <div class="section">CUMPLIMIENTO DE METAS Y PRINCIPALES LOGROS</div>
+    <table>
+        <thead>
+            <tr>
+                <th>No.</th>
+                <th>Programa / Proyecto</th>
+                <th>Meta</th>
+                <th>% Cumplimiento</th>
+                <th>Logro Destacado</th>
+            </tr>
+        </thead>
+        <tbody>';
+
+        $contador = 1;
+        foreach ($proyectos as $proyecto) {
+            $totalAvance = 0;
+            $numContratos = 0;
+            if (!empty($proyecto['contratosProyecto'])) {
+                foreach ($proyecto['contratosProyecto'] as $contrato) {
+                    $totalAvance += (float)($contrato['procentajeAvanceFisico'] ?? 0);
+                    $numContratos++;
+                }
+            }
+            $promedioAvance = $numContratos > 0 ? round($totalAvance / $numContratos, 1) : 0;
+            
+            $metasTexto = 'N/A';
+            if (!empty($proyecto['metasProyecto'])) {
+                $metasTexto = implode('; ', array_slice($proyecto['metasProyecto'], 0, 2));
+            }
+            
+            $logroTexto = count($proyecto['contratosProyecto'] ?? []) . ' contratos. Valor: ' . bpid_cs_formatear_valor($proyecto['valorProyecto'] ?? 0);
+            
+            $html .= '<tr>
+                <td class="center">' . $contador . '</td>
+                <td>' . esc_html($proyecto['nombreProyecto'] ?? 'N/A') . '</td>
+                <td>' . esc_html($metasTexto) . '</td>
+                <td class="center">' . $promedioAvance . '%</td>
+                <td>' . esc_html($logroTexto) . '</td>
+            </tr>';
+            $contador++;
+        }
+        
+        $html .= '</tbody></table><br><br>
+        
+        <div class="section">INVERSIÓN Y EJECUCIÓN PRESUPUESTAL</div>
+        <table>
+            <thead>
+                <tr>
+                    <th>No.</th>
+                    <th>Proyecto</th>
+                    <th>Presupuesto Asignado</th>
+                    <th>Presupuesto Ejecutado</th>
+                    <th>% Ejecución</th>
+                </tr>
+            </thead>
+            <tbody>';
+        
+        $contador = 1;
+        $totalAsignado = 0;
+        $totalEjecutado = 0;
+        
+        foreach ($proyectos as $proyecto) {
+            $valorProyecto = (float)($proyecto['valorProyecto'] ?? 0);
+            $totalAsignado += $valorProyecto;
+            
+            $valorEjecutado = 0;
+            if (!empty($proyecto['contratosProyecto'])) {
+                foreach ($proyecto['contratosProyecto'] as $contrato) {
+                    $valorContrato = (float)($contrato['valorContrato'] ?? 0);
+                    $avance = (float)($contrato['procentajeAvanceFisico'] ?? 0);
+                    $valorEjecutado += ($valorContrato * $avance / 100);
+                }
+            }
+            $totalEjecutado += $valorEjecutado;
+            $porcentajeEjecucion = $valorProyecto > 0 ? round(($valorEjecutado / $valorProyecto) * 100, 1) : 0;
+
+            // Formateado sin el signo '$' para Excel
+            $html .= '<tr>
+                <td class="center">' . $contador . '</td>
+                <td>' . esc_html($proyecto['nombreProyecto'] ?? 'N/A') . '</td>
+                <td class="number">' . number_format($valorProyecto, 0, ',', '.') . '</td>
+                <td class="number">' . number_format($valorEjecutado, 0, ',', '.') . '</td>
+                <td class="center">' . $porcentajeEjecucion . '%</td>
+            </tr>';
+            $contador++;
+        }
+        
+        $porcentajeTotal = $totalAsignado > 0 ? round(($totalEjecutado / $totalAsignado) * 100, 1) : 0;
+        
+        $html .= '<tr style="font-weight: bold; background-color: #f0f9ff;">
+                <td colspan="2" class="number">TOTAL</td>
+                <td class="number">' . number_format($totalAsignado, 0, ',', '.') . '</td>
+                <td class="number">' . number_format($totalEjecutado, 0, ',', '.') . '</td>
+                <td class="center">' . $porcentajeTotal . '%</td>
+            </tr>';
+        
+        $html .= '</tbody></table>
+    </body>
+    </html>';
+        
+        return $html;
+    }
 }
-css.sysman-chart-toast {
-  position: fixed;
-  bottom: 24px;
-  right: 24px;
-  background: #1d2327;
-  color: #fff;
-  padding: 10px 18px;
-  border-radius: 6px;
-  font-size: 13px;
-  z-index: 99999;
-  opacity: 0;
-  transform: translateY(8px);
-  transition: opacity 0.25s, transform 0.25s;
-  pointer-events: none;
+
+// =============================================================================
+// ESTILOS CSS
+// =============================================================================
+
+if (!function_exists('bpid_cs_incluir_estilos')) {
+    /**
+     * Incluye los estilos CSS necesarios.
+     */
+    function bpid_cs_incluir_estilos() {
+        ?>
+        <style>
+            .bpid-cs-container {
+                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+                color: #444;
+                line-height: 1.6;
+                margin: 20px 0;
+            }
+            
+            .bpid-cs-error {
+                background-color: #fee;
+                border: 2px solid #c00;
+                color: #c00;
+                padding: 20px;
+                border-radius: 8px;
+                margin: 20px 0;
+            }
+            
+            .bpid-cs-stats {
+                background: linear-gradient(135deg, #348afb 0%, #2563eb 100%);
+                padding: 30px;
+                border-radius: 12px;
+                margin-bottom: 30px;
+                display: flex;
+                justify-content: space-around;
+                flex-wrap: wrap;
+                gap: 20px;
+                box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            }
+            
+            .bpid-cs-stat {
+                text-align: center;
+                color: white;
+            }
+            
+            .bpid-cs-stat-num {
+                font-size: 42px;
+                font-weight: bold;
+            }
+            
+            .bpid-cs-stat-label {
+                font-size: 16px;
+                margin-top: 5px;
+                opacity: 0.9;
+            }
+            
+            .bpid-cs-controls {
+                background-color: white;
+                border: 2px solid #348afb;
+                padding: 25px;
+                border-radius: 12px;
+                margin-bottom: 25px;
+            }
+            
+            .bpid-cs-controls h3 {
+                margin-top: 0;
+                color: #334155;
+            }
+            
+            .bpid-cs-export-btns {
+                display: flex;
+                gap: 15px;
+                flex-wrap: wrap;
+                margin-top: 15px;
+            }
+            
+            .bpid-cs-btn {
+                padding: 12px 24px;
+                border: none;
+                border-radius: 8px;
+                font-size: 16px;
+                font-weight: 600;
+                cursor: pointer;
+                transition: all 0.3s;
+                display: inline-flex;
+                align-items: center;
+                gap: 8px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+                color: white;
+            }
+            
+            .bpid-cs-btn-word {
+                background-color: #2b579a;
+            }
+            
+            .bpid-cs-btn-word:hover {
+                background-color: #1e3a6b;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            }
+            
+            .bpid-cs-btn-excel {
+                background-color: #217346;
+            }
+            
+            .bpid-cs-btn-excel:hover {
+                background-color: #185c37;
+                transform: translateY(-2px);
+                box-shadow: 0 4px 8px rgba(0,0,0,0.2);
+            }
+            
+            .bpid-cs-btn:disabled {
+                opacity: 0.6;
+                cursor: not-allowed;
+            }
+            
+            .bpid-cs-status {
+                margin-top: 15px;
+                padding: 12px;
+                border-radius: 6px;
+                display: none;
+            }
+            
+            .bpid-cs-status.success {
+                background-color: #d1fae5;
+                color: #065f46;
+                border: 1px solid #10b981;
+                display: block;
+            }
+            
+            .bpid-cs-status.error {
+                background-color: #fee2e2;
+                color: #991b1b;
+                border: 1px solid #ef4444;
+                display: block;
+            }
+            
+            .bpid-cs-status.loading {
+                background-color: #dbeafe;
+                color: #1e40af;
+                border: 1px solid #3b82f6;
+                display: block;
+            }
+            
+            .bpid-cs-selector {
+                background-color: white;
+                border: 2px solid #348afb;
+                padding: 20px;
+                border-radius: 12px;
+                margin-bottom: 25px;
+            }
+            
+            .bpid-cs-selector label {
+                display: block;
+                color: #334155;
+                font-weight: 600;
+                margin-bottom: 10px;
+                font-size: 16px;
+            }
+            
+            .bpid-cs-selector select {
+                width: 100%;
+                padding: 12px;
+                border: 2px solid #348afb;
+                border-radius: 8px;
+                font-size: 16px;
+                background-color: #fffcf3;
+                color: #444;
+                cursor: pointer;
+            }
+            
+            #bpid-cs-tablas {
+                background-color: white;
+                border: 2px solid #348afb;
+                border-radius: 12px;
+                padding: 25px;
+                min-height: 200px;
+            }
+            
+            .bpid-cs-placeholder {
+                text-align: center;
+                padding: 60px 20px;
+                color: #64748b;
+            }
+            
+            .bpid-cs-placeholder p {
+                font-size: 18px;
+                margin: 0;
+            }
+            
+            .bpid-cs-tabla-title {
+                color: #334155;
+                font-size: 20px;
+                font-weight: bold;
+                margin-bottom: 20px;
+                padding-bottom: 10px;
+                border-bottom: 3px solid #348afb;
+            }
+            
+            .bpid-cs-table {
+                width: 100%;
+                border-collapse: collapse;
+                margin-bottom: 30px;
+                box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            
+            .bpid-cs-table thead th {
+                background-color: #348afb;
+                color: white;
+                padding: 12px;
+                text-align: left;
+                font-weight: 600;
+                border: 1px solid #2563eb;
+            }
+            
+            .bpid-cs-table tbody td {
+                padding: 12px;
+                border: 1px solid #ddd;
+                background-color: #fffcf3;
+            }
+            
+            .bpid-cs-table tbody tr:hover {
+                background-color: #f0f9ff;
+            }
+            
+            .bpid-cs-table .num {
+                width: 60px;
+                text-align: center;
+            }
+            
+            .bpid-cs-table .pct {
+                width: 120px;
+                text-align: center;
+            }
+            
+            .bpid-cs-table .val {
+                width: 150px;
+                text-align: right;
+            }
+            
+            .bpid-cs-resumen {
+                background-color: #f0f9ff;
+                border: 2px solid #348afb;
+                padding: 20px;
+                border-radius: 8px;
+                margin-top: 20px;
+                display: grid;
+                grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+                gap: 15px;
+            }
+            
+            .bpid-cs-resumen-item {
+                text-align: center;
+            }
+            
+            .bpid-cs-resumen-label {
+                font-size: 14px;
+                color: #64748b;
+                margin-bottom: 5px;
+            }
+            
+            .bpid-cs-resumen-value {
+                font-size: 24px;
+                font-weight: bold;
+                color: #348afb;
+            }
+            
+            @media (max-width: 768px) {
+                .bpid-cs-stats {
+                    flex-direction: column;
+                }
+                .bpid-cs-export-btns {
+                    flex-direction: column;
+                }
+                .bpid-cs-btn {
+                    width: 100%;
+                    justify-content: center;
+                }
+                .bpid-cs-table {
+                    font-size: 14px;
+                }
+            }
+        </style>
+        <?php
+    }
 }
-.sysman-chart-toast.visible { opacity: 1; transform: translateY(0); }
 
-## 8. Notas de Integración con bpid Suite
+// =============================================================================
+// SCRIPTS JAVASCRIPT CON MENSAJES DE CONSOLA
+// =============================================================================
 
-- El módulo de gráficos se activa desde `Configuración > bpid Suite > Módulos`.
-- Las tablas de datos provienen de `wp_bpid_import_*` (módulo bpid Import).
-- El shortcode puede usarse en widgets Elementor, páginas clásicas o bloques Gutenberg.
-- Compatibilidad con PHP 8.1+ y WordPress 6.0+. Sin jQuery obligatorio en frontend.
+if (!function_exists('bpid_cs_incluir_scripts')) {
+    /**
+     * Incluye los scripts JavaScript necesarios con mensajes de diagnóstico en consola.
+     */
+    function bpid_cs_incluir_scripts() {
+        $nonce = wp_create_nonce('bpid_cs_nonce');
+        $ajax_url = admin_url('admin-ajax.php');
+        ?>
+        <script>
+            const bpidCSDatos = JSON.parse(document.getElementById('bpid-cs-datos').textContent);
+            let bpidCSDepActual = '';
+            
+            console.log("DIAGNÓSTICO JS: Datos cargados por dependencia:", bpidCSDatos);
 
----
+            // Formato monetario (COL)
+            function bpidCSFormatVal(val) {
+                if (isNaN(val)) return val;
+                return '$' + Number(val).toLocaleString('es-CO', {minimumFractionDigits: 0});
+            }
+            
+            // Escape HTML
+            function bpidCSEsc(txt) {
+                const div = document.createElement('div');
+                div.textContent = txt;
+                return div.innerHTML;
+            }
 
-*Gobernación de Nariño · Secretaría de TIC, Innovación y Gobierno Abierto*
-*Instrucciones BPID Suite v1.1 · Marzo 2026 · Licencia GPL v2 or later*
+            // Renderiza las tablas al seleccionar dependencia
+            function bpidCSCambiarDep(dep) {
+                bpidCSDepActual = dep;
+                const container = document.getElementById('bpid-cs-tablas');
+                
+                console.log("DIAGNÓSTICO JS: Dependencia seleccionada:", dep); 
+
+                if (!dep) {
+                    container.innerHTML = '<div class="bpid-cs-placeholder"><p>👆 Seleccione una dependencia para ver su informe de gestión</p></div>';
+                    return;
+                }
+                
+                const proyectos = bpidCSDatos[dep] || [];
+                
+                if (proyectos.length === 0) {
+                    container.innerHTML = '<div class="bpid-cs-placeholder"><p>No hay proyectos para esta dependencia.</p></div>';
+                    return;
+                }
+                
+                // Lógica de renderizado HTML (Cumplimiento de Metas)
+                let html = '<div><h3 class="bpid-cs-tabla-title">📊 Cumplimiento de Metas</h3>';
+                html += '<div style="overflow-x: auto;"><table class="bpid-cs-table"><thead><tr>';
+                html += '<th class="num">No.</th><th>Programa / Proyecto</th><th>Meta</th>';
+                html += '<th class="pct">% Cumplimiento</th><th>Logro Destacado</th>';
+                html += '</tr></thead><tbody>';
+                
+                proyectos.forEach((proy, idx) => {
+                    let totalAv = 0, numC = 0;
+                    if (proy.contratosProyecto) {
+                        proy.contratosProyecto.forEach(c => {
+                            totalAv += parseFloat(c.procentajeAvanceFisico || 0);
+                            numC++;
+                        });
+                    }
+                    const promAv = numC > 0 ? (totalAv / numC).toFixed(1) : 0;
+                    
+                    const metas = proy.metasProyecto && proy.metasProyecto.length > 0 
+                        ? proy.metasProyecto.slice(0, 2).join('; ') : 'N/A';
+                    
+                    const logro = `${proy.contratosProyecto ? proy.contratosProyecto.length : 0} contratos. Valor: ${bpidCSFormatVal(proy.valorProyecto || 0)}`;
+                    
+                    html += `<tr><td class="num">${idx + 1}</td><td>${bpidCSEsc(proy.nombreProyecto || 'N/A')}</td>`;
+                    html += `<td>${bpidCSEsc(metas)}</td><td class="pct">${promAv}%</td><td>${bpidCSEsc(logro)}</td></tr>`;
+                });
+                
+                html += '</tbody></table></div></div>';
+                
+                // Lógica de renderizado HTML (Ejecución Presupuestal)
+                html += '<div><h3 class="bpid-cs-tabla-title">💰 Ejecución Presupuestal</h3>';
+                html += '<div style="overflow-x: auto;"><table class="bpid-cs-table"><thead><tr>';
+                html += '<th class="num">No.</th><th>Proyecto</th><th class="val">Asignado</th>';
+                html += '<th class="val">Ejecutado</th><th class="pct">% Ejecución</th>';
+                html += '</tr></thead><tbody>';
+                let totAsig = 0, totEjec = 0;
+                
+                proyectos.forEach((proy, idx) => {
+                    const valProy = parseFloat(proy.valorProyecto || 0);
+                    totAsig += valProy;
+                    
+                    let valEjec = 0;
+                    
+                    if (proy.contratosProyecto) {
+                        proy.contratosProyecto.forEach(c => {
+                            const valC = parseFloat(c.valorContrato || 0);
+                            const av = parseFloat(c.procentajeAvanceFisico || 0);
+                            valEjec += (valC * av / 100);
+                        });
+                    }
+                    totEjec += valEjec;
+                    
+                    const pctEjec = valProy > 0 ? ((valEjec / valProy) * 100).toFixed(1) : 0;
+                    
+                    html += `<tr><td class="num">${idx + 1}</td><td>${bpidCSEsc(proy.nombreProyecto || 'N/A')}</td>`;
+                    html += `<td class="val">${bpidCSFormatVal(valProy)}</td><td class="val">${bpidCSFormatVal(valEjec)}</td>`;
+                    html += `<td class="pct">${pctEjec}%</td></tr>`;
+                });
+                
+                html += '</tbody></table></div>';
+                
+                // Resumen total
+                const pctTot = totAsig > 0 ? ((totEjec / totAsig) * 100).toFixed(1) : 0;
+                html += '<div class="bpid-cs-resumen">';
+                html += '<div class="bpid-cs-resumen-item"><div class="bpid-cs-resumen-label">Total Proyectos</div>';
+                html += `<div class="bpid-cs-resumen-value">${proyectos.length}</div></div>`;
+                html += '<div class="bpid-cs-resumen-item"><div class="bpid-cs-resumen-label">Asignado Total</div>';
+                html += `<div class="bpid-cs-resumen-value">${bpidCSFormatVal(totAsig)}</div></div>`;
+                html += '<div class="bpid-cs-resumen-item"><div class="bpid-cs-resumen-label">Ejecutado Total</div>';
+                html += `<div class="bpid-cs-resumen-value">${bpidCSFormatVal(totEjec)}</div></div>`;
+                html += '<div class="bpid-cs-resumen-item"><div class="bpid-cs-resumen-label">% Ejecución Total</div>';
+                html += `<div class="bpid-cs-resumen-value">${pctTot}%</div></div>`;
+                html += '</div></div>';
+                
+                container.innerHTML = html;
+            }
+            
+            // Lógica de exportación AJAX
+            function bpidCSExportar(fmt) {
+                if (!bpidCSDepActual) {
+                    alert('Seleccione una dependencia primero');
+                    return;
+                }
+                
+                console.log(`DIAGNÓSTICO JS: Iniciando exportación a ${fmt}. Dependencia a enviar: "${bpidCSDepActual}"`); 
+                
+                const status = document.getElementById('bpid-cs-status');
+                const btnW = document.querySelector('.bpid-cs-btn-word');
+                const btnE = document.querySelector('.bpid-cs-btn-excel');
+                
+                btnW.disabled = true;
+                btnE.disabled = false;
+                
+                status.className = 'bpid-cs-status loading';
+                status.textContent = '⏳ Generando documento...';
+                
+                const formData = new FormData();
+                formData.append('nonce', '<?php echo $nonce; ?>');
+                formData.append('dependencia', bpidCSDepActual);
+                formData.append('action', fmt === 'word' ? 'bpid_cs_exportar_word' : 'bpid_cs_exportar_excel');
+                
+                fetch('<?php echo $ajax_url; ?>', {
+                    method: 'POST',
+                    body: formData
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        console.error("DIAGNÓSTICO JS: Fallo HTTP:", response.status); 
+                        return response.json().then(errorData => {
+                            // Captura el mensaje de diagnóstico del servidor
+                            throw new Error(errorData.data.message || 'Error desconocido en el servidor');
+                        }).catch(e => {
+                            throw new Error('Error ' + response.status + ' al generar el archivo');
+                        });
+                    }
+                    return response.blob();
+                })
+                .then(blob => {
+                    const url = window.URL.createObjectURL(blob);
+                    const a = document.createElement('a');
+                    a.href = url;
+                    const ext = fmt === 'word' ? 'doc' : 'xls';
+                    const filename = `Informe_${bpidCSDepActual.replace(/ /g, '_')}_${new Date().toISOString().split('T')[0]}.${ext}`;
+                    a.download = filename;
+                    document.body.appendChild(a);
+                    a.click();
+                    window.URL.revokeObjectURL(url);
+                    document.body.removeChild(a);
+                    
+                    status.className = 'bpid-cs-status success';
+                    status.textContent = '✅ Documento generado exitosamente';
+                    setTimeout(() => { status.style.display = 'none'; }, 5000);
+                })
+                .catch(error => {
+                    console.error('DIAGNÓSTICO JS: Error final capturado:', error); 
+                    status.className = 'bpid-cs-status error';
+                    status.textContent = '❌ Error: ' + error.message;
+                })
+                .finally(() => {
+                    btnW.disabled = false;
+                    btnE.disabled = false;
+                });
+            }
+        </script>
+        <?php
+    }
+}
+
+
+// =============================================================================
+// OPCIONAL: Limpieza de Caché
+// =============================================================================
+
+if (!function_exists('bpid_cs_limpiar_cache')) {
+    /**
+     * Limpia la caché (transient) de la API.
+     */
+    function bpid_cs_limpiar_cache() {
+        delete_transient('bpid_cs_api_data');
+    }
+}
