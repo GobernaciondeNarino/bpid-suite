@@ -126,65 +126,54 @@ $number_formats = array(
 <div class="bpid-chart-config">
 
 	<!-- ================================================================= -->
-	<!-- Section A — Chart Type Grid                                       -->
+	<!-- Section A — Chart Type (Card)                                      -->
 	<!-- ================================================================= -->
-	<div class="bpid-section bpid-section-chart-type">
-		<h3><?php esc_html_e( 'Tipo de Gr&aacute;fico', 'bpid-suite' ); ?></h3>
-
-		<div class="bpid-chart-type-grid">
-			<?php foreach ( $chart_types as $type_key => $type_def ) : ?>
-				<label class="bpid-chart-type-card<?php echo $chart_type === $type_key ? ' active' : ''; ?>">
-					<input
-						type="radio"
-						name="chart_type"
-						value="<?php echo esc_attr( $type_key ); ?>"
-						<?php checked( $chart_type, $type_key ); ?>
-						style="display:none;"
-					/>
-					<span class="bpid-chart-type-icon">
-						<?php
-						// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG markup defined above.
-						echo $type_def['icon'];
-						?>
-					</span>
-					<span class="bpid-chart-type-label">
-						<?php echo esc_html( $type_def['label'] ); ?>
-					</span>
-				</label>
-			<?php endforeach; ?>
+	<div class="bpid-chart-card">
+		<div class="bpid-chart-card-header">
+			<span class="dashicons dashicons-chart-bar"></span>
+			<?php esc_html_e( 'Tipo de Gr&aacute;fico', 'bpid-suite' ); ?>
+		</div>
+		<div class="bpid-chart-card-body">
+			<div class="bpid-chart-type-grid" id="chart-type-grid">
+				<?php foreach ( $chart_types as $type_key => $type_def ) : ?>
+					<label class="bpid-chart-type-card<?php echo $chart_type === $type_key ? ' active' : ''; ?>" data-type="<?php echo esc_attr( $type_key ); ?>">
+						<input
+							type="radio"
+							name="chart_type"
+							value="<?php echo esc_attr( $type_key ); ?>"
+							<?php checked( $chart_type, $type_key ); ?>
+						/>
+						<span class="bpid-chart-type-icon">
+							<?php
+							// phpcs:ignore WordPress.Security.EscapeOutput.OutputNotEscaped -- SVG markup defined above.
+							echo $type_def['icon'];
+							?>
+						</span>
+						<span class="bpid-chart-type-label">
+							<?php echo esc_html( $type_def['label'] ); ?>
+						</span>
+					</label>
+				<?php endforeach; ?>
+			</div>
+			<!-- Context notice -->
+			<div id="chart-type-notice" class="bpid-chart-type-notice" style="display:none;"></div>
 		</div>
 	</div>
 
 	<!-- ================================================================= -->
-	<!-- Section B — Data Source                                            -->
+	<!-- Section B — Data Source (Card)                                      -->
 	<!-- ================================================================= -->
-	<div class="bpid-section bpid-section-data-source">
-		<h3><?php esc_html_e( 'Fuente de Datos', 'bpid-suite' ); ?></h3>
-
-		<!-- Contextual notice — JS toggles visibility based on selected chart type -->
-		<div class="notice notice-info inline bpid-chart-type-notice" style="margin:0 0 12px;padding:8px 12px;">
-			<p class="bpid-notice-bar-stacked" style="display:none;">
-				<?php esc_html_e( 'Barras apiladas: agregue 2 o m&aacute;s valores Y para apilar las series en cada categor&iacute;a del eje X.', 'bpid-suite' ); ?>
-			</p>
-			<p class="bpid-notice-pie-donut" style="display:none;">
-				<?php esc_html_e( 'Pie/Donut: use exactamente 1 valor Y y 1 columna de agrupaci&oacute;n.', 'bpid-suite' ); ?>
-			</p>
-			<p class="bpid-notice-line-area" style="display:none;">
-				<?php esc_html_e( 'L&iacute;neas/&Aacute;rea: cada columna Y genera una serie independiente.', 'bpid-suite' ); ?>
-			</p>
-			<p class="bpid-notice-default">
-				<?php esc_html_e( 'Seleccione la tabla de datos y configure los ejes del gr&aacute;fico.', 'bpid-suite' ); ?>
-			</p>
+	<div class="bpid-chart-card" id="data-source-section">
+		<div class="bpid-chart-card-header">
+			<span class="dashicons dashicons-database"></span>
+			<?php esc_html_e( 'Fuente de Datos', 'bpid-suite' ); ?>
 		</div>
-
-		<table class="form-table">
-			<!-- Data Table -->
-			<tr>
-				<th scope="row">
+		<div class="bpid-chart-card-body">
+			<div class="bpid-chart-form-grid">
+				<!-- Data Table -->
+				<div class="bpid-chart-form-group">
 					<label for="chart_data_table"><?php esc_html_e( 'Tabla de datos', 'bpid-suite' ); ?></label>
-				</th>
-				<td>
-					<select name="chart_data_table" id="chart_data_table" class="regular-text">
+					<select name="chart_data_table" id="chart_data_table" class="bpid-chart-select">
 						<?php if ( $chart_data_table ) : ?>
 							<option value="<?php echo esc_attr( $chart_data_table ); ?>" selected>
 								<?php echo esc_html( $chart_data_table ); ?>
@@ -193,17 +182,13 @@ $number_formats = array(
 							<option value=""><?php esc_html_e( '— Cargando tablas... —', 'bpid-suite' ); ?></option>
 						<?php endif; ?>
 					</select>
-					<p class="description"><?php esc_html_e( 'Las tablas disponibles se cargan autom&aacute;ticamente por AJAX.', 'bpid-suite' ); ?></p>
-				</td>
-			</tr>
+					<span class="bpid-chart-help"><?php esc_html_e( 'Tablas disponibles cargadas por AJAX.', 'bpid-suite' ); ?></span>
+				</div>
 
-			<!-- X Axis Column -->
-			<tr>
-				<th scope="row">
+				<!-- X Axis Column -->
+				<div class="bpid-chart-form-group">
 					<label for="chart_axis_x"><?php esc_html_e( 'Columna Eje X', 'bpid-suite' ); ?></label>
-				</th>
-				<td>
-					<select name="chart_axis_x" id="chart_axis_x" class="regular-text">
+					<select name="chart_axis_x" id="chart_axis_x" class="bpid-chart-select">
 						<?php if ( $chart_axis_x ) : ?>
 							<option value="<?php echo esc_attr( $chart_axis_x ); ?>" selected>
 								<?php echo esc_html( $chart_axis_x ); ?>
@@ -212,70 +197,61 @@ $number_formats = array(
 							<option value=""><?php esc_html_e( '— Seleccione tabla primero —', 'bpid-suite' ); ?></option>
 						<?php endif; ?>
 					</select>
-				</td>
-			</tr>
+				</div>
 
-			<!-- Y Axis Columns -->
-			<tr>
-				<th scope="row">
-					<label><?php esc_html_e( 'Valores Eje Y', 'bpid-suite' ); ?></label>
-				</th>
-				<td>
-					<div id="chart-y-axes-container">
-						<!-- Y-axis rows are populated by JavaScript from saved data -->
-					</div>
-					<button type="button" class="button button-secondary" id="bpid-add-y-axis">
-						+ <?php esc_html_e( 'Agregar Valor Y', 'bpid-suite' ); ?>
-					</button>
-				</td>
-			</tr>
-
-			<!-- Aggregation Function -->
-			<tr>
-				<th scope="row">
+				<!-- Aggregation Function -->
+				<div class="bpid-chart-form-group">
 					<label for="chart_agg_function"><?php esc_html_e( 'Funci&oacute;n de Agregaci&oacute;n', 'bpid-suite' ); ?></label>
-				</th>
-				<td>
-					<select name="chart_agg_function" id="chart_agg_function">
+					<select name="chart_agg_function" id="chart_agg_function" class="bpid-chart-select">
 						<?php foreach ( $agg_functions as $agg_key => $agg_label ) : ?>
 							<option value="<?php echo esc_attr( $agg_key ); ?>" <?php selected( $chart_agg, $agg_key ); ?>>
 								<?php echo esc_html( $agg_label ); ?>
 							</option>
 						<?php endforeach; ?>
 					</select>
-				</td>
-			</tr>
-		</table>
+				</div>
+			</div>
+
+			<!-- Y Axis Columns -->
+			<div class="bpid-chart-y-section">
+				<label class="bpid-chart-y-label"><?php esc_html_e( 'Variables Eje Y', 'bpid-suite' ); ?></label>
+				<div id="y-axis-rows" class="bpid-chart-y-rows">
+					<!-- Y-axis rows populated by JavaScript -->
+				</div>
+				<div id="y-axis-warning" style="display:none;"></div>
+				<button type="button" class="button button-secondary bpid-add-y-btn" id="add-y-axis">
+					<span class="dashicons dashicons-plus-alt2" style="margin-top:4px;"></span>
+					<?php esc_html_e( 'Agregar Variable Y', 'bpid-suite' ); ?>
+				</button>
+			</div>
+		</div>
 	</div>
 
 	<!-- ================================================================= -->
-	<!-- Section C — Filters                                               -->
+	<!-- Section C — Filters (Card)                                         -->
 	<!-- ================================================================= -->
-	<div class="bpid-section bpid-section-filters">
-		<h3><?php esc_html_e( 'Filtros', 'bpid-suite' ); ?></h3>
-
-		<table class="form-table">
-			<tr>
-				<th scope="row">
+	<div class="bpid-chart-card">
+		<div class="bpid-chart-card-header">
+			<span class="dashicons dashicons-filter"></span>
+			<?php esc_html_e( 'Filtros de Datos', 'bpid-suite' ); ?>
+		</div>
+		<div class="bpid-chart-card-body">
+			<div class="bpid-chart-form-grid bpid-chart-form-grid--2col">
+				<div class="bpid-chart-form-group">
 					<label for="chart_filter_year"><?php esc_html_e( 'A&ntilde;o', 'bpid-suite' ); ?></label>
-				</th>
-				<td>
 					<input
 						type="number"
 						name="chart_filter_year"
 						id="chart_filter_year"
 						value="<?php echo esc_attr( $chart_filter_year ); ?>"
 						min="0"
-						class="small-text"
+						class="bpid-chart-input-sm"
+						placeholder="Todos"
 					/>
-					<p class="description"><?php esc_html_e( '0 o vac&iacute;o = todos los a&ntilde;os.', 'bpid-suite' ); ?></p>
-				</td>
-			</tr>
-			<tr>
-				<th scope="row">
+					<span class="bpid-chart-help"><?php esc_html_e( '0 o vac&iacute;o = todos los a&ntilde;os.', 'bpid-suite' ); ?></span>
+				</div>
+				<div class="bpid-chart-form-group">
 					<label for="chart_filter_month"><?php esc_html_e( 'Mes', 'bpid-suite' ); ?></label>
-				</th>
-				<td>
 					<input
 						type="number"
 						name="chart_filter_month"
@@ -283,27 +259,28 @@ $number_formats = array(
 						value="<?php echo esc_attr( $chart_filter_month ); ?>"
 						min="0"
 						max="12"
-						class="small-text"
+						class="bpid-chart-input-sm"
+						placeholder="Todos"
 					/>
-					<p class="description"><?php esc_html_e( '0 o vac&iacute;o = todos los meses.', 'bpid-suite' ); ?></p>
-				</td>
-			</tr>
-		</table>
+					<span class="bpid-chart-help"><?php esc_html_e( '0 o vac&iacute;o = todos los meses.', 'bpid-suite' ); ?></span>
+				</div>
+			</div>
+		</div>
 	</div>
 
 	<!-- ================================================================= -->
-	<!-- Section D — Appearance                                            -->
+	<!-- Section D — Appearance (Card)                                       -->
 	<!-- ================================================================= -->
-	<div class="bpid-section bpid-section-appearance">
-		<h3><?php esc_html_e( 'Apariencia', 'bpid-suite' ); ?></h3>
-
-		<table class="form-table">
-			<!-- Chart Height -->
-			<tr>
-				<th scope="row">
-					<label for="chart_height"><?php esc_html_e( 'Altura del Gr&aacute;fico', 'bpid-suite' ); ?></label>
-				</th>
-				<td>
+	<div class="bpid-chart-card">
+		<div class="bpid-chart-card-header">
+			<span class="dashicons dashicons-art"></span>
+			<?php esc_html_e( 'Apariencia', 'bpid-suite' ); ?>
+		</div>
+		<div class="bpid-chart-card-body">
+			<div class="bpid-chart-form-grid bpid-chart-form-grid--2col">
+				<!-- Chart Height -->
+				<div class="bpid-chart-form-group">
+					<label for="chart_height"><?php esc_html_e( 'Altura del Gr&aacute;fico (px)', 'bpid-suite' ); ?></label>
 					<input
 						type="number"
 						name="chart_height"
@@ -312,228 +289,168 @@ $number_formats = array(
 						min="200"
 						max="900"
 						step="10"
-						class="small-text"
+						class="bpid-chart-input-sm"
 					/>
-					<span class="description">px</span>
-				</td>
-			</tr>
+				</div>
 
-			<!-- Y Axis Title -->
-			<tr>
-				<th scope="row">
-					<label for="chart_title_y"><?php esc_html_e( 'T&iacute;tulo Eje Y', 'bpid-suite' ); ?></label>
-				</th>
-				<td>
-					<input
-						type="text"
-						name="chart_title_y"
-						id="chart_title_y"
-						value="<?php echo esc_attr( $chart_title_y ); ?>"
-						class="regular-text"
-						placeholder="<?php esc_attr_e( 'Valor en Pesos Colombianos', 'bpid-suite' ); ?>"
-					/>
-				</td>
-			</tr>
-
-			<!-- X Axis Title -->
-			<tr>
-				<th scope="row">
-					<label for="chart_title_x"><?php esc_html_e( 'T&iacute;tulo Eje X', 'bpid-suite' ); ?></label>
-				</th>
-				<td>
-					<input
-						type="text"
-						name="chart_title_x"
-						id="chart_title_x"
-						value="<?php echo esc_attr( $chart_title_x ); ?>"
-						class="regular-text"
-					/>
-				</td>
-			</tr>
-
-			<!-- Number Format -->
-			<tr>
-				<th scope="row">
+				<!-- Number Format -->
+				<div class="bpid-chart-form-group">
 					<label for="chart_number_format"><?php esc_html_e( 'Formato de N&uacute;meros', 'bpid-suite' ); ?></label>
-				</th>
-				<td>
-					<select name="chart_number_format" id="chart_number_format">
+					<select name="chart_number_format" id="chart_number_format" class="bpid-chart-select">
 						<?php foreach ( $number_formats as $fmt_key => $fmt_label ) : ?>
 							<option value="<?php echo esc_attr( $fmt_key ); ?>" <?php selected( $chart_number_format, $fmt_key ); ?>>
 								<?php echo esc_html( $fmt_label ); ?>
 							</option>
 						<?php endforeach; ?>
 					</select>
-				</td>
-			</tr>
+				</div>
 
-			<!-- Color Palette -->
-			<tr>
-				<th scope="row">
-					<label for="chart_color_palette"><?php esc_html_e( 'Paleta de Colores', 'bpid-suite' ); ?></label>
-				</th>
-				<td>
+				<!-- Y Axis Title -->
+				<div class="bpid-chart-form-group">
+					<label for="chart_title_y"><?php esc_html_e( 'T&iacute;tulo Eje Y', 'bpid-suite' ); ?></label>
 					<input
 						type="text"
-						name="chart_color_palette"
-						id="chart_color_palette"
-						value="<?php echo esc_attr( $chart_color_palette ); ?>"
-						class="regular-text"
-						placeholder="#2271b1, #d63638, #00a32a, #dba617, #8c5e58"
+						name="chart_title_y"
+						id="chart_title_y"
+						value="<?php echo esc_attr( $chart_title_y ); ?>"
+						class="bpid-chart-input"
+						placeholder="<?php esc_attr_e( 'Valor en Pesos Colombianos', 'bpid-suite' ); ?>"
 					/>
-					<div id="color-swatches" style="display:flex;gap:4px;margin-top:6px;"></div>
-					<p class="description"><?php esc_html_e( 'Colores HEX separados por coma.', 'bpid-suite' ); ?></p>
-				</td>
-			</tr>
+				</div>
 
-			<!-- Show Legend -->
-			<tr>
-				<th scope="row">
-					<?php esc_html_e( 'Leyenda', 'bpid-suite' ); ?>
-				</th>
-				<td>
-					<label>
-						<input
-							type="checkbox"
-							name="chart_show_legend"
-							value="1"
-							<?php checked( $chart_show_legend, '1' ); ?>
-						/>
-						<?php esc_html_e( 'Mostrar leyenda', 'bpid-suite' ); ?>
-					</label>
-				</td>
-			</tr>
+				<!-- X Axis Title -->
+				<div class="bpid-chart-form-group">
+					<label for="chart_title_x"><?php esc_html_e( 'T&iacute;tulo Eje X', 'bpid-suite' ); ?></label>
+					<input
+						type="text"
+						name="chart_title_x"
+						id="chart_title_x"
+						value="<?php echo esc_attr( $chart_title_x ); ?>"
+						class="bpid-chart-input"
+					/>
+				</div>
+			</div>
 
-			<!-- Show Interactive Timeline -->
-			<tr>
-				<th scope="row">
-					<?php esc_html_e( 'L&iacute;nea de Tiempo', 'bpid-suite' ); ?>
-				</th>
-				<td>
-					<label>
-						<input
-							type="checkbox"
-							name="chart_show_timeline"
-							value="1"
-							<?php checked( $chart_show_timeline, '1' ); ?>
-						/>
-						<?php esc_html_e( 'Mostrar l&iacute;nea de tiempo interactiva', 'bpid-suite' ); ?>
-					</label>
-				</td>
-			</tr>
-		</table>
+			<!-- Color Palette -->
+			<div class="bpid-chart-form-group" style="margin-top:16px;">
+				<label for="chart_color_palette"><?php esc_html_e( 'Paleta de Colores', 'bpid-suite' ); ?></label>
+				<input
+					type="text"
+					name="chart_color_palette"
+					id="chart_color_palette"
+					value="<?php echo esc_attr( $chart_color_palette ); ?>"
+					class="bpid-chart-input"
+					placeholder="#2271b1, #d63638, #00a32a, #dba617, #8c5e58"
+				/>
+				<div id="color-swatches" class="bpid-color-swatches"></div>
+				<span class="bpid-chart-help"><?php esc_html_e( 'Colores HEX separados por coma.', 'bpid-suite' ); ?></span>
+			</div>
+
+			<!-- Toggles Row -->
+			<div class="bpid-chart-toggles">
+				<label class="bpid-chart-toggle">
+					<input type="checkbox" name="chart_show_legend" value="1" <?php checked( $chart_show_legend, '1' ); ?> />
+					<span><?php esc_html_e( 'Mostrar leyenda', 'bpid-suite' ); ?></span>
+				</label>
+				<label class="bpid-chart-toggle">
+					<input type="checkbox" name="chart_show_timeline" value="1" <?php checked( $chart_show_timeline, '1' ); ?> />
+					<span><?php esc_html_e( 'L&iacute;nea de tiempo interactiva', 'bpid-suite' ); ?></span>
+				</label>
+			</div>
+		</div>
 	</div>
 
 	<!-- ================================================================= -->
-	<!-- Section E — Toolbar                                               -->
+	<!-- Section E — Toolbar (Card)                                          -->
 	<!-- ================================================================= -->
-	<div class="bpid-section bpid-section-toolbar">
-		<h3><?php esc_html_e( 'Barra de Herramientas', 'bpid-suite' ); ?></h3>
+	<div class="bpid-chart-card">
+		<div class="bpid-chart-card-header">
+			<span class="dashicons dashicons-admin-tools"></span>
+			<?php esc_html_e( 'Barra de Herramientas', 'bpid-suite' ); ?>
+		</div>
+		<div class="bpid-chart-card-body">
+			<label class="bpid-chart-toggle bpid-chart-toggle--main">
+				<input type="checkbox" name="chart_toolbar_show" id="chart_toolbar_show" value="1" <?php checked( $chart_toolbar_show, '1' ); ?> />
+				<span><?php esc_html_e( 'Mostrar barra de herramientas', 'bpid-suite' ); ?></span>
+			</label>
 
-		<table class="form-table">
-			<tr>
-				<th scope="row">
-					<?php esc_html_e( 'Toolbar', 'bpid-suite' ); ?>
-				</th>
-				<td>
-					<label>
-						<input
-							type="checkbox"
-							name="chart_toolbar_show"
-							id="chart_toolbar_show"
-							value="1"
-							<?php checked( $chart_toolbar_show, '1' ); ?>
-						/>
-						<?php esc_html_e( 'Mostrar barra de herramientas', 'bpid-suite' ); ?>
-					</label>
-
-					<fieldset class="bpid-toolbar-options" style="margin-top:10px;padding-left:20px;">
-						<label style="display:block;margin-bottom:4px;">
-							<input
-								type="checkbox"
-								name="chart_toolbar_info"
-								value="1"
-								<?php checked( $chart_toolbar_info, '1' ); ?>
-							/>
-							<?php esc_html_e( 'Detalle (Info)', 'bpid-suite' ); ?>
-						</label>
-						<label style="display:block;margin-bottom:4px;">
-							<input
-								type="checkbox"
-								name="chart_toolbar_share"
-								value="1"
-								<?php checked( $chart_toolbar_share, '1' ); ?>
-							/>
-							<?php esc_html_e( 'Compartir', 'bpid-suite' ); ?>
-						</label>
-						<label style="display:block;margin-bottom:4px;">
-							<input
-								type="checkbox"
-								name="chart_toolbar_data"
-								value="1"
-								<?php checked( $chart_toolbar_data, '1' ); ?>
-							/>
-							<?php esc_html_e( 'Ver Datos', 'bpid-suite' ); ?>
-						</label>
-						<label style="display:block;margin-bottom:4px;">
-							<input
-								type="checkbox"
-								name="chart_toolbar_save_img"
-								value="1"
-								<?php checked( $chart_toolbar_save_img, '1' ); ?>
-							/>
-							<?php esc_html_e( 'Guardar Imagen', 'bpid-suite' ); ?>
-						</label>
-						<label style="display:block;margin-bottom:4px;">
-							<input
-								type="checkbox"
-								name="chart_toolbar_csv"
-								value="1"
-								<?php checked( $chart_toolbar_csv, '1' ); ?>
-							/>
-							<?php esc_html_e( 'Descargar CSV', 'bpid-suite' ); ?>
-						</label>
-					</fieldset>
-				</td>
-			</tr>
-		</table>
+			<div class="bpid-toolbar-options-grid">
+				<label class="bpid-chart-toggle">
+					<input type="checkbox" name="chart_toolbar_info" value="1" <?php checked( $chart_toolbar_info, '1' ); ?> />
+					<span><?php esc_html_e( 'Detalle (Info)', 'bpid-suite' ); ?></span>
+				</label>
+				<label class="bpid-chart-toggle">
+					<input type="checkbox" name="chart_toolbar_share" value="1" <?php checked( $chart_toolbar_share, '1' ); ?> />
+					<span><?php esc_html_e( 'Compartir', 'bpid-suite' ); ?></span>
+				</label>
+				<label class="bpid-chart-toggle">
+					<input type="checkbox" name="chart_toolbar_data" value="1" <?php checked( $chart_toolbar_data, '1' ); ?> />
+					<span><?php esc_html_e( 'Ver Datos', 'bpid-suite' ); ?></span>
+				</label>
+				<label class="bpid-chart-toggle">
+					<input type="checkbox" name="chart_toolbar_save_img" value="1" <?php checked( $chart_toolbar_save_img, '1' ); ?> />
+					<span><?php esc_html_e( 'Guardar Imagen', 'bpid-suite' ); ?></span>
+				</label>
+				<label class="bpid-chart-toggle">
+					<input type="checkbox" name="chart_toolbar_csv" value="1" <?php checked( $chart_toolbar_csv, '1' ); ?> />
+					<span><?php esc_html_e( 'Descargar CSV', 'bpid-suite' ); ?></span>
+				</label>
+			</div>
+		</div>
 	</div>
 
 	<!-- ================================================================= -->
-	<!-- Section F — Custom Query (Advanced)                               -->
+	<!-- Section F — Custom Query (Card)                                     -->
 	<!-- ================================================================= -->
-	<div class="bpid-section bpid-section-custom-query">
-		<details<?php echo $chart_custom_query ? ' open' : ''; ?>>
-			<summary>
-				<h3 style="display:inline;"><?php esc_html_e( 'Consulta Personalizada (Avanzado)', 'bpid-suite' ); ?></h3>
-			</summary>
+	<div class="bpid-chart-card bpid-chart-card--query">
+		<div class="bpid-chart-card-header">
+			<span class="dashicons dashicons-editor-code"></span>
+			<?php esc_html_e( 'Query Personalizado', 'bpid-suite' ); ?>
+			<span class="bpid-badge-advanced"><?php esc_html_e( 'Avanzado', 'bpid-suite' ); ?></span>
+		</div>
+		<div class="bpid-chart-card-body">
+			<div class="bpid-query-warning">
+				<span class="dashicons dashicons-warning"></span>
+				<?php esc_html_e( 'Solo se permiten consultas SELECT. No utilice INSERT, UPDATE, DELETE, DROP ni otras sentencias que modifiquen datos.', 'bpid-suite' ); ?>
+			</div>
 
-			<div style="margin-top:10px;">
-				<p style="color:#d63638;font-weight:600;">
-					<?php esc_html_e( 'Solo se permiten consultas SELECT. No utilice INSERT, UPDATE, DELETE, DROP ni otras sentencias que modifiquen datos.', 'bpid-suite' ); ?>
-				</p>
-
+			<div class="bpid-query-editor-wrap">
+				<div class="bpid-query-toolbar">
+					<span class="bpid-query-label">SQL</span>
+					<button type="button" class="button button-small" id="bpid-query-generate">
+						<span class="dashicons dashicons-update" style="margin-top:4px;font-size:14px;"></span>
+						<?php esc_html_e( 'Generar desde config', 'bpid-suite' ); ?>
+					</button>
+					<button type="button" class="button button-small" id="bpid-query-clear">
+						<span class="dashicons dashicons-dismiss" style="margin-top:4px;font-size:14px;"></span>
+						<?php esc_html_e( 'Limpiar', 'bpid-suite' ); ?>
+					</button>
+				</div>
 				<textarea
 					name="chart_custom_query"
 					id="chart_custom_query"
 					rows="6"
-					class="large-text code"
+					class="bpid-query-textarea"
 					placeholder="SELECT columna_x, SUM(columna_y) FROM tabla WHERE anio = 2025 GROUP BY columna_x"
 				><?php echo esc_textarea( $chart_custom_query ); ?></textarea>
-
-				<p class="description">
-					<?php esc_html_e( 'Si se proporciona una consulta personalizada, se ignorar&aacute;n las opciones de tabla, ejes y filtros configuradas arriba.', 'bpid-suite' ); ?>
-				</p>
 			</div>
-		</details>
+
+			<p class="bpid-chart-help" style="margin-top:8px;">
+				<?php esc_html_e( 'Si se proporciona una consulta personalizada, se ignorar&aacute;n las opciones de tabla, ejes y filtros configuradas arriba.', 'bpid-suite' ); ?>
+			</p>
+		</div>
 	</div>
 
 	<!-- ================================================================= -->
-	<!-- Shortcode Preview                                                 -->
+	<!-- Shortcode Preview                                                  -->
 	<!-- ================================================================= -->
-	<div class="bpid-section bpid-section-shortcode" style="margin-top:16px;padding:12px;background:#f0f0f1;border-left:4px solid #2271b1;border-radius:2px;">
+	<div class="bpid-chart-shortcode-bar">
+		<span class="dashicons dashicons-shortcode"></span>
 		<strong><?php esc_html_e( 'Shortcode:', 'bpid-suite' ); ?></strong>
-		<code>[bpid_chart id="<?php echo esc_attr( (string) $post->ID ); ?>"]</code>
+		<code id="bpid-chart-shortcode-inline">[bpid_chart id="<?php echo esc_attr( (string) $post->ID ); ?>"]</code>
+		<button type="button" class="button button-small bpid-copy-shortcode" data-target="bpid-chart-shortcode-inline">
+			<?php esc_html_e( 'Copiar', 'bpid-suite' ); ?>
+		</button>
 	</div>
 
 </div><!-- .bpid-chart-config -->

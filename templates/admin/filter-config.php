@@ -6,7 +6,7 @@
  * Receives $post variable from the calling context.
  *
  * @package BPID_Suite
- * @since   1.0.0
+ * @since   1.4.0
  */
 
 if (!defined('ABSPATH')) {
@@ -19,6 +19,7 @@ wp_nonce_field('bpid_suite_filter_admin', 'bpid_suite_filter_nonce');
 
 $columns     = (array) get_post_meta($post->ID, '_bpid_filter_columns', true);
 $types       = (array) get_post_meta($post->ID, '_bpid_filter_types', true);
+$operators   = (array) get_post_meta($post->ID, '_bpid_filter_operators', true);
 $per_page    = (int) get_post_meta($post->ID, '_bpid_filter_per_page', true);
 $show_export = (string) get_post_meta($post->ID, '_bpid_filter_show_export', true);
 
@@ -55,113 +56,173 @@ $field_types_map = [
 
 $field_type_labels = [
     'text'         => __('Texto', 'bpid-suite'),
-    'select'       => __('Selección', 'bpid-suite'),
-    'range_number' => __('Rango numérico', 'bpid-suite'),
+    'select'       => __('Selecci&oacute;n', 'bpid-suite'),
+    'range_number' => __('Rango num&eacute;rico', 'bpid-suite'),
     'range_date'   => __('Rango fecha', 'bpid-suite'),
     'checkbox'     => __('Checkbox', 'bpid-suite'),
 ];
+
+$operator_options = [
+    'LIKE'  => __('Contiene (LIKE)', 'bpid-suite'),
+    '='     => __('Igual (=)', 'bpid-suite'),
+    '!='    => __('Diferente (!=)', 'bpid-suite'),
+    '>'     => __('Mayor que (>)', 'bpid-suite'),
+    '<'     => __('Menor que (<)', 'bpid-suite'),
+    '>='    => __('Mayor o igual (>=)', 'bpid-suite'),
+    '<='    => __('Menor o igual (<=)', 'bpid-suite'),
+];
+
+$column_labels = [
+    'dependencia'         => __('Dependencia', 'bpid-suite'),
+    'numero_proyecto'     => __('N&uacute;mero Proyecto', 'bpid-suite'),
+    'nombre_proyecto'     => __('Nombre Proyecto', 'bpid-suite'),
+    'entidad_ejecutora'   => __('Entidad Ejecutora', 'bpid-suite'),
+    'numero'              => __('N&uacute;mero', 'bpid-suite'),
+    'objeto'              => __('Objeto', 'bpid-suite'),
+    'descripcion'         => __('Descripci&oacute;n', 'bpid-suite'),
+    'valor'               => __('Valor', 'bpid-suite'),
+    'avance_fisico'       => __('Avance F&iacute;sico', 'bpid-suite'),
+    'es_ops'              => __('Es OPS', 'bpid-suite'),
+    'municipios'          => __('Municipios', 'bpid-suite'),
+    'fecha_importacion'   => __('Fecha Importaci&oacute;n', 'bpid-suite'),
+    'fecha_actualizacion' => __('Fecha Actualizaci&oacute;n', 'bpid-suite'),
+];
 ?>
 
-<table class="form-table">
-    <!-- Columns to Include -->
-    <tr>
-        <th scope="row">
-            <label><?php echo esc_html__('Columnas a incluir', 'bpid-suite'); ?></label>
-        </th>
-        <td>
-            <fieldset>
-                <?php foreach ($allowed_columns as $col) : ?>
-                    <label style="display:block;margin-bottom:4px;">
+<div class="bpid-filter-config">
+
+    <!-- ================================================================= -->
+    <!-- Section A — Columns Selection (Card)                               -->
+    <!-- ================================================================= -->
+    <div class="bpid-filter-card">
+        <div class="bpid-filter-card-header">
+            <span class="dashicons dashicons-columns"></span>
+            <?php esc_html_e('Columnas del Filtro', 'bpid-suite'); ?>
+            <div class="bpid-filter-card-actions">
+                <button type="button" class="button button-small" id="bpid-filter-select-all"><?php esc_html_e('Seleccionar Todo', 'bpid-suite'); ?></button>
+                <button type="button" class="button button-small" id="bpid-filter-deselect-all"><?php esc_html_e('Deseleccionar', 'bpid-suite'); ?></button>
+            </div>
+        </div>
+        <div class="bpid-filter-card-body">
+            <p class="bpid-filter-help-text"><?php esc_html_e('Seleccione las columnas que desea incluir como filtros. Al activar una columna se habilitar&aacute; el selector de tipo de campo y operador.', 'bpid-suite'); ?></p>
+            <div id="bpid-filter-columns" class="bpid-filter-columns-list">
+                <?php foreach ($allowed_columns as $col) :
+                    $is_checked = in_array($col, $columns, true);
+                    // Determine applicable field types
+                    $applicable = [];
+                    foreach ($field_types_map as $type => $type_columns) {
+                        if (in_array($col, $type_columns, true)) {
+                            $applicable[] = $type;
+                        }
+                    }
+                    $current_type = $types[$col] ?? ($applicable[0] ?? 'text');
+                    $current_operator = $operators[$col] ?? 'LIKE';
+                    $label = $column_labels[$col] ?? ucwords(str_replace('_', ' ', $col));
+                    ?>
+                    <div class="bpid-column-row<?php echo $is_checked ? ' bpid-column-row--active' : ''; ?>" data-column="<?php echo esc_attr($col); ?>">
+                        <div class="bpid-column-row-main">
+                            <label class="bpid-column-check-label">
+                                <input
+                                    type="checkbox"
+                                    class="bpid-column-checkbox"
+                                    name="_bpid_filter_columns[]"
+                                    value="<?php echo esc_attr($col); ?>"
+                                    <?php checked($is_checked); ?>
+                                />
+                                <span class="bpid-column-name"><?php echo esc_html($label); ?></span>
+                                <code class="bpid-column-code"><?php echo esc_html($col); ?></code>
+                            </label>
+
+                            <div class="bpid-column-type-selector" style="<?php echo $is_checked ? '' : 'display:none;'; ?>">
+                                <?php if (!empty($applicable)) : ?>
+                                    <select name="_bpid_filter_types[<?php echo esc_attr($col); ?>]" class="bpid-column-type-select">
+                                        <?php foreach ($applicable as $type_option) : ?>
+                                            <option value="<?php echo esc_attr($type_option); ?>" <?php selected($current_type, $type_option); ?>>
+                                                <?php echo esc_html($field_type_labels[$type_option] ?? $type_option); ?>
+                                            </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                <?php endif; ?>
+
+                                <select name="_bpid_filter_operators[<?php echo esc_attr($col); ?>]" class="bpid-column-operator-select">
+                                    <?php foreach ($operator_options as $op_key => $op_label) : ?>
+                                        <option value="<?php echo esc_attr($op_key); ?>" <?php selected($current_operator, $op_key); ?>>
+                                            <?php echo esc_html($op_label); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Individual shortcode per column -->
+                        <div class="bpid-column-shortcode" style="<?php echo $is_checked ? '' : 'display:none;'; ?>">
+                            <code class="bpid-column-shortcode-code">[bpid_filter id="<?php echo esc_attr((string) $post->ID); ?>" column="<?php echo esc_attr($col); ?>"]</code>
+                        </div>
+                    </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================================================================= -->
+    <!-- Section B — Settings (Card)                                        -->
+    <!-- ================================================================= -->
+    <div class="bpid-filter-card">
+        <div class="bpid-filter-card-header">
+            <span class="dashicons dashicons-admin-generic"></span>
+            <?php esc_html_e('Configuraci&oacute;n', 'bpid-suite'); ?>
+        </div>
+        <div class="bpid-filter-card-body">
+            <div class="bpid-filter-settings-grid">
+                <div class="bpid-filter-setting">
+                    <label for="bpid_filter_per_page"><?php esc_html_e('Resultados por p&aacute;gina', 'bpid-suite'); ?></label>
+                    <input
+                        type="number"
+                        id="bpid_filter_per_page"
+                        name="_bpid_filter_per_page"
+                        value="<?php echo esc_attr((string) $per_page); ?>"
+                        min="1"
+                        max="100"
+                        step="1"
+                        class="small-text"
+                    />
+                </div>
+                <div class="bpid-filter-setting">
+                    <label for="bpid_filter_show_export" class="bpid-filter-toggle-label">
                         <input
                             type="checkbox"
-                            name="_bpid_filter_columns[]"
-                            value="<?php echo esc_attr($col); ?>"
-                            <?php checked(in_array($col, $columns, true)); ?>
+                            id="bpid_filter_show_export"
+                            name="_bpid_filter_show_export"
+                            value="1"
+                            <?php checked($show_export, '1'); ?>
                         />
-                        <?php echo esc_html($col); ?>
+                        <?php esc_html_e('Mostrar bot&oacute;n exportar CSV', 'bpid-suite'); ?>
                     </label>
-                <?php endforeach; ?>
-            </fieldset>
-        </td>
-    </tr>
-
-    <!-- Field Type per Column -->
-    <tr>
-        <th scope="row">
-            <label><?php echo esc_html__('Tipo de campo por columna', 'bpid-suite'); ?></label>
-        </th>
-        <td>
-            <?php foreach ($allowed_columns as $col) :
-                // Determine which field types are applicable for this column.
-                $applicable = [];
-                foreach ($field_types_map as $type => $type_columns) {
-                    if (in_array($col, $type_columns, true)) {
-                        $applicable[] = $type;
-                    }
-                }
-                if (empty($applicable)) {
-                    continue;
-                }
-                $current_type = $types[$col] ?? $applicable[0];
-                ?>
-                <div style="display:inline-block;margin-right:16px;margin-bottom:8px;">
-                    <strong><?php echo esc_html($col); ?>:</strong>
-                    <select name="_bpid_filter_types[<?php echo esc_attr($col); ?>]">
-                        <?php foreach ($applicable as $type_option) : ?>
-                            <option
-                                value="<?php echo esc_attr($type_option); ?>"
-                                <?php selected($current_type, $type_option); ?>
-                            >
-                                <?php echo esc_html($field_type_labels[$type_option] ?? $type_option); ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
                 </div>
-            <?php endforeach; ?>
-        </td>
-    </tr>
+            </div>
+        </div>
+    </div>
 
-    <!-- Per Page -->
-    <tr>
-        <th scope="row">
-            <label for="bpid_filter_per_page"><?php echo esc_html__('Resultados por página', 'bpid-suite'); ?></label>
-        </th>
-        <td>
-            <input
-                type="number"
-                id="bpid_filter_per_page"
-                name="_bpid_filter_per_page"
-                value="<?php echo esc_attr((string) $per_page); ?>"
-                min="1"
-                max="100"
-                step="1"
-                class="small-text"
-            />
-        </td>
-    </tr>
+    <!-- ================================================================= -->
+    <!-- Section C — Shortcode Preview (Card)                               -->
+    <!-- ================================================================= -->
+    <div class="bpid-filter-card">
+        <div class="bpid-filter-card-header">
+            <span class="dashicons dashicons-shortcode"></span>
+            <?php esc_html_e('Shortcodes', 'bpid-suite'); ?>
+        </div>
+        <div class="bpid-filter-card-body">
+            <div class="bpid-filter-shortcode-main">
+                <strong><?php esc_html_e('Shortcode completo:', 'bpid-suite'); ?></strong>
+                <code id="bpid-filter-shortcode-preview">[bpid_filter id="<?php echo esc_attr((string) $post->ID); ?>"]</code>
+                <button type="button" class="button button-small bpid-copy-shortcode" data-target="bpid-filter-shortcode-preview">
+                    <?php esc_html_e('Copiar', 'bpid-suite'); ?>
+                </button>
+            </div>
+            <p class="bpid-filter-shortcode-note">
+                <?php esc_html_e('Puede usar el shortcode completo o los shortcodes individuales por columna que aparecen junto a cada campo activado.', 'bpid-suite'); ?>
+            </p>
+        </div>
+    </div>
 
-    <!-- Show Export -->
-    <tr>
-        <th scope="row">
-            <label for="bpid_filter_show_export"><?php echo esc_html__('Mostrar botón exportar', 'bpid-suite'); ?></label>
-        </th>
-        <td>
-            <input
-                type="checkbox"
-                id="bpid_filter_show_export"
-                name="_bpid_filter_show_export"
-                value="1"
-                <?php checked($show_export, '1'); ?>
-            />
-            <span class="description">
-                <?php echo esc_html__('Permite a los usuarios exportar los resultados filtrados.', 'bpid-suite'); ?>
-            </span>
-        </td>
-    </tr>
-</table>
-
-<!-- Shortcode Preview -->
-<div style="margin-top:16px;padding:12px;background:#f0f0f1;border-left:4px solid #2271b1;border-radius:2px;">
-    <strong><?php echo esc_html__('Shortcode:', 'bpid-suite'); ?></strong>
-    <code>[bpid_filter id="<?php echo esc_attr((string) $post->ID); ?>"]</code>
-</div>
+</div><!-- .bpid-filter-config -->
