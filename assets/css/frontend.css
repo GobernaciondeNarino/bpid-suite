@@ -541,6 +541,156 @@
 }
 
 /* ----------------------------------------
+   Post Module — Search Input
+   ---------------------------------------- */
+.bpid-grid-search {
+    margin-bottom: 20px;
+}
+
+.bpid-grid-search-input {
+    width: 100%;
+    padding: 12px 16px;
+    border: 2px solid var(--bpid-color-border);
+    border-radius: var(--bpid-radius);
+    font-size: 14px;
+    color: var(--bpid-color-text);
+    background: #fff;
+    transition: border-color var(--bpid-transition), box-shadow var(--bpid-transition);
+    box-sizing: border-box;
+}
+
+.bpid-grid-search-input:focus {
+    outline: none;
+    border-color: var(--bpid-color-primario);
+    box-shadow: 0 0 0 3px rgba(52, 138, 251, 0.15);
+}
+
+.bpid-grid-intro {
+    font-size: 15px;
+    color: var(--bpid-color-text-muted);
+    margin: 0 0 20px;
+    line-height: 1.6;
+}
+
+/* ----------------------------------------
+   Post Module — Card Image
+   ---------------------------------------- */
+.bpid-grid-card-image {
+    position: relative;
+    width: 100%;
+    height: 200px;
+    overflow: hidden;
+    background: #f0f0f0;
+}
+
+.bpid-grid-card-image img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+}
+
+.bpid-grid-card-placeholder {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+.bpid-grid-card-badge {
+    position: absolute;
+    bottom: 8px;
+    left: 8px;
+    background: var(--bpid-color-primario);
+    color: #fff;
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 10px;
+    border-radius: 20px;
+    text-transform: capitalize;
+}
+
+/* ----------------------------------------
+   Post Module — Card Description & Extras
+   ---------------------------------------- */
+.bpid-grid-card-desc {
+    font-size: 13px;
+    color: var(--bpid-color-text-muted);
+    margin: 4px 0 0;
+    line-height: 1.4;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+}
+
+.bpid-grid-card-extras {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid #f0f0f0;
+}
+
+.bpid-grid-card-extra {
+    font-size: 12px;
+    margin: 3px 0;
+    line-height: 1.4;
+}
+
+.bpid-grid-card-extra strong {
+    font-weight: 600;
+}
+
+.bpid-grid-card-actividades {
+    font-size: 12px;
+    color: var(--bpid-color-text-muted);
+}
+
+.bpid-grid-card-details-btn {
+    background: none;
+    border: none;
+    color: var(--bpid-color-primario);
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    padding: 4px 0;
+    transition: color var(--bpid-transition);
+}
+
+.bpid-grid-card-details-btn:hover {
+    color: var(--bpid-color-primario-dark);
+}
+
+.bpid-grid-btn--clear {
+    padding: 8px 16px;
+    background: transparent;
+    color: var(--bpid-color-text-muted);
+    border: 1px solid var(--bpid-color-border);
+    border-radius: 6px;
+    font-size: 13px;
+    cursor: pointer;
+    transition: all var(--bpid-transition);
+}
+
+.bpid-grid-btn--clear:hover {
+    background: #f6f7f7;
+    color: var(--bpid-color-text);
+}
+
+.bpid-grid-error {
+    padding: 16px;
+    background: #fee2e2;
+    border: 1px solid #ef4444;
+    border-radius: var(--bpid-radius);
+    color: #991b1b;
+    margin-bottom: 20px;
+}
+
+.bpid-grid-no-results {
+    text-align: center;
+    padding: 40px 20px;
+    color: var(--bpid-color-text-muted);
+}
+
+/* ----------------------------------------
    Post Module — Stats Bar
    ---------------------------------------- */
 .bpid-grid-stats {
@@ -563,6 +713,24 @@
 .bpid-grid-stat-card:hover {
     transform: translateY(-2px);
     box-shadow: var(--bpid-shadow-md);
+}
+
+.bpid-grid-stat-value {
+    display: block;
+    font-size: 32px;
+    font-weight: 800;
+    color: var(--bpid-color-secondary, var(--bpid-color-primario));
+    line-height: 1.1;
+}
+
+.bpid-grid-stat-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--bpid-color-text-muted);
+    margin-top: 6px;
 }
 
 .bpid-grid-stat-card .bpid-stat-number {
@@ -790,7 +958,8 @@
     animation: bpid-fade-in 0.2s ease;
 }
 
-.bpid-grid-modal.is-open {
+.bpid-grid-modal.is-open,
+.bpid-grid-modal.show {
     display: flex;
 }
 
@@ -966,6 +1135,123 @@
     font-weight: 700;
     font-variant-numeric: tabular-nums;
     color: var(--bpid-color-primario-dark);
+}
+
+/* ----------------------------------------
+   Modal — Info Grid & Contratos
+   ---------------------------------------- */
+.bpid-modal-info-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.bpid-modal-info-item {
+    padding: 14px 16px;
+    background: #f9fafb;
+    border-radius: 6px;
+    border-left: 3px solid var(--bpid-color-primario);
+}
+
+.bpid-modal-info-label {
+    display: block;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--bpid-color-text-muted);
+    margin-bottom: 4px;
+}
+
+.bpid-modal-info-value {
+    font-size: 14px;
+    font-weight: 600;
+    color: var(--bpid-color-text);
+}
+
+.bpid-modal-contrato {
+    padding: 16px;
+    margin-bottom: 12px;
+    background: #f9fafb;
+    border: 1px solid var(--bpid-color-border);
+    border-radius: 6px;
+}
+
+.bpid-modal-contrato-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.bpid-modal-contrato-valor {
+    font-weight: 700;
+    color: var(--bpid-color-primario-dark);
+    font-variant-numeric: tabular-nums;
+}
+
+.bpid-modal-contrato-avance {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 8px;
+    font-size: 13px;
+    color: var(--bpid-color-text-muted);
+}
+
+.bpid-modal-municipios {
+    margin-top: 10px;
+    font-size: 13px;
+}
+
+.bpid-modal-municipios ul {
+    margin: 4px 0 0 18px;
+    padding: 0;
+}
+
+.bpid-modal-municipios li {
+    margin-bottom: 2px;
+}
+
+.bpid-modal-images {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 10px;
+}
+
+.bpid-modal-img {
+    width: 120px;
+    height: 90px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1px solid var(--bpid-color-border);
+}
+
+.bpid-modal-ods {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.bpid-modal-ods-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    background: var(--bpid-color-primario-light);
+    color: var(--bpid-color-primario);
+    font-size: 12px;
+    font-weight: 600;
+    border-radius: 20px;
+}
+
+/* Modal accordion content toggle via .active class */
+.bpid-modal-accordion-content {
+    display: none;
+}
+
+.bpid-modal-accordion-content.active {
+    display: block;
 }
 
 /* ----------------------------------------

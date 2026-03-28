@@ -10,6 +10,14 @@
         console.error('[BPID Post] Error al parsear datos:', e);
     }
 
+    var gridConfig = {};
+    try {
+        var cfgEl = document.getElementById('bpid-grid-config');
+        if (cfgEl) gridConfig = JSON.parse(cfgEl.textContent);
+    } catch(e) {
+        console.error('[BPID Post] Error al parsear config:', e);
+    }
+
     // ── Filters ──
     var filterIds = [
         'bpid-grid-search-general',
@@ -72,6 +80,12 @@
     var modal = document.getElementById('bpid-grid-modal');
     var modalBody = document.getElementById('bpid-grid-modal-body');
     var ocultarOps = modal ? modal.dataset.ocultarOps === '1' : false;
+
+    // Accordion config from grid config.
+    var showMetas     = gridConfig.accordionShowMetas !== false && gridConfig.accordionShowMetas !== 0;
+    var showOds       = gridConfig.accordionShowOds !== false && gridConfig.accordionShowOds !== 0;
+    var showContratos = gridConfig.accordionShowContratos !== false && gridConfig.accordionShowContratos !== 0;
+    var contratoFields = Array.isArray(gridConfig.accordionContratoFields) ? gridConfig.accordionContratoFields : [];
 
     window.bpidGridOpenModal = function (idx) {
         var p = proyectosData[idx];
@@ -145,6 +159,31 @@
     }
 
     function renderContrato(c, val, av) {
+        var html = '<div class="bpid-modal-contrato">';
+
+        // If custom contrato fields are configured, use them.
+        if (contratoFields.length > 0) {
+            html += '<div class="bpid-modal-contrato-header">';
+            html += '<strong>' + escHtml(c.numeroContrato) + '</strong>';
+            html += '<span class="bpid-modal-contrato-valor">' + formatCOP(val) + '</span></div>';
+            contratoFields.forEach(function(cf) {
+                var fieldKey = cf.field || '';
+                var label = cf.label || fieldKey;
+                var value = c[fieldKey] || '';
+                if (typeof value === 'object') value = JSON.stringify(value);
+                html += '<p><strong>' + escHtml(label) + ':</strong> ' + escHtml(String(value)) + '</p>';
+            });
+            html += '<div class="bpid-modal-contrato-avance"><span>Avance fisico:</span>' + barra(av) + '</div>';
+        } else {
+            // Default contrato rendering.
+            html += '<div class="bpid-modal-contrato-header">' +
+                '<strong>' + escHtml(c.numeroContrato) + '</strong>' +
+                '<span class="bpid-modal-contrato-valor">' + formatCOP(val) + '</span></div>' +
+                '<p>' + escHtml(c.objetoContrato) + '</p>' +
+                '<div class="bpid-modal-contrato-avance"><span>Avance fisico:</span>' + barra(av) + '</div>';
+        }
+
+        // Municipios
         var munsHtml = '';
         if (Array.isArray(c.municipiosEjecContractual) && c.municipiosEjecContractual.length) {
             munsHtml = '<div class="bpid-modal-municipios"><strong>Municipios:</strong><ul>';
@@ -156,6 +195,7 @@
             munsHtml += '</ul></div>';
         }
 
+        // Images
         var imgsHtml = '';
         if (Array.isArray(c.imagenesEjecContractual) && c.imagenesEjecContractual.length) {
             imgsHtml = '<div class="bpid-modal-images">';
@@ -167,13 +207,8 @@
             imgsHtml += '</div>';
         }
 
-        return '<div class="bpid-modal-contrato">' +
-            '<div class="bpid-modal-contrato-header">' +
-            '<strong>' + escHtml(c.numeroContrato) + '</strong>' +
-            '<span class="bpid-modal-contrato-valor">' + formatCOP(val) + '</span></div>' +
-            '<p>' + escHtml(c.objetoContrato) + '</p>' +
-            '<div class="bpid-modal-contrato-avance"><span>Avance fisico:</span>' + barra(av) + '</div>' +
-            munsHtml + imgsHtml + '</div>';
+        html += munsHtml + imgsHtml + '</div>';
+        return html;
     }
 
     function buildModalHtml(p, pVal, totalVal, avFisico, avFinanciero, contratosHtml) {
@@ -189,38 +224,33 @@
             '<div class="bpid-modal-info-item"><span class="bpid-modal-info-label">Avance fisico</span>' + barra(avFisico) + '</div>' +
             '<div class="bpid-modal-info-item"><span class="bpid-modal-info-label">Ejecucion financiera</span>' + barra(avFinanciero) + '</div></div>';
 
-        // Accordions
-        // Metas
-        var metasContent = '<p>Sin metas registradas</p>';
-        if (Array.isArray(p.metasProyecto) && p.metasProyecto.length) {
-            metasContent = '<ul>' + p.metasProyecto.map(function(m) { return '<li>' + escHtml(m) + '</li>'; }).join('') + '</ul>';
+        // Accordions — configurable
+        if (showMetas) {
+            var metasContent = '<p>Sin metas registradas</p>';
+            if (Array.isArray(p.metasProyecto) && p.metasProyecto.length) {
+                metasContent = '<ul>' + p.metasProyecto.map(function(m) { return '<li>' + escHtml(m) + '</li>'; }).join('') + '</ul>';
+            }
+            html += accordion('Metas del proyecto', metasContent);
         }
-        html += accordion('Metas del proyecto', metasContent);
 
-        // ODS
-        var odsContent = '<p>Sin ODS asociados</p>';
-        if (Array.isArray(p.odssProyecto) && p.odssProyecto.length) {
-            odsContent = '<div class="bpid-modal-ods">' + p.odssProyecto.map(function(o) { return '<span class="bpid-modal-ods-badge">' + escHtml(o) + '</span>'; }).join('') + '</div>';
+        if (showOds) {
+            var odsContent = '<p>Sin ODS asociados</p>';
+            if (Array.isArray(p.odssProyecto) && p.odssProyecto.length) {
+                odsContent = '<div class="bpid-modal-ods">' + p.odssProyecto.map(function(o) { return '<span class="bpid-modal-ods-badge">' + escHtml(o) + '</span>'; }).join('') + '</div>';
+            }
+            html += accordion('ODS relacionados', odsContent);
         }
-        html += accordion('ODS relacionados', odsContent);
 
-        // Contratos
-        var contContent = contratosHtml || '<p>Sin contratos registrados</p>';
-        var numContratos = (p.contratosProyecto || []).length;
-        html += accordion('Contratos (' + numContratos + ')', contContent);
+        if (showContratos) {
+            var contContent = contratosHtml || '<p>Sin contratos registrados</p>';
+            var numContratos = (p.contratosProyecto || []).length;
+            html += accordion('Contratos (' + numContratos + ')', contContent);
+        }
 
         return html;
     }
 
     // ── Export ──
-    var gridConfig = {};
-    try {
-        var cfgEl = document.getElementById('bpid-grid-config');
-        if (cfgEl) gridConfig = JSON.parse(cfgEl.textContent);
-    } catch(e) {
-        console.error('[BPID Post] Error al parsear config:', e);
-    }
-
     function bpidExport(format) {
         var depSelect = document.getElementById('bpid-grid-filter-dependencia');
         var dep = depSelect ? depSelect.value : '';
