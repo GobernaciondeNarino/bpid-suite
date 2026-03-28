@@ -126,134 +126,10 @@ final class BPID_Suite_Post {
     }
 
     /**
-     * Render the meta box fields.
+     * Render the meta box fields via external template.
      */
     public function render_meta_box(\WP_Post $post): void {
-        wp_nonce_field('bpid_suite_post_admin', 'bpid_suite_post_nonce');
-
-        $mostrar_stats    = (int) get_post_meta($post->ID, '_bpid_post_mostrar_stats', true) ?: 1;
-        $mostrar_buscador = (int) get_post_meta($post->ID, '_bpid_post_mostrar_buscador', true) ?: 1;
-        $mostrar_filtros  = (int) get_post_meta($post->ID, '_bpid_post_mostrar_filtros', true) ?: 1;
-        $filtro_dep       = get_post_meta($post->ID, '_bpid_post_filtro_dependencia', true) ?: '';
-        $color_primario   = get_post_meta($post->ID, '_bpid_post_color_primario', true) ?: '#348afb';
-        $color_fondo      = get_post_meta($post->ID, '_bpid_post_color_fondo', true) ?: '#fffcf3';
-        $ocultar_ops      = (int) get_post_meta($post->ID, '_bpid_post_ocultar_ops', true) ?: 1;
-        $cols_grid        = (int) get_post_meta($post->ID, '_bpid_post_cols_grid', true) ?: 3;
-        $texto_intro      = get_post_meta($post->ID, '_bpid_post_texto_intro', true) ?: '';
-        $cache_horas      = (int) get_post_meta($post->ID, '_bpid_post_cache_horas', true) ?: 1;
-
-        // Handle unchecked checkboxes on existing posts.
-        if (get_post_meta($post->ID, '_bpid_post_mostrar_stats', true) === '0') {
-            $mostrar_stats = 0;
-        }
-        if (get_post_meta($post->ID, '_bpid_post_mostrar_buscador', true) === '0') {
-            $mostrar_buscador = 0;
-        }
-        if (get_post_meta($post->ID, '_bpid_post_mostrar_filtros', true) === '0') {
-            $mostrar_filtros = 0;
-        }
-        if (get_post_meta($post->ID, '_bpid_post_ocultar_ops', true) === '0') {
-            $ocultar_ops = 0;
-        }
-
-        ?>
-        <table class="form-table bpid-post-metabox">
-            <tr>
-                <th scope="row">
-                    <label for="bpid_post_mostrar_stats"><?php esc_html_e('Mostrar estadísticas', 'bpid-suite'); ?></label>
-                </th>
-                <td>
-                    <input type="hidden" name="_bpid_post_mostrar_stats" value="0">
-                    <input type="checkbox" id="bpid_post_mostrar_stats" name="_bpid_post_mostrar_stats" value="1" <?php checked($mostrar_stats, 1); ?>>
-                </td>
-            </tr>
-            <tr>
-                <th scope="row">
-                    <label for="bpid_post_mostrar_buscador"><?php esc_html_e('Mostrar buscador', 'bpid-suite'); ?></label>
-                </th>
-                <td>
-                    <input type="hidden" name="_bpid_post_mostrar_buscador" value="0">
-                    <input type="checkbox" id="bpid_post_mostrar_buscador" name="_bpid_post_mostrar_buscador" value="1" <?php checked($mostrar_buscador, 1); ?>>
-                </td>
-            </tr>
-            <tr>
-                <th scope="row">
-                    <label for="bpid_post_mostrar_filtros"><?php esc_html_e('Mostrar filtros', 'bpid-suite'); ?></label>
-                </th>
-                <td>
-                    <input type="hidden" name="_bpid_post_mostrar_filtros" value="0">
-                    <input type="checkbox" id="bpid_post_mostrar_filtros" name="_bpid_post_mostrar_filtros" value="1" <?php checked($mostrar_filtros, 1); ?>>
-                </td>
-            </tr>
-            <tr>
-                <th scope="row">
-                    <label for="bpid_post_filtro_dependencia"><?php esc_html_e('Filtro por dependencia', 'bpid-suite'); ?></label>
-                </th>
-                <td>
-                    <select id="bpid_post_filtro_dependencia" name="_bpid_post_filtro_dependencia">
-                        <option value=""><?php esc_html_e('— Todas las dependencias —', 'bpid-suite'); ?></option>
-                        <?php
-                        /**
-                         * Allow other modules to populate the dependencias dropdown.
-                         *
-                         * @param string $current Current selected value.
-                         */
-                        do_action('bpid_post_dependencia_options', $filtro_dep);
-                        ?>
-                    </select>
-                </td>
-            </tr>
-            <tr>
-                <th scope="row">
-                    <label for="bpid_post_color_primario"><?php esc_html_e('Color primario', 'bpid-suite'); ?></label>
-                </th>
-                <td>
-                    <input type="text" id="bpid_post_color_primario" name="_bpid_post_color_primario" value="<?php echo esc_attr($color_primario); ?>" class="bpid-color-picker" data-default-color="#348afb">
-                </td>
-            </tr>
-            <tr>
-                <th scope="row">
-                    <label for="bpid_post_color_fondo"><?php esc_html_e('Color de fondo', 'bpid-suite'); ?></label>
-                </th>
-                <td>
-                    <input type="text" id="bpid_post_color_fondo" name="_bpid_post_color_fondo" value="<?php echo esc_attr($color_fondo); ?>" class="bpid-color-picker" data-default-color="#fffcf3">
-                </td>
-            </tr>
-            <tr>
-                <th scope="row">
-                    <label for="bpid_post_ocultar_ops"><?php esc_html_e('Ocultar OPS', 'bpid-suite'); ?></label>
-                </th>
-                <td>
-                    <input type="hidden" name="_bpid_post_ocultar_ops" value="0">
-                    <input type="checkbox" id="bpid_post_ocultar_ops" name="_bpid_post_ocultar_ops" value="1" <?php checked($ocultar_ops, 1); ?>>
-                </td>
-            </tr>
-            <tr>
-                <th scope="row">
-                    <label for="bpid_post_cols_grid"><?php esc_html_e('Columnas del grid', 'bpid-suite'); ?></label>
-                </th>
-                <td>
-                    <input type="number" id="bpid_post_cols_grid" name="_bpid_post_cols_grid" value="<?php echo esc_attr((string) $cols_grid); ?>" min="1" max="4" step="1">
-                </td>
-            </tr>
-            <tr>
-                <th scope="row">
-                    <label for="bpid_post_texto_intro"><?php esc_html_e('Texto introductorio', 'bpid-suite'); ?></label>
-                </th>
-                <td>
-                    <textarea id="bpid_post_texto_intro" name="_bpid_post_texto_intro" rows="4" class="large-text"><?php echo esc_textarea($texto_intro); ?></textarea>
-                </td>
-            </tr>
-            <tr>
-                <th scope="row">
-                    <label for="bpid_post_cache_horas"><?php esc_html_e('Horas de caché', 'bpid-suite'); ?></label>
-                </th>
-                <td>
-                    <input type="number" id="bpid_post_cache_horas" name="_bpid_post_cache_horas" value="<?php echo esc_attr((string) $cache_horas); ?>" min="1" max="24" step="1">
-                </td>
-            </tr>
-        </table>
-        <?php
+        include BPID_SUITE_PATH . 'templates/admin/post-config.php';
     }
 
     // ------------------------------------------------------------------
@@ -291,64 +167,124 @@ final class BPID_Suite_Post {
         }
 
         // Checkbox fields (saved as 0 or 1).
+        // Template uses names without underscore prefix.
         $checkboxes = [
-            '_bpid_post_mostrar_stats',
-            '_bpid_post_mostrar_buscador',
-            '_bpid_post_mostrar_filtros',
-            '_bpid_post_ocultar_ops',
+            'bpid_post_mostrar_stats'            => '_bpid_post_mostrar_stats',
+            'bpid_post_mostrar_buscador'         => '_bpid_post_mostrar_buscador',
+            'bpid_post_mostrar_filtros'          => '_bpid_post_mostrar_filtros',
+            'bpid_post_ocultar_ops'              => '_bpid_post_ocultar_ops',
+            'bpid_post_accordion_show_metas'     => '_bpid_post_accordion_show_metas',
+            'bpid_post_accordion_show_ods'       => '_bpid_post_accordion_show_ods',
+            'bpid_post_accordion_show_contratos' => '_bpid_post_accordion_show_contratos',
         ];
 
-        foreach ($checkboxes as $key) {
-            $value = isset($_POST[$key]) ? absint($_POST[$key]) : 0;
-            update_post_meta($post_id, $key, $value ? 1 : 0);
+        foreach ($checkboxes as $post_key => $meta_key) {
+            $value = isset($_POST[$post_key]) ? absint($_POST[$post_key]) : 0;
+            update_post_meta($post_id, $meta_key, $value ? '1' : '0');
         }
 
         // Text / select fields.
-        if (isset($_POST['_bpid_post_filtro_dependencia'])) {
-            update_post_meta(
-                $post_id,
-                '_bpid_post_filtro_dependencia',
-                sanitize_text_field(wp_unslash($_POST['_bpid_post_filtro_dependencia']))
-            );
+        $text_fields = [
+            'bpid_post_filtro_dependencia' => '_bpid_post_filtro_dependencia',
+            'bpid_post_card_title_field'   => '_bpid_post_card_title_field',
+            'bpid_post_card_desc_field'    => '_bpid_post_card_desc_field',
+            'bpid_post_texto_intro'        => '_bpid_post_texto_intro',
+        ];
+
+        foreach ($text_fields as $post_key => $meta_key) {
+            if (isset($_POST[$post_key])) {
+                update_post_meta(
+                    $post_id,
+                    $meta_key,
+                    sanitize_text_field(wp_unslash($_POST[$post_key]))
+                );
+            }
         }
 
-        if (isset($_POST['_bpid_post_color_primario'])) {
-            update_post_meta(
-                $post_id,
-                '_bpid_post_color_primario',
-                sanitize_hex_color(wp_unslash($_POST['_bpid_post_color_primario'])) ?: '#348afb'
-            );
-        }
+        // Color fields (hex).
+        $color_fields = [
+            'bpid_post_color_primario'      => ['_bpid_post_color_primario', '#348afb'],
+            'bpid_post_color_fondo'         => ['_bpid_post_color_fondo', '#fffcf3'],
+            'bpid_post_title_color'         => ['_bpid_post_title_color', '#1d2327'],
+            'bpid_post_desc_color'          => ['_bpid_post_desc_color', '#646970'],
+            'bpid_post_secondary_color'     => ['_bpid_post_secondary_color', '#348afb'],
+            'bpid_post_search_border_color' => ['_bpid_post_search_border_color', '#dcdcde'],
+            'bpid_post_search_bg_color'     => ['_bpid_post_search_bg_color', '#ffffff'],
+        ];
 
-        if (isset($_POST['_bpid_post_color_fondo'])) {
-            update_post_meta(
-                $post_id,
-                '_bpid_post_color_fondo',
-                sanitize_hex_color(wp_unslash($_POST['_bpid_post_color_fondo'])) ?: '#fffcf3'
-            );
+        foreach ($color_fields as $post_key => [$meta_key, $default]) {
+            if (isset($_POST[$post_key])) {
+                $color = sanitize_hex_color(wp_unslash($_POST[$post_key]));
+                update_post_meta($post_id, $meta_key, $color ?: $default);
+            }
         }
 
         // Numeric fields.
-        if (isset($_POST['_bpid_post_cols_grid'])) {
-            $cols = absint($_POST['_bpid_post_cols_grid']);
-            $cols = max(1, min(4, $cols));
-            update_post_meta($post_id, '_bpid_post_cols_grid', $cols);
+        $numeric_fields = [
+            'bpid_post_cols_grid'            => ['_bpid_post_cols_grid', 1, 4, 3],
+            'bpid_post_cache_horas'          => ['_bpid_post_cache_horas', 1, 24, 12],
+            'bpid_post_title_font_size'      => ['_bpid_post_title_font_size', 10, 30, 15],
+            'bpid_post_desc_font_size'       => ['_bpid_post_desc_font_size', 10, 24, 13],
+            'bpid_post_search_border_radius' => ['_bpid_post_search_border_radius', 0, 50, 8],
+            'bpid_post_search_font_size'     => ['_bpid_post_search_font_size', 10, 24, 14],
+        ];
+
+        foreach ($numeric_fields as $post_key => [$meta_key, $min, $max, $default]) {
+            if (isset($_POST[$post_key])) {
+                $val = absint($_POST[$post_key]);
+                $val = max($min, min($max, $val));
+                update_post_meta($post_id, $meta_key, $val);
+            }
         }
 
-        if (isset($_POST['_bpid_post_cache_horas'])) {
-            $horas = absint($_POST['_bpid_post_cache_horas']);
-            $horas = max(1, min(24, $horas));
-            update_post_meta($post_id, '_bpid_post_cache_horas', $horas);
+        // URL field: default image.
+        if (isset($_POST['bpid_post_default_image'])) {
+            $url = esc_url_raw(wp_unslash($_POST['bpid_post_default_image']));
+            update_post_meta($post_id, '_bpid_post_default_image', $url);
         }
 
-        // Textarea.
-        if (isset($_POST['_bpid_post_texto_intro'])) {
-            update_post_meta(
-                $post_id,
-                '_bpid_post_texto_intro',
-                sanitize_textarea_field(wp_unslash($_POST['_bpid_post_texto_intro']))
-            );
+        // JSON array fields: card extra fields.
+        $this->save_json_array_field($post_id, 'bpid_post_card_extra_fields', '_bpid_post_card_extra_fields');
+
+        // JSON array fields: stats fields.
+        $this->save_json_array_field($post_id, 'bpid_post_stats_fields', '_bpid_post_stats_fields');
+
+        // JSON array fields: accordion contrato fields.
+        $this->save_json_array_field($post_id, 'bpid_post_accordion_contrato_fields', '_bpid_post_accordion_contrato_fields');
+    }
+
+    /**
+     * Save a JSON-encoded array field from POST data.
+     *
+     * Expects POST data as parallel arrays: field[], label[], aggregation[].
+     */
+    private function save_json_array_field(int $post_id, string $post_key, string $meta_key): void {
+        if (!isset($_POST[$post_key]) || !is_array($_POST[$post_key])) {
+            update_post_meta($post_id, $meta_key, []);
+            return;
         }
+
+        $raw = $_POST[$post_key]; // phpcs:ignore WordPress.Security.ValidatedSanitizedInput
+        $fields = $raw['field'] ?? [];
+        $labels = $raw['label'] ?? [];
+        $aggregations = $raw['aggregation'] ?? [];
+
+        $clean = [];
+        if (is_array($fields)) {
+            foreach ($fields as $i => $field) {
+                $f = sanitize_text_field(wp_unslash($field));
+                if (empty($f)) {
+                    continue;
+                }
+                $clean[] = [
+                    'field'       => $f,
+                    'label'       => sanitize_text_field(wp_unslash($labels[$i] ?? '')),
+                    'aggregation' => sanitize_text_field(wp_unslash($aggregations[$i] ?? 'none')),
+                ];
+            }
+        }
+
+        update_post_meta($post_id, $meta_key, $clean);
     }
 
     // ------------------------------------------------------------------
@@ -390,6 +326,21 @@ final class BPID_Suite_Post {
                 '_bpid_post_cols_grid'        => 'cols',
                 '_bpid_post_texto_intro'      => 'texto_intro',
                 '_bpid_post_cache_horas'      => 'cache_horas',
+                '_bpid_post_card_title_field'      => 'card_title_field',
+                '_bpid_post_card_desc_field'       => 'card_desc_field',
+                '_bpid_post_default_image'         => 'default_image',
+                '_bpid_post_title_font_size'       => 'title_font_size',
+                '_bpid_post_title_color'           => 'title_color',
+                '_bpid_post_desc_font_size'        => 'desc_font_size',
+                '_bpid_post_desc_color'            => 'desc_color',
+                '_bpid_post_secondary_color'       => 'secondary_color',
+                '_bpid_post_search_border_color'   => 'search_border_color',
+                '_bpid_post_search_border_radius'  => 'search_border_radius',
+                '_bpid_post_search_font_size'      => 'search_font_size',
+                '_bpid_post_search_bg_color'       => 'search_bg_color',
+                '_bpid_post_accordion_show_metas'     => 'accordion_show_metas',
+                '_bpid_post_accordion_show_ods'       => 'accordion_show_ods',
+                '_bpid_post_accordion_show_contratos' => 'accordion_show_contratos',
             ];
 
             foreach ($meta_map as $meta_key => $att_key) {
@@ -411,6 +362,36 @@ final class BPID_Suite_Post {
         $texto_intro      = sanitize_textarea_field($atts['texto_intro']);
         $dependencia      = sanitize_text_field($atts['dependencia']);
         $cache_horas      = max(1, min(24, (int) $atts['cache_horas']));
+
+        // New Post GRID config fields.
+        $card_title_field = sanitize_text_field($atts['card_title_field'] ?? 'nombre_proyecto');
+        $card_desc_field  = sanitize_text_field($atts['card_desc_field'] ?? 'dependencia');
+        $default_image    = esc_url($atts['default_image'] ?? '');
+        $title_font_size  = absint($atts['title_font_size'] ?? 15);
+        $title_color      = sanitize_hex_color($atts['title_color'] ?? '') ?: '#1d2327';
+        $desc_font_size   = absint($atts['desc_font_size'] ?? 13);
+        $desc_color       = sanitize_hex_color($atts['desc_color'] ?? '') ?: '#646970';
+        $secondary_color  = sanitize_hex_color($atts['secondary_color'] ?? '') ?: '#348afb';
+        $search_border_color  = sanitize_hex_color($atts['search_border_color'] ?? '') ?: '#dcdcde';
+        $search_border_radius = absint($atts['search_border_radius'] ?? 8);
+        $search_font_size     = absint($atts['search_font_size'] ?? 14);
+        $search_bg_color      = sanitize_hex_color($atts['search_bg_color'] ?? '') ?: '#ffffff';
+        $accordion_show_metas     = (int) ($atts['accordion_show_metas'] ?? 1);
+        $accordion_show_ods       = (int) ($atts['accordion_show_ods'] ?? 1);
+        $accordion_show_contratos = (int) ($atts['accordion_show_contratos'] ?? 1);
+
+        // Array meta fields (only from CPT post).
+        $card_extra_fields = [];
+        $stats_fields      = [];
+        $accordion_contrato_fields = [];
+        if ($post_id > 0) {
+            $card_extra_fields = get_post_meta($post_id, '_bpid_post_card_extra_fields', true);
+            if (!is_array($card_extra_fields)) $card_extra_fields = [];
+            $stats_fields = get_post_meta($post_id, '_bpid_post_stats_fields', true);
+            if (!is_array($stats_fields)) $stats_fields = [];
+            $accordion_contrato_fields = get_post_meta($post_id, '_bpid_post_accordion_contrato_fields', true);
+            if (!is_array($accordion_contrato_fields)) $accordion_contrato_fields = [];
+        }
 
         // Fetch API data.
         $api_result = $this->consultar_api($cache_horas);
@@ -453,14 +434,32 @@ final class BPID_Suite_Post {
 
         // Re-assign atts with sanitized values for the template.
         $atts = [
-            'mostrar_stats'    => $mostrar_stats,
-            'mostrar_buscador' => $mostrar_buscador,
-            'mostrar_filtros'  => $mostrar_filtros,
-            'ocultar_ops'      => $ocultar_ops,
-            'cols'             => $cols,
-            'color_primario'   => $color_primario,
-            'color_fondo'      => $color_fondo,
-            'texto_intro'      => $texto_intro,
+            'mostrar_stats'           => $mostrar_stats,
+            'mostrar_buscador'        => $mostrar_buscador,
+            'mostrar_filtros'         => $mostrar_filtros,
+            'ocultar_ops'             => $ocultar_ops,
+            'cols'                    => $cols,
+            'color_primario'          => $color_primario,
+            'color_fondo'             => $color_fondo,
+            'texto_intro'             => $texto_intro,
+            'card_title_field'        => $card_title_field,
+            'card_desc_field'         => $card_desc_field,
+            'card_extra_fields'       => $card_extra_fields,
+            'default_image'           => $default_image,
+            'title_font_size'         => $title_font_size,
+            'title_color'             => $title_color,
+            'desc_font_size'          => $desc_font_size,
+            'desc_color'              => $desc_color,
+            'secondary_color'         => $secondary_color,
+            'search_border_color'     => $search_border_color,
+            'search_border_radius'    => $search_border_radius,
+            'search_font_size'        => $search_font_size,
+            'search_bg_color'         => $search_bg_color,
+            'stats_fields'            => $stats_fields,
+            'accordion_show_metas'     => $accordion_show_metas,
+            'accordion_show_ods'       => $accordion_show_ods,
+            'accordion_show_contratos' => $accordion_show_contratos,
+            'accordion_contrato_fields' => $accordion_contrato_fields,
         ];
 
         ob_start();

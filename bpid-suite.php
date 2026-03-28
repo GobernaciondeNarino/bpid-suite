@@ -4,7 +4,7 @@ declare(strict_types=1);
  * Plugin Name:       BPID Suite
  * Plugin URI:        https://github.com/GobernaciondeNarino/bpid-suite
  * Description:       Plugin para importar, filtrar, graficar y visualizar datos del Banco de Proyectos de Inversión y Desarrollo (BPID) de la Gobernación de Nariño.
- * Version:           1.4.0
+ * Version:           1.5.0
  * Requires at least: 6.0
  * Requires PHP:      8.1
  * Author:            Gobernación de Nariño — Secretaría de TIC, Innovación y Gobierno Abierto
@@ -27,7 +27,7 @@ if (!defined('WPINC')) {
 /**
  * Plugin constants
  */
-define('BPID_SUITE_VERSION', '1.4.0');
+define('BPID_SUITE_VERSION', '1.5.0');
 define('BPID_SUITE_PATH', plugin_dir_path(__FILE__));
 define('BPID_SUITE_URL', plugin_dir_url(__FILE__));
 define('BPID_SUITE_BASENAME', plugin_basename(__FILE__));
@@ -361,15 +361,10 @@ final class BPID_Suite {
             wp_enqueue_script(
                 'bpid-suite-admin-post',
                 BPID_SUITE_URL . 'assets/js/admin-post.js',
-                ['jquery', 'wp-color-picker'],
+                ['jquery'],
                 BPID_SUITE_VERSION,
                 true
             );
-            wp_enqueue_style('wp-color-picker');
-            wp_localize_script('bpid-suite-admin-post', 'bpidSuitePost', [
-                'ajaxUrl' => admin_url('admin-ajax.php'),
-                'nonce'   => wp_create_nonce('bpid_post_clear_cache'),
-            ]);
         }
     }
 
