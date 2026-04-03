@@ -253,7 +253,26 @@ final class BPID_Suite_Importer {
         $contratos = [];
 
         if (!empty($data['contratos']) && is_array($data['contratos'])) {
-            $contratos = $data['contratos'];
+            // Flat format: normalize API keys to our standard field names.
+            foreach ($data['contratos'] as $c) {
+                $contratos[] = [
+                    'dependencia'          => $c['dependenciaProyecto'] ?? $c['dependencia'] ?? '',
+                    'numeroProyecto'       => $c['numeroProyecto'] ?? '',
+                    'nombreProyecto'       => $c['nombreProyecto'] ?? '',
+                    'entidadEjecutora'     => $c['entidadEjecutora'] ?? '',
+                    'valorProyecto'        => $c['valorProyecto'] ?? 0,
+                    'metas'                => $c['metasProyecto'] ?? $c['metas'] ?? [],
+                    'odss'                 => $c['odssProyecto'] ?? $c['odss'] ?? [],
+                    'numeroContrato'       => $c['numeroContrato'] ?? '',
+                    'objetoContrato'       => $c['objetoContrato'] ?? '',
+                    'descripcionContrato'  => $c['descripcionContrato'] ?? ($c['objetoContrato'] ?? ''),
+                    'valorContrato'        => $c['valorContrato'] ?? 0,
+                    'avanceFisico'         => $c['procentajeAvanceFisico'] ?? $c['avanceFisico'] ?? 0,
+                    'esOps'                => $c['esOpsEjecContractual'] ?? $c['esOps'] ?? 'No',
+                    'municipios'           => $c['municipiosEjecContractual'] ?? $c['municipios'] ?? [],
+                    'imagenes'             => $c['imagenesEjecContractual'] ?? $c['imagenes'] ?? [],
+                ];
+            }
         } elseif (!empty($data['proyectos']) && is_array($data['proyectos'])) {
             // Extract individual contracts from the grouped project structure.
             foreach ($data['proyectos'] as $proyecto) {
@@ -264,19 +283,21 @@ final class BPID_Suite_Importer {
                 foreach ($contratos_proyecto as $contrato) {
                     // Map project-level fields into each contract for flat storage.
                     $contratos[] = [
-                        'dependencia'    => $proyecto['dependenciaProyecto'] ?? '',
-                        'numeroProyecto' => $proyecto['numeroProyecto'] ?? '',
-                        'nombreProyecto' => $proyecto['nombreProyecto'] ?? '',
-                        'entidadEjecutora' => $proyecto['entidadEjecutora'] ?? '',
-                        'odss'           => $proyecto['odssProyecto'] ?? [],
-                        'numero'         => $contrato['numeroContrato'] ?? '',
-                        'objeto'         => $contrato['objetoContrato'] ?? '',
-                        'descripcion'    => $contrato['descripcionContrato'] ?? ($contrato['objetoContrato'] ?? ''),
-                        'valor'          => $contrato['valorContrato'] ?? 0,
-                        'avanceFisico'   => $contrato['procentajeAvanceFisico'] ?? 0,
-                        'esOps'          => $contrato['esOpsEjecContractual'] ?? 'No',
-                        'municipios'     => $contrato['municipiosEjecContractual'] ?? [],
-                        'imagenes'       => $contrato['imagenesEjecContractual'] ?? [],
+                        'dependencia'          => $proyecto['dependenciaProyecto'] ?? '',
+                        'numeroProyecto'       => $proyecto['numeroProyecto'] ?? '',
+                        'nombreProyecto'       => $proyecto['nombreProyecto'] ?? '',
+                        'entidadEjecutora'     => $proyecto['entidadEjecutora'] ?? '',
+                        'valorProyecto'        => $proyecto['valorProyecto'] ?? 0,
+                        'metas'                => $proyecto['metasProyecto'] ?? [],
+                        'odss'                 => $proyecto['odssProyecto'] ?? [],
+                        'numeroContrato'       => $contrato['numeroContrato'] ?? '',
+                        'objetoContrato'       => $contrato['objetoContrato'] ?? '',
+                        'descripcionContrato'  => $contrato['descripcionContrato'] ?? ($contrato['objetoContrato'] ?? ''),
+                        'valorContrato'        => $contrato['valorContrato'] ?? 0,
+                        'avanceFisico'         => $contrato['procentajeAvanceFisico'] ?? 0,
+                        'esOps'                => $contrato['esOpsEjecContractual'] ?? 'No',
+                        'municipios'           => $contrato['municipiosEjecContractual'] ?? [],
+                        'imagenes'             => $contrato['imagenesEjecContractual'] ?? [],
                     ];
                 }
             }

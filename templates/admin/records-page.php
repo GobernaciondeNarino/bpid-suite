@@ -65,7 +65,7 @@ $base_url    = admin_url('admin.php?page=bpid-suite-records');
                             <th><?php echo esc_html__('Dependencia', 'bpid-suite'); ?></th>
                             <th style="width:130px;"><?php echo esc_html__('Num. Proyecto', 'bpid-suite'); ?></th>
                             <th><?php echo esc_html__('Nombre Proyecto', 'bpid-suite'); ?></th>
-                            <th style="width:140px;"><?php echo esc_html__('Valor', 'bpid-suite'); ?></th>
+                            <th style="width:140px;"><?php echo esc_html__('Valor Contrato', 'bpid-suite'); ?></th>
                             <th style="width:90px;"><?php echo esc_html__('Avance %', 'bpid-suite'); ?></th>
                             <th style="width:70px;"><?php echo esc_html__('Es OPS', 'bpid-suite'); ?></th>
                             <th style="width:140px;"><?php echo esc_html__('Fecha Import.', 'bpid-suite'); ?></th>
@@ -80,7 +80,7 @@ $base_url    = admin_url('admin.php?page=bpid-suite-records');
                                 <td><?php echo esc_html((string) ($row['nombre_proyecto'] ?? '')); ?></td>
                                 <td style="text-align:right;">
                                     <?php
-                                    $valor = isset($row['valor']) ? (float) $row['valor'] : 0;
+                                    $valor = isset($row['valor_contrato']) ? (float) $row['valor_contrato'] : 0;
                                     echo esc_html('$ ' . number_format_i18n($valor, 2));
                                     ?>
                                 </td>

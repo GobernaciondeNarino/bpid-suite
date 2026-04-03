@@ -6,10 +6,13 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * Database manager for BPID Suite contract data.
+ * Database manager for BPID Suite project/contract data.
+ *
+ * Unified table with project-first layout, flattened arrays,
+ * and proper categorical/quantitative typing.
  *
  * @package BPID_Suite
- * @since   1.0.0
+ * @since   1.5.0
  */
 final class BPID_Suite_Database {
 
@@ -20,18 +23,21 @@ final class BPID_Suite_Database {
     /** @var string[] Columns allowed in queries for filtering/ordering/distinct. */
     private const ALLOWED_COLUMNS = [
         'id',
-        'dependencia',
         'numero_proyecto',
         'nombre_proyecto',
+        'dependencia',
         'entidad_ejecutora',
+        'valor_proyecto',
+        'metas',
         'odss',
-        'numero',
-        'objeto',
-        'descripcion',
-        'valor',
+        'numero_contrato',
+        'objeto_contrato',
+        'descripcion_contrato',
+        'valor_contrato',
         'avance_fisico',
         'es_ops',
         'municipios',
+        'beneficiarios',
         'imagenes',
         'fecha_importacion',
         'fecha_actualizacion',
@@ -40,14 +46,16 @@ final class BPID_Suite_Database {
     /** @var string[] Columns valid for ordering results. */
     private const ORDERABLE_COLUMNS = [
         'id',
-        'dependencia',
         'numero_proyecto',
         'nombre_proyecto',
+        'dependencia',
         'entidad_ejecutora',
-        'numero',
-        'valor',
+        'valor_proyecto',
+        'numero_contrato',
+        'valor_contrato',
         'avance_fisico',
         'es_ops',
+        'beneficiarios',
         'fecha_importacion',
         'fecha_actualizacion',
     ];
@@ -79,6 +87,8 @@ final class BPID_Suite_Database {
 
     /**
      * Create or update the database table using dbDelta.
+     *
+     * Schema v2.0: project-first layout with flattened arrays.
      */
     public function create_table(): void {
         global $wpdb;
@@ -88,26 +98,31 @@ final class BPID_Suite_Database {
 
         $sql = "CREATE TABLE {$table} (
             id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
-            dependencia VARCHAR(500),
-            numero_proyecto VARCHAR(100),
+            numero_proyecto VARCHAR(100) NOT NULL DEFAULT '',
             nombre_proyecto TEXT,
-            entidad_ejecutora VARCHAR(500),
-            odss LONGTEXT,
-            numero VARCHAR(200),
-            objeto LONGTEXT,
-            descripcion LONGTEXT,
-            valor DECIMAL(20,2),
-            avance_fisico INT(3),
+            dependencia VARCHAR(500) DEFAULT '',
+            entidad_ejecutora VARCHAR(500) DEFAULT '',
+            valor_proyecto DECIMAL(20,2) DEFAULT 0.00,
+            metas TEXT,
+            odss TEXT,
+            numero_contrato VARCHAR(200) NOT NULL DEFAULT '',
+            objeto_contrato LONGTEXT,
+            descripcion_contrato LONGTEXT,
+            valor_contrato DECIMAL(20,2) DEFAULT 0.00,
+            avance_fisico DECIMAL(5,2) DEFAULT 0.00,
             es_ops TINYINT(1) DEFAULT 0,
-            municipios LONGTEXT,
+            municipios TEXT,
+            beneficiarios INT UNSIGNED DEFAULT 0,
             imagenes LONGTEXT,
             fecha_importacion DATETIME DEFAULT CURRENT_TIMESTAMP,
             fecha_actualizacion DATETIME ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY  (id),
-            UNIQUE KEY idx_numero_proyecto (numero(100), numero_proyecto(100)),
+            UNIQUE KEY idx_contrato_proyecto (numero_contrato(100), numero_proyecto(100)),
+            KEY idx_numero_proyecto (numero_proyecto),
             KEY idx_dependencia (dependencia(100)),
             KEY idx_avance (avance_fisico),
-            KEY idx_valor (valor),
+            KEY idx_valor_contrato (valor_contrato),
+            KEY idx_valor_proyecto (valor_proyecto),
             KEY idx_es_ops (es_ops)
         ) ENGINE=InnoDB {$charset};";
 
@@ -118,78 +133,113 @@ final class BPID_Suite_Database {
     }
 
     /**
+     * Migrate from old schema (v1) to new schema (v2).
+     *
+     * Drops the old table and creates the new one since data
+     * can be re-imported from the API.
+     */
+    public function maybe_migrate(): void {
+        $current_version = get_option('BPID_SUITE_DB_VERSION', '0');
+
+        if (version_compare($current_version, BPID_SUITE_DB_VERSION, '<')) {
+            // Drop old table and recreate with new schema.
+            $this->drop_table();
+            $this->create_table();
+        }
+    }
+
+    /**
      * Insert or update a contract record.
      *
-     * Uses the composite unique key (numero, numero_proyecto) for upsert logic.
-     * Field names are mapped from JSON camelCase to database snake_case.
+     * Uses the composite unique key (numero_contrato, numero_proyecto) for upsert logic.
+     * Data is cleaned and normalized before storage.
      *
-     * @param array<string, mixed> $contrato Raw contract data from the API.
-     * @return bool True on success, false on failure.
+     * @param array<string, mixed> $contrato Normalized contract data.
+     * @return string 'inserted', 'updated', or 'error'.
      */
     public function upsert_contrato(array $contrato): string {
         global $wpdb;
 
-        $dependencia      = sanitize_text_field((string) ($contrato['dependencia'] ?? ''));
-        $numero_proyecto   = sanitize_text_field((string) ($contrato['numeroProyecto'] ?? ''));
-        $nombre_proyecto   = sanitize_text_field((string) ($contrato['nombreProyecto'] ?? ''));
-        $entidad_ejecutora = sanitize_text_field((string) ($contrato['entidadEjecutora'] ?? ''));
-        $odss             = wp_json_encode($contrato['odss'] ?? []);
-        $numero           = sanitize_text_field((string) ($contrato['numero'] ?? ''));
-        $objeto           = sanitize_textarea_field((string) ($contrato['objeto'] ?? ''));
-        $descripcion      = sanitize_textarea_field((string) ($contrato['descripcion'] ?? ''));
-        $valor            = (float) ($contrato['valor'] ?? 0);
-        $avance_fisico    = (int) ($contrato['avanceFisico'] ?? 0);
-        $es_ops_raw       = (string) ($contrato['esOps'] ?? 'No');
-        $es_ops           = ('Si' === $es_ops_raw || 'Sí' === $es_ops_raw) ? 1 : 0;
-        $municipios       = wp_json_encode($contrato['municipios'] ?? []);
-        $imagenes         = wp_json_encode($contrato['imagenes'] ?? []);
+        // ── Project-level fields ──
+        $numero_proyecto   = $this->clean_text((string) ($contrato['numeroProyecto'] ?? ''));
+        $nombre_proyecto   = $this->clean_text((string) ($contrato['nombreProyecto'] ?? ''));
+        $dependencia       = $this->clean_categorical((string) ($contrato['dependencia'] ?? ''));
+        $entidad_ejecutora = $this->clean_categorical((string) ($contrato['entidadEjecutora'] ?? ''));
+        $valor_proyecto    = $this->clean_decimal($contrato['valorProyecto'] ?? 0);
+        $metas             = $this->flatten_array($contrato['metas'] ?? []);
+        $odss              = $this->flatten_array($contrato['odss'] ?? []);
+
+        // ── Contract-level fields ──
+        $numero_contrato     = $this->clean_text((string) ($contrato['numeroContrato'] ?? ''));
+        $objeto_contrato     = sanitize_textarea_field((string) ($contrato['objetoContrato'] ?? ''));
+        $descripcion_contrato = sanitize_textarea_field((string) ($contrato['descripcionContrato'] ?? ''));
+        $valor_contrato      = $this->clean_decimal($contrato['valorContrato'] ?? 0);
+        $avance_fisico       = $this->clean_percentage($contrato['avanceFisico'] ?? 0);
+        $es_ops_raw          = (string) ($contrato['esOps'] ?? 'No');
+        $es_ops              = $this->clean_boolean_ops($es_ops_raw);
+
+        // ── Flattened array fields ──
+        $municipios_data   = $contrato['municipios'] ?? [];
+        $municipios_result = $this->flatten_municipios($municipios_data);
+        $municipios        = $municipios_result['nombres'];
+        $beneficiarios     = $municipios_result['beneficiarios'];
+        $imagenes          = $this->flatten_urls($contrato['imagenes'] ?? []);
 
         $table = $this->table_name;
 
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- table name is safe (prefix-based).
         $sql = $wpdb->prepare(
             "INSERT INTO `{$table}` (
-                dependencia,
                 numero_proyecto,
                 nombre_proyecto,
+                dependencia,
                 entidad_ejecutora,
+                valor_proyecto,
+                metas,
                 odss,
-                numero,
-                objeto,
-                descripcion,
-                valor,
+                numero_contrato,
+                objeto_contrato,
+                descripcion_contrato,
+                valor_contrato,
                 avance_fisico,
                 es_ops,
                 municipios,
+                beneficiarios,
                 imagenes,
                 fecha_importacion
             ) VALUES (
-                %s, %s, %s, %s, %s, %s, %s, %s, %f, %d, %d, %s, %s, NOW()
+                %s, %s, %s, %s, %f, %s, %s, %s, %s, %s, %f, %f, %d, %s, %d, %s, NOW()
             ) ON DUPLICATE KEY UPDATE
-                dependencia      = VALUES(dependencia),
-                nombre_proyecto  = VALUES(nombre_proyecto),
-                entidad_ejecutora = VALUES(entidad_ejecutora),
-                odss             = VALUES(odss),
-                objeto           = VALUES(objeto),
-                descripcion      = VALUES(descripcion),
-                valor            = VALUES(valor),
-                avance_fisico    = VALUES(avance_fisico),
-                es_ops           = VALUES(es_ops),
-                municipios       = VALUES(municipios),
-                imagenes         = VALUES(imagenes),
-                fecha_actualizacion = NOW()",
-            $dependencia,
+                nombre_proyecto       = VALUES(nombre_proyecto),
+                dependencia           = VALUES(dependencia),
+                entidad_ejecutora     = VALUES(entidad_ejecutora),
+                valor_proyecto        = VALUES(valor_proyecto),
+                metas                 = VALUES(metas),
+                odss                  = VALUES(odss),
+                objeto_contrato       = VALUES(objeto_contrato),
+                descripcion_contrato  = VALUES(descripcion_contrato),
+                valor_contrato        = VALUES(valor_contrato),
+                avance_fisico         = VALUES(avance_fisico),
+                es_ops                = VALUES(es_ops),
+                municipios            = VALUES(municipios),
+                beneficiarios         = VALUES(beneficiarios),
+                imagenes              = VALUES(imagenes),
+                fecha_actualizacion   = NOW()",
             $numero_proyecto,
             $nombre_proyecto,
+            $dependencia,
             $entidad_ejecutora,
+            $valor_proyecto,
+            $metas,
             $odss,
-            $numero,
-            $objeto,
-            $descripcion,
-            $valor,
+            $numero_contrato,
+            $objeto_contrato,
+            $descripcion_contrato,
+            $valor_contrato,
             $avance_fisico,
             $es_ops,
             $municipios,
+            $beneficiarios,
             $imagenes
         );
 
@@ -202,7 +252,6 @@ final class BPID_Suite_Database {
 
         // $wpdb->query returns number of affected rows.
         // INSERT = 1 row affected. ON DUPLICATE KEY UPDATE = 2 rows affected.
-        // 0 rows = no change (duplicate with same values).
         if ($result >= 2) {
             return 'updated';
         }
@@ -210,22 +259,175 @@ final class BPID_Suite_Database {
         return 'inserted';
     }
 
+    // ------------------------------------------------------------------
+    // Data Cleaning & Normalization Helpers
+    // ------------------------------------------------------------------
+
+    /**
+     * Clean and trim a text field.
+     */
+    private function clean_text(string $value): string {
+        $value = sanitize_text_field($value);
+        $value = trim($value);
+        // Remove excessive whitespace.
+        $value = preg_replace('/\s+/', ' ', $value) ?? $value;
+        return $value;
+    }
+
+    /**
+     * Clean a categorical variable: trim, normalize case for consistency.
+     */
+    private function clean_categorical(string $value): string {
+        $value = $this->clean_text($value);
+        // Normalize common variations.
+        $value = mb_convert_case($value, MB_CASE_TITLE, 'UTF-8');
+        return $value;
+    }
+
+    /**
+     * Clean a decimal/monetary value.
+     */
+    private function clean_decimal(mixed $value): float {
+        if (is_string($value)) {
+            // Remove currency symbols, commas, spaces.
+            $value = preg_replace('/[^0-9.\-]/', '', $value);
+        }
+        $result = (float) $value;
+        return max(0, $result);
+    }
+
+    /**
+     * Clean a percentage value (0-100).
+     */
+    private function clean_percentage(mixed $value): float {
+        $result = (float) $value;
+        return max(0, min(100, round($result, 2)));
+    }
+
+    /**
+     * Clean boolean OPS field: 'Si'/'Sí' → 1, else → 0.
+     */
+    private function clean_boolean_ops(string $value): int {
+        $normalized = mb_strtolower(trim($value), 'UTF-8');
+        // Remove accents for comparison.
+        $normalized = remove_accents($normalized);
+        return ('si' === $normalized) ? 1 : 0;
+    }
+
+    /**
+     * Flatten an array to comma-separated text.
+     * Handles strings, arrays of strings, and nested structures.
+     */
+    private function flatten_array(mixed $data): string {
+        if (empty($data)) {
+            return '';
+        }
+
+        // If it's a JSON string, decode it.
+        if (is_string($data)) {
+            $decoded = json_decode($data, true);
+            if (is_array($decoded)) {
+                $data = $decoded;
+            } else {
+                return $this->clean_text($data);
+            }
+        }
+
+        if (!is_array($data)) {
+            return $this->clean_text((string) $data);
+        }
+
+        $items = [];
+        foreach ($data as $item) {
+            if (is_string($item) && '' !== trim($item)) {
+                $items[] = trim($item);
+            } elseif (is_array($item)) {
+                // Extract first meaningful string value from object.
+                $name = $item['nombre'] ?? $item['name'] ?? $item['descripcion'] ?? '';
+                if (is_string($name) && '' !== trim($name)) {
+                    $items[] = trim($name);
+                }
+            }
+        }
+
+        // Remove duplicates and empty.
+        $items = array_unique(array_filter($items));
+        return implode(', ', $items);
+    }
+
+    /**
+     * Flatten municipios array: extract names and sum beneficiaries.
+     *
+     * @return array{nombres: string, beneficiarios: int}
+     */
+    private function flatten_municipios(mixed $data): array {
+        $nombres = [];
+        $beneficiarios = 0;
+
+        if (is_string($data)) {
+            $decoded = json_decode($data, true);
+            $data = is_array($decoded) ? $decoded : [];
+        }
+
+        if (!is_array($data)) {
+            return ['nombres' => '', 'beneficiarios' => 0];
+        }
+
+        foreach ($data as $item) {
+            if (is_string($item) && '' !== trim($item)) {
+                $nombres[] = trim($item);
+            } elseif (is_array($item)) {
+                $nombre = $item['nombre'] ?? $item['name'] ?? '';
+                if (is_string($nombre) && '' !== trim($nombre)) {
+                    $nombres[] = trim($nombre);
+                }
+                $beneficiarios += absint($item['poblacion_beneficiada'] ?? $item['beneficiarios'] ?? 0);
+            }
+        }
+
+        $nombres = array_unique(array_filter($nombres));
+        sort($nombres);
+
+        return [
+            'nombres'       => implode(', ', $nombres),
+            'beneficiarios' => $beneficiarios,
+        ];
+    }
+
+    /**
+     * Flatten URLs array to comma-separated string.
+     */
+    private function flatten_urls(mixed $data): string {
+        if (empty($data)) {
+            return '';
+        }
+
+        if (is_string($data)) {
+            $decoded = json_decode($data, true);
+            $data = is_array($decoded) ? $decoded : [$data];
+        }
+
+        if (!is_array($data)) {
+            return '';
+        }
+
+        $urls = [];
+        foreach ($data as $item) {
+            $url = is_string($item) ? $item : ($item['url'] ?? '');
+            if (is_string($url) && str_starts_with($url, 'http')) {
+                $urls[] = esc_url_raw($url);
+            }
+        }
+
+        return implode(', ', array_unique($urls));
+    }
+
+    // ------------------------------------------------------------------
+    // Query Methods
+    // ------------------------------------------------------------------
+
     /**
      * Retrieve contracts with pagination, filtering, and ordering.
-     *
-     * Accepted $args keys:
-     *  - per_page        int    Number of results per page (default 20, max 100).
-     *  - page            int    Current page number (default 1).
-     *  - orderby         string Column to order by (default 'id').
-     *  - order           string ASC or DESC (default 'DESC').
-     *  - search          string Free-text search across key text columns.
-     *  - dependencia     string Filter by exact dependencia.
-     *  - es_ops          int    Filter by es_ops flag (0 or 1).
-     *  - avance_min      int    Minimum avance_fisico.
-     *  - avance_max      int    Maximum avance_fisico.
-     *  - valor_min       float  Minimum valor.
-     *  - valor_max       float  Maximum valor.
-     *  - numero_proyecto string Filter by exact numero_proyecto.
      *
      * @param array<string, mixed> $args Query arguments.
      * @return array{ data: array, total: int, pages: int, page: int, per_page: int }
@@ -238,12 +440,10 @@ final class BPID_Suite_Database {
         $orderby  = (string) ($args['orderby'] ?? 'id');
         $order    = strtoupper((string) ($args['order'] ?? 'DESC'));
 
-        // Validate orderby against whitelist.
         if (!in_array($orderby, self::ORDERABLE_COLUMNS, true)) {
             $orderby = 'id';
         }
 
-        // Validate order direction.
         if (!in_array($order, ['ASC', 'DESC'], true)) {
             $order = 'DESC';
         }
@@ -255,7 +455,8 @@ final class BPID_Suite_Database {
         // Free-text search.
         if (!empty($args['search'])) {
             $like     = '%' . $wpdb->esc_like(sanitize_text_field((string) $args['search'])) . '%';
-            $where[]  = '(dependencia LIKE %s OR numero_proyecto LIKE %s OR nombre_proyecto LIKE %s OR numero LIKE %s OR objeto LIKE %s OR entidad_ejecutora LIKE %s)';
+            $where[]  = '(dependencia LIKE %s OR numero_proyecto LIKE %s OR nombre_proyecto LIKE %s OR numero_contrato LIKE %s OR objeto_contrato LIKE %s OR entidad_ejecutora LIKE %s OR municipios LIKE %s)';
+            $values[] = $like;
             $values[] = $like;
             $values[] = $like;
             $values[] = $like;
@@ -278,21 +479,21 @@ final class BPID_Suite_Database {
 
         // Avance range.
         if (isset($args['avance_min']) && '' !== $args['avance_min']) {
-            $where[]  = 'avance_fisico >= %d';
-            $values[] = (int) $args['avance_min'];
+            $where[]  = 'avance_fisico >= %f';
+            $values[] = (float) $args['avance_min'];
         }
         if (isset($args['avance_max']) && '' !== $args['avance_max']) {
-            $where[]  = 'avance_fisico <= %d';
-            $values[] = (int) $args['avance_max'];
+            $where[]  = 'avance_fisico <= %f';
+            $values[] = (float) $args['avance_max'];
         }
 
-        // Valor range.
+        // Valor contrato range.
         if (isset($args['valor_min']) && '' !== $args['valor_min']) {
-            $where[]  = 'valor >= %f';
+            $where[]  = 'valor_contrato >= %f';
             $values[] = (float) $args['valor_min'];
         }
         if (isset($args['valor_max']) && '' !== $args['valor_max']) {
-            $where[]  = 'valor <= %f';
+            $where[]  = 'valor_contrato <= %f';
             $values[] = (float) $args['valor_max'];
         }
 
@@ -323,7 +524,6 @@ final class BPID_Suite_Database {
         // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
         $total = (int) $wpdb->get_var($count_sql);
 
-        // Build data query — orderby is validated against whitelist, order is validated above.
         $data_sql_template = "SELECT * FROM `{$table}` {$where_sql} ORDER BY `{$orderby}` {$order} LIMIT %d OFFSET %d";
         $data_values       = array_merge($values, [$per_page, $offset]);
 
@@ -344,9 +544,6 @@ final class BPID_Suite_Database {
 
     /**
      * Get a single contract by its primary key.
-     *
-     * @param int $id Row ID.
-     * @return array<string, mixed>|null The row as an associative array or null.
      */
     public function get_contrato_by_id(int $id): ?array {
         global $wpdb;
@@ -363,9 +560,7 @@ final class BPID_Suite_Database {
     }
 
     /**
-     * Return aggregate statistics about the stored contracts.
-     *
-     * @return array{ total: int, total_valor: float, avg_avance: float, by_dependencia: array }
+     * Return aggregate statistics.
      */
     public function get_stats(): array {
         global $wpdb;
@@ -375,7 +570,7 @@ final class BPID_Suite_Database {
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
         $totals = $wpdb->get_row(
             $wpdb->prepare(
-                "SELECT COUNT(*) AS total, COALESCE(SUM(valor), 0) AS total_valor, COALESCE(AVG(avance_fisico), 0) AS avg_avance FROM `{$table}` WHERE %d = %d",
+                "SELECT COUNT(*) AS total, COALESCE(SUM(valor_contrato), 0) AS total_valor, COALESCE(AVG(avance_fisico), 0) AS avg_avance FROM `{$table}` WHERE %d = %d",
                 1,
                 1
             ),
@@ -402,9 +597,6 @@ final class BPID_Suite_Database {
 
     /**
      * Get distinct non-null values for a given column.
-     *
-     * @param string $column Column name (validated against whitelist).
-     * @return string[] Distinct values.
      */
     public function get_distinct_values(string $column): array {
         global $wpdb;
@@ -427,10 +619,7 @@ final class BPID_Suite_Database {
     }
 
     /**
-     * Retrieve all records, optionally limited, for chart aggregation.
-     *
-     * @param int $limit Maximum number of rows (0 = unlimited).
-     * @return array<int, array<string, mixed>> Rows as associative arrays.
+     * Retrieve all records for chart aggregation.
      */
     public function get_all_records(int $limit = 0): array {
         global $wpdb;
@@ -469,8 +658,6 @@ final class BPID_Suite_Database {
 
     /**
      * Remove all rows from the table without dropping it.
-     *
-     * @return bool True on success, false on failure.
      */
     public function truncate_table(): bool {
         global $wpdb;
