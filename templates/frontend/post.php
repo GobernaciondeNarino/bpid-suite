@@ -47,19 +47,23 @@ $accordion_show_ods       = ! isset( $atts['accordion_show_ods'] ) || $atts['acc
 $accordion_show_contratos = ! isset( $atts['accordion_show_contratos'] ) || $atts['accordion_show_contratos'] !== '0';
 $accordion_contrato_fields = ! empty( $atts['accordion_contrato_fields'] ) && is_array( $atts['accordion_contrato_fields'] ) ? $atts['accordion_contrato_fields'] : [];
 
-// Field mapping: API project keys → display-friendly names.
+// Field mapping: DB column names → API project keys.
 $field_map = [
-	'nombre_proyecto'   => 'nombreProyecto',
-	'numero_proyecto'   => 'numeroProyecto',
-	'dependencia'       => 'dependenciaProyecto',
-	'entidad_ejecutora' => 'entidadEjecutora',
-	'valor'             => 'valorProyecto',
-	'avance_fisico'     => 'procentajeAvanceFisico',
-	'es_ops'            => 'esOpsEjecContractual',
-	'municipios'        => 'municipios',
-	'numero'            => 'numeroContrato',
-	'objeto'            => 'objetoContrato',
-	'descripcion'       => 'descripcion',
+	'nombre_proyecto'       => 'nombreProyecto',
+	'numero_proyecto'       => 'numeroProyecto',
+	'dependencia'           => 'dependenciaProyecto',
+	'entidad_ejecutora'     => 'entidadEjecutora',
+	'valor_proyecto'        => 'valorProyecto',
+	'valor_contrato'        => 'valorContrato',
+	'avance_fisico'         => 'procentajeAvanceFisico',
+	'es_ops'                => 'esOpsEjecContractual',
+	'municipios'            => 'municipios',
+	'beneficiarios'         => 'beneficiarios',
+	'numero_contrato'       => 'numeroContrato',
+	'objeto_contrato'       => 'objetoContrato',
+	'descripcion_contrato'  => 'descripcion',
+	'metas'                 => 'metasProyecto',
+	'odss'                  => 'odssProyecto',
 ];
 
 // Pre-compute aggregate data from the grouped project structure.
@@ -168,7 +172,7 @@ function bpid_get_project_field( array $proyecto, string $field_key, array $fiel
 	if ( is_array( $val ) ) {
 		return wp_json_encode( $val );
 	}
-	if ( $field_key === 'valor' && is_numeric( $val ) ) {
+	if ( ( $field_key === 'valor_contrato' || $field_key === 'valor_proyecto' ) && is_numeric( $val ) ) {
 		return '$' . number_format( (float) $val, 0, ',', '.' );
 	}
 	return (string) $val;

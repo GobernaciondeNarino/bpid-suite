@@ -63,17 +63,21 @@ $dependencias = $db->table_exists() ? $db->get_distinct_values('dependencia') : 
 
 // Available DB fields for selectors
 $available_fields = [
-    'nombre_proyecto'     => __('Nombre Proyecto', 'bpid-suite'),
-    'numero_proyecto'     => __('N&uacute;mero Proyecto (BPIN)', 'bpid-suite'),
-    'dependencia'         => __('Dependencia', 'bpid-suite'),
-    'entidad_ejecutora'   => __('Entidad Ejecutora', 'bpid-suite'),
-    'valor'               => __('Valor', 'bpid-suite'),
-    'avance_fisico'       => __('Avance F&iacute;sico', 'bpid-suite'),
-    'es_ops'              => __('Es OPS', 'bpid-suite'),
-    'municipios'          => __('Municipios', 'bpid-suite'),
-    'numero'              => __('N&uacute;mero Contrato', 'bpid-suite'),
-    'objeto'              => __('Objeto Contrato', 'bpid-suite'),
-    'descripcion'         => __('Descripci&oacute;n', 'bpid-suite'),
+    'nombre_proyecto'       => __('Nombre Proyecto', 'bpid-suite'),
+    'numero_proyecto'       => __('N&uacute;mero Proyecto (BPIN)', 'bpid-suite'),
+    'dependencia'           => __('Dependencia', 'bpid-suite'),
+    'entidad_ejecutora'     => __('Entidad Ejecutora', 'bpid-suite'),
+    'valor_proyecto'        => __('Valor Proyecto', 'bpid-suite'),
+    'valor_contrato'        => __('Valor Contrato', 'bpid-suite'),
+    'avance_fisico'         => __('Avance F&iacute;sico', 'bpid-suite'),
+    'es_ops'                => __('Es OPS', 'bpid-suite'),
+    'municipios'            => __('Municipios', 'bpid-suite'),
+    'beneficiarios'         => __('Beneficiarios', 'bpid-suite'),
+    'numero_contrato'       => __('N&uacute;mero Contrato', 'bpid-suite'),
+    'objeto_contrato'       => __('Objeto Contrato', 'bpid-suite'),
+    'descripcion_contrato'  => __('Descripci&oacute;n Contrato', 'bpid-suite'),
+    'metas'                 => __('Metas', 'bpid-suite'),
+    'odss'                  => __('ODS', 'bpid-suite'),
 ];
 
 $aggregation_options = [

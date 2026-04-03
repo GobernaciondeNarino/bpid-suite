@@ -32,7 +32,7 @@ define('BPID_SUITE_PATH', plugin_dir_path(__FILE__));
 define('BPID_SUITE_URL', plugin_dir_url(__FILE__));
 define('BPID_SUITE_BASENAME', plugin_basename(__FILE__));
 define('BPID_SUITE_API_URL', 'https://bpid.narino.gov.co/bpid/publico/consulta_contratos_con_ejecucion_contractual.php');
-define('BPID_SUITE_DB_VERSION', '1.0.0');
+define('BPID_SUITE_DB_VERSION', '2.0.0');
 
 /**
  * Main plugin class — Singleton pattern
@@ -88,11 +88,19 @@ final class BPID_Suite {
         register_activation_hook(__FILE__, [$this, 'activate']);
         register_deactivation_hook(__FILE__, [$this, 'deactivate']);
 
+        add_action('plugins_loaded', [$this, 'maybe_migrate_db'], 5);
         add_action('plugins_loaded', [$this, 'init_modules'], 10);
         add_action('admin_menu', [$this, 'register_admin_menu'], 10);
         add_action('admin_enqueue_scripts', [$this, 'enqueue_admin_assets'], 10);
         add_action('wp_enqueue_scripts', [$this, 'enqueue_frontend_assets'], 10);
         add_action('admin_init', [$this, 'handle_config_save'], 10);
+    }
+
+    /**
+     * Check and run database migration if needed.
+     */
+    public function maybe_migrate_db(): void {
+        BPID_Suite_Database::get_instance()->maybe_migrate();
     }
 
     /**
