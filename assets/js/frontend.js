@@ -70,7 +70,8 @@
             area_stacked: 'line',
             pie: 'pie',
             donut: 'doughnut',
-            radar: 'radar'
+            radar: 'radar',
+            heatmap: 'matrix'
         };
         return map[internal] || 'bar';
     }
@@ -96,6 +97,17 @@
         var yColumns = config.y_columns || [];
         var yColors = config.y_colors || [];
         var palette = config.color_palette || [];
+        var groupMeta = config.group_meta || null;
+
+        // Heatmap rendering
+        if (config.type === 'heatmap') {
+            return buildHeatmapConfig(config, data, formatter, palette);
+        }
+
+        // If group_meta is present, use pivoted series
+        if (groupMeta && groupMeta.group_values) {
+            return buildGroupedChartConfig(config, data, groupMeta, formatter, palette);
+        }
 
         var labels = data.map(function (row) { return row[config.axis_x] || ''; });
 
@@ -166,6 +178,190 @@
             type: chartJsType,
             data: { labels: labels, datasets: datasets },
             options: options
+        };
+    }
+
+    /* ========================================
+       Build Grouped Chart Config (pivoted data)
+       ======================================== */
+    function buildGroupedChartConfig(config, data, groupMeta, formatter, palette) {
+        var chartJsType = mapChartType(config.type);
+        var labels = data.map(function (row) { return row[config.axis_x] || ''; });
+        var baseCol = groupMeta.base_column;
+        var groupValues = groupMeta.group_values || [];
+
+        var datasets = groupValues.map(function (gv, i) {
+            var seriesKey = baseCol + '_' + gv;
+            var color = palette[i % palette.length] || '#3eba6a';
+            return {
+                label: String(gv),
+                data: data.map(function (row) { return parseFloat(row[seriesKey]) || 0; }),
+                backgroundColor: isAreaType(config.type) ? hexToRgba(color, 0.3) : color,
+                borderColor: color,
+                borderWidth: (chartJsType === 'line') ? 2 : 0,
+                fill: isAreaType(config.type),
+                tension: 0.3
+            };
+        });
+
+        var options = {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: isHorizontal(config.type) ? 'y' : 'x',
+            plugins: {
+                legend: { display: true },
+                tooltip: {
+                    callbacks: {
+                        label: function (ctx) {
+                            return ctx.dataset.label + ': ' + formatter(ctx.parsed.y || ctx.parsed.x || ctx.raw);
+                        }
+                    }
+                }
+            },
+            scales: {}
+        };
+
+        if (chartJsType !== 'pie' && chartJsType !== 'doughnut' && chartJsType !== 'radar') {
+            options.scales = {
+                x: {
+                    title: { display: !!config.title_x, text: config.title_x || '', color: '#555' },
+                    grid: { display: false },
+                    ticks: { font: { size: 11 }, color: '#666' },
+                    stacked: isStacked(config.type)
+                },
+                y: {
+                    title: { display: !!config.title_y, text: config.title_y || '', color: '#555' },
+                    grid: { color: 'rgba(0,0,0,0.06)' },
+                    ticks: {
+                        font: { size: 11 },
+                        color: '#666',
+                        callback: function (value) { return formatter(value); }
+                    },
+                    stacked: isStacked(config.type)
+                }
+            };
+        }
+
+        return {
+            type: chartJsType,
+            data: { labels: labels, datasets: datasets },
+            options: options
+        };
+    }
+
+    /* ========================================
+       Build Heatmap Config (chartjs-chart-matrix)
+       ======================================== */
+    function buildHeatmapConfig(config, data, formatter, palette) {
+        // data rows: { axis_x: ..., group_col: ..., value: ... }
+        if (!data || !data.length) return { type: 'matrix', data: { datasets: [] }, options: {} };
+
+        var axisX = config.axis_x;
+        // Detect the group column (second key that is not axis_x and not 'value')
+        var keys = Object.keys(data[0]);
+        var groupCol = '';
+        for (var k = 0; k < keys.length; k++) {
+            if (keys[k] !== axisX && keys[k] !== 'value') {
+                groupCol = keys[k];
+                break;
+            }
+        }
+
+        // Collect unique X and Y labels
+        var xLabelsSet = {};
+        var yLabelsSet = {};
+        data.forEach(function (row) {
+            xLabelsSet[row[axisX]] = true;
+            yLabelsSet[row[groupCol]] = true;
+        });
+        var xLabels = Object.keys(xLabelsSet);
+        var yLabels = Object.keys(yLabelsSet);
+
+        // Find min/max values for color scaling
+        var values = data.map(function (row) { return parseFloat(row.value) || 0; });
+        var minVal = Math.min.apply(null, values);
+        var maxVal = Math.max.apply(null, values);
+        var range = maxVal - minVal || 1;
+
+        // Build matrix data points
+        var matrixData = data.map(function (row) {
+            var val = parseFloat(row.value) || 0;
+            return {
+                x: row[axisX],
+                y: row[groupCol],
+                v: val
+            };
+        });
+
+        // Color interpolation: low (light) to high (intense)
+        var baseColor = palette[0] || '#1a5276';
+        var r0 = parseInt(baseColor.slice(1, 3), 16);
+        var g0 = parseInt(baseColor.slice(3, 5), 16);
+        var b0 = parseInt(baseColor.slice(5, 7), 16);
+
+        return {
+            type: 'matrix',
+            data: {
+                datasets: [{
+                    label: (config.y_columns && config.y_columns[0]) || 'Valor',
+                    data: matrixData,
+                    backgroundColor: function (ctx) {
+                        if (!ctx.raw) return 'rgba(200,200,200,0.3)';
+                        var alpha = 0.15 + 0.85 * ((ctx.raw.v - minVal) / range);
+                        return 'rgba(' + r0 + ',' + g0 + ',' + b0 + ',' + alpha.toFixed(2) + ')';
+                    },
+                    borderColor: 'rgba(255,255,255,0.6)',
+                    borderWidth: 1,
+                    width: function (ctx) {
+                        var chart = ctx.chart;
+                        var area = chart.chartArea;
+                        if (!area) return 20;
+                        return Math.max(8, (area.right - area.left) / xLabels.length - 2);
+                    },
+                    height: function (ctx) {
+                        var chart = ctx.chart;
+                        var area = chart.chartArea;
+                        if (!area) return 20;
+                        return Math.max(8, (area.bottom - area.top) / yLabels.length - 2);
+                    }
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            title: function (items) {
+                                if (!items.length) return '';
+                                var raw = items[0].raw;
+                                return raw.x + ' / ' + raw.y;
+                            },
+                            label: function (ctx) {
+                                return 'Valor: ' + formatter(ctx.raw.v);
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        type: 'category',
+                        labels: xLabels,
+                        title: { display: !!config.title_x, text: config.title_x || '', color: '#555' },
+                        grid: { display: false },
+                        ticks: { font: { size: 10 }, color: '#666' }
+                    },
+                    y: {
+                        type: 'category',
+                        labels: yLabels,
+                        title: { display: !!config.title_y, text: config.title_y || '', color: '#555' },
+                        grid: { display: false },
+                        ticks: { font: { size: 10 }, color: '#666' },
+                        offset: true
+                    }
+                }
+            }
         };
     }
 
@@ -487,7 +683,8 @@
         }
 
         // Use Chart.js for supported types, D3plus for legacy
-        var d3plusOnlyTypes = ['treemap', 'tree', 'pack', 'network', 'scatter', 'box_whisker', 'matrix', 'bump'];
+        // Note: 'heatmap' uses chartjs-chart-matrix plugin, not D3plus
+        var d3plusOnlyTypes = ['treemap', 'tree', 'pack', 'network', 'scatter', 'box_whisker', 'bump'];
         var useD3plus = d3plusOnlyTypes.indexOf(config.type) !== -1 && typeof d3plus !== 'undefined';
 
         if (useD3plus) {

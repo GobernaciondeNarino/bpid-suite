@@ -40,6 +40,8 @@ $chart_toolbar_data     = get_post_meta( $post->ID, '_chart_toolbar_data', true 
 $chart_toolbar_save_img = get_post_meta( $post->ID, '_chart_toolbar_save_img', true );
 $chart_toolbar_csv      = get_post_meta( $post->ID, '_chart_toolbar_csv', true );
 $chart_custom_query     = get_post_meta( $post->ID, '_chart_custom_query', true );
+$chart_group_by         = get_post_meta( $post->ID, '_chart_group_by', true );
+$chart_group_vigencia   = get_post_meta( $post->ID, '_chart_group_by_vigencia', true );
 
 // Ensure arrays.
 if ( ! is_array( $chart_y_columns ) ) {
@@ -101,6 +103,10 @@ $chart_types = array(
 	'radar'          => array(
 		'label' => 'Radar',
 		'icon'  => '<svg viewBox="0 0 32 32" width="32" height="32"><polygon points="16,4 27,11 25,24 7,24 5,11" fill="none" stroke="currentColor" stroke-width="1.5"/><polygon points="16,10 22,14 21,21 11,21 10,14" fill="currentColor" opacity=".3" stroke="currentColor" stroke-width="1"/><line x1="16" y1="4" x2="16" y2="16" stroke="currentColor" stroke-width=".7"/><line x1="27" y1="11" x2="16" y2="16" stroke="currentColor" stroke-width=".7"/><line x1="25" y1="24" x2="16" y2="16" stroke="currentColor" stroke-width=".7"/><line x1="7" y1="24" x2="16" y2="16" stroke="currentColor" stroke-width=".7"/><line x1="5" y1="11" x2="16" y2="16" stroke="currentColor" stroke-width=".7"/></svg>',
+	),
+	'heatmap'        => array(
+		'label' => 'Mapa de Calor',
+		'icon'  => '<svg viewBox="0 0 32 32" width="32" height="32"><rect x="3" y="3" width="8" height="8" rx="1" fill="currentColor" opacity=".2"/><rect x="12" y="3" width="8" height="8" rx="1" fill="currentColor" opacity=".6"/><rect x="21" y="3" width="8" height="8" rx="1" fill="currentColor" opacity=".9"/><rect x="3" y="12" width="8" height="8" rx="1" fill="currentColor" opacity=".5"/><rect x="12" y="12" width="8" height="8" rx="1" fill="currentColor" opacity=".8"/><rect x="21" y="12" width="8" height="8" rx="1" fill="currentColor" opacity=".3"/><rect x="3" y="21" width="8" height="8" rx="1" fill="currentColor" opacity=".9"/><rect x="12" y="21" width="8" height="8" rx="1" fill="currentColor" opacity=".4"/><rect x="21" y="21" width="8" height="8" rx="1" fill="currentColor" opacity=".7"/></svg>',
 	),
 );
 
@@ -223,6 +229,40 @@ $number_formats = array(
 					<span class="dashicons dashicons-plus-alt2" style="margin-top:4px;"></span>
 					<?php esc_html_e( 'Agregar Variable Y', 'bpid-suite' ); ?>
 				</button>
+			</div>
+		</div>
+	</div>
+
+	<!-- ================================================================= -->
+	<!-- Section B2 — Group By (Card)                                       -->
+	<!-- ================================================================= -->
+	<div class="bpid-chart-card" id="group-by-section">
+		<div class="bpid-chart-card-header">
+			<span class="dashicons dashicons-category"></span>
+			<?php esc_html_e( 'Agrupar Por (Group By)', 'bpid-suite' ); ?>
+		</div>
+		<div class="bpid-chart-card-body">
+			<div class="bpid-chart-form-grid bpid-chart-form-grid--2col">
+				<div class="bpid-chart-form-group">
+					<label for="chart_group_by"><?php esc_html_e( 'Columna de Agrupaci&oacute;n', 'bpid-suite' ); ?></label>
+					<select name="chart_group_by" id="chart_group_by" class="bpid-chart-select">
+						<?php if ( $chart_group_by ) : ?>
+							<option value="<?php echo esc_attr( $chart_group_by ); ?>" selected>
+								<?php echo esc_html( $chart_group_by ); ?>
+							</option>
+						<?php else : ?>
+							<option value=""><?php esc_html_e( '— Sin agrupaci&oacute;n adicional —', 'bpid-suite' ); ?></option>
+						<?php endif; ?>
+					</select>
+					<span class="bpid-chart-help"><?php esc_html_e( 'Agrupa los datos por esta columna, creando una serie (dataset) por cada valor &uacute;nico.', 'bpid-suite' ); ?></span>
+				</div>
+				<div class="bpid-chart-form-group">
+					<label class="bpid-chart-toggle" style="margin-top:26px;">
+						<input type="checkbox" name="chart_group_by_vigencia" id="chart_group_by_vigencia" value="1" <?php checked( $chart_group_vigencia, '1' ); ?> />
+						<span><?php esc_html_e( 'Agrupar por Vigencia (A&ntilde;o)', 'bpid-suite' ); ?></span>
+					</label>
+					<span class="bpid-chart-help"><?php esc_html_e( 'Extrae el a&ntilde;o de fecha_importacion (YEAR) como eje de agrupaci&oacute;n. Sobrescribe la columna de agrupaci&oacute;n.', 'bpid-suite' ); ?></span>
+				</div>
 			</div>
 		</div>
 	</div>

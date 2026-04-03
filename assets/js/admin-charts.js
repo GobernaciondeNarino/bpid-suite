@@ -94,7 +94,8 @@
             donut: 'Pie/Donut: use exactamente 1 valor Y y 1 columna de agrupaci\u00f3n.',
             line: 'L\u00edneas/\u00c1rea: cada columna Y genera una serie independiente.',
             area: 'L\u00edneas/\u00c1rea: cada columna Y genera una serie independiente.',
-            area_stacked: '\u00c1rea Apilada: cada columna Y genera una capa apilada.'
+            area_stacked: '\u00c1rea Apilada: cada columna Y genera una capa apilada.',
+            heatmap: 'Mapa de Calor: use 1 variable Y (valor) y configure la agrupaci\u00f3n (Group By) para definir las filas de la matriz.'
         };
 
         if (notices[type]) {
@@ -158,6 +159,22 @@
                 var savedX = (typeof bpidChartSavedAxisX !== 'undefined' && bpidChartSavedAxisX) ? bpidChartSavedAxisX : '';
                 if (savedX) {
                     xSelect.value = savedX;
+                }
+            }
+
+            // Populate Group By select
+            var groupBySelect = qs('#chart_group_by');
+            if (groupBySelect) {
+                var savedGroupBy = groupBySelect.value || '';
+                groupBySelect.innerHTML = '<option value="">\u2014 Sin agrupaci\u00f3n adicional \u2014</option>';
+                columns.forEach(function(col) {
+                    var opt = document.createElement('option');
+                    opt.value = col;
+                    opt.textContent = col;
+                    groupBySelect.appendChild(opt);
+                });
+                if (savedGroupBy) {
+                    groupBySelect.value = savedGroupBy;
                 }
             }
 
@@ -485,9 +502,26 @@
                     selectParts.push(agg + '(`' + yCol + '`) AS `' + yCol + '`');
                 });
 
+                // Check group by
+                var vigenciaCheck = qs('#chart_group_by_vigencia');
+                var groupBySelect = qs('#chart_group_by');
+                var groupByCol = '';
+                if (vigenciaCheck && vigenciaCheck.checked) {
+                    selectParts.splice(1, 0, 'YEAR(fecha_importacion) AS vigencia');
+                    groupByCol = 'vigencia';
+                } else if (groupBySelect && groupBySelect.value) {
+                    selectParts.splice(1, 0, '`' + groupBySelect.value + '`');
+                    groupByCol = '`' + groupBySelect.value + '`';
+                }
+
+                var groupClause = '`' + xCol + '`';
+                if (groupByCol) {
+                    groupClause += ', ' + groupByCol;
+                }
+
                 var query = 'SELECT ' + selectParts.join(', ') +
                     '\nFROM `' + tableName + '`' +
-                    '\nGROUP BY `' + xCol + '`' +
+                    '\nGROUP BY ' + groupClause +
                     '\nORDER BY `' + xCol + '` ASC' +
                     '\nLIMIT 1000';
 
@@ -526,6 +560,29 @@
                 }
             });
         });
+    }
+
+    // -------------------------------------------------------------------------
+    // 7.5. Vigencia Toggle
+    // -------------------------------------------------------------------------
+
+    function initVigenciaToggle() {
+        var vigenciaCheck = qs('#chart_group_by_vigencia');
+        var groupBySelect = qs('#chart_group_by');
+        if (!vigenciaCheck || !groupBySelect) return;
+
+        function syncVigencia() {
+            if (vigenciaCheck.checked) {
+                groupBySelect.disabled = true;
+                groupBySelect.style.opacity = '0.5';
+            } else {
+                groupBySelect.disabled = false;
+                groupBySelect.style.opacity = '1';
+            }
+        }
+
+        vigenciaCheck.addEventListener('change', syncVigencia);
+        syncVigencia();
     }
 
     // -------------------------------------------------------------------------
@@ -598,6 +655,9 @@
         // 6. Custom query toggle & generator
         initCustomQueryToggle();
         initQueryGenerator();
+
+        // 7.5 Group By vigencia toggle
+        initVigenciaToggle();
 
         // 7. Copy shortcode
         initCopyShortcode();

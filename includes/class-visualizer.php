@@ -22,7 +22,7 @@ final class BPID_Suite_Visualizer {
     private const CHART_TYPES = [
         'bar', 'bar_horizontal', 'bar_stacked', 'bar_grouped',
         'line', 'area', 'area_stacked',
-        'pie', 'donut', 'treemap', 'radar',
+        'pie', 'donut', 'treemap', 'radar', 'heatmap',
     ];
 
     /** @var string[] Allowed aggregation functions */
@@ -106,6 +106,7 @@ final class BPID_Suite_Visualizer {
             'donut'          => __('Dona', 'bpid-suite'),
             'treemap'        => __('Treemap', 'bpid-suite'),
             'radar'          => __('Radar', 'bpid-suite'),
+            'heatmap'        => __('Mapa de Calor', 'bpid-suite'),
         ];
     }
 
@@ -307,6 +308,13 @@ final class BPID_Suite_Visualizer {
             update_post_meta($post_id, '_' . $field, $value);
         }
 
+        // Group By
+        $group_by = sanitize_text_field(wp_unslash($_POST['chart_group_by'] ?? ''));
+        update_post_meta($post_id, '_chart_group_by', $group_by);
+
+        $group_vigencia = isset($_POST['chart_group_by_vigencia']) ? '1' : '0';
+        update_post_meta($post_id, '_chart_group_by_vigencia', $group_vigencia);
+
         // Custom query (SELECT only)
         $custom_query = wp_unslash($_POST['chart_custom_query'] ?? '');
         $custom_query = sanitize_textarea_field($custom_query);
@@ -356,6 +364,17 @@ final class BPID_Suite_Visualizer {
             true
         );
 
+        // Heatmap requires chartjs-chart-matrix plugin
+        if ($config['type'] === 'heatmap') {
+            wp_enqueue_script(
+                'bpid-chartjs-matrix',
+                'https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@2',
+                ['bpid-chartjs'],
+                null,
+                true
+            );
+        }
+
         // D3plus fallback for legacy types
         $d3plus_types = ['treemap', 'tree', 'pack', 'network', 'scatter', 'box_whisker', 'matrix', 'bump'];
         if (in_array($config['type'], $d3plus_types, true)) {
@@ -382,6 +401,14 @@ final class BPID_Suite_Visualizer {
             [],
             BPID_SUITE_VERSION
         );
+
+        // Extract group metadata if present (from pivoted data)
+        if (isset($data['__group_meta__'])) {
+            $config['group_meta'] = $data['__group_meta__'];
+            unset($data['__group_meta__']);
+            // Re-index after removing metadata
+            $data = array_values($data);
+        }
 
         $chart_id     = (string) $post_id;
         $chart_type   = $config['type'];
@@ -438,6 +465,8 @@ final class BPID_Suite_Visualizer {
                 'year'  => absint(get_post_meta($post_id, '_chart_filter_year', true)),
                 'month' => absint(get_post_meta($post_id, '_chart_filter_month', true)),
             ],
+            'group_by'         => get_post_meta($post_id, '_chart_group_by', true) ?: '',
+            'group_by_vigencia' => (bool) get_post_meta($post_id, '_chart_group_by_vigencia', true),
         ];
     }
 
@@ -458,6 +487,9 @@ final class BPID_Suite_Visualizer {
         $axis_x = $config['axis_x'];
         $y_columns = $config['y_columns'];
         $agg = $config['agg_function'];
+        $group_by = $config['group_by'] ?? '';
+        $group_vigencia = $config['group_by_vigencia'] ?? false;
+        $chart_type = $config['type'] ?? 'bar';
 
         if (empty($table) || empty($axis_x) || empty($y_columns)) {
             return [];
@@ -474,22 +506,15 @@ final class BPID_Suite_Visualizer {
         }
 
         global $wpdb;
+        $agg_func = in_array($agg, self::ALLOWED_AGG, true) ? $agg : 'SUM';
 
-        // Build SELECT
-        $select_parts = ["`$axis_x`"];
-        foreach ($y_columns as $col) {
-            if (!in_array($col, $valid_columns, true)) {
-                continue;
-            }
-            $agg_func = in_array($agg, self::ALLOWED_AGG, true) ? $agg : 'SUM';
-            $select_parts[] = "$agg_func(`$col`) AS `$col`";
+        // Determine effective group-by column
+        $effective_group = '';
+        if ($group_vigencia) {
+            $effective_group = '__vigencia__';
+        } elseif (!empty($group_by) && in_array($group_by, $valid_columns, true)) {
+            $effective_group = $group_by;
         }
-
-        if (count($select_parts) < 2) {
-            return [];
-        }
-
-        $select = implode(', ', $select_parts);
 
         // Build WHERE
         $where = '1=1';
@@ -502,6 +527,122 @@ final class BPID_Suite_Visualizer {
         if ($month > 0 && $month <= 12) {
             $where .= $wpdb->prepare(' AND MONTH(fecha_importacion) = %d', $month);
         }
+
+        // Heatmap: requires axis_x and exactly one Y column, generates a cross-tabulation
+        if ($chart_type === 'heatmap' && count($y_columns) >= 1) {
+            $y_col = $y_columns[0];
+            if (!in_array($y_col, $valid_columns, true)) {
+                return [];
+            }
+
+            // For heatmap we need: x, group (rows), value
+            $heatmap_group = $effective_group;
+            if (empty($heatmap_group) || $heatmap_group === '__vigencia__') {
+                // Use vigencia as the Y-axis of the heatmap
+                $group_expr = 'YEAR(fecha_importacion)';
+                $group_alias = 'vigencia';
+            } else {
+                $group_expr = "`$heatmap_group`";
+                $group_alias = $heatmap_group;
+            }
+
+            $select = "`$axis_x`, $group_expr AS `$group_alias`, $agg_func(`$y_col`) AS `value`";
+            $group = "`$axis_x`, `$group_alias`";
+
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+            $sql = "SELECT $select FROM `$table` WHERE $where GROUP BY $group ORDER BY `$group_alias` ASC, `$axis_x` ASC LIMIT 5000";
+
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+            $results = $wpdb->get_results($sql, ARRAY_A);
+
+            return is_array($results) ? $results : [];
+        }
+
+        // Group By mode: pivot data so each group value becomes a separate series
+        if (!empty($effective_group)) {
+            $y_col = $y_columns[0];
+            if (!in_array($y_col, $valid_columns, true)) {
+                return [];
+            }
+
+            if ($effective_group === '__vigencia__') {
+                $group_expr = 'YEAR(fecha_importacion)';
+                $group_alias = 'vigencia';
+            } else {
+                $group_expr = "`$effective_group`";
+                $group_alias = $effective_group;
+            }
+
+            $select = "`$axis_x`, $group_expr AS `$group_alias`, $agg_func(`$y_col`) AS `$y_col`";
+            $group = "`$axis_x`, `$group_alias`";
+
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+            $sql = "SELECT $select FROM `$table` WHERE $where GROUP BY $group ORDER BY `$axis_x` ASC LIMIT 5000";
+
+            // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
+            $raw = $wpdb->get_results($sql, ARRAY_A);
+
+            if (!is_array($raw)) {
+                return [];
+            }
+
+            // Pivot: transform grouped rows into { axis_x, series1, series2, ... }
+            $pivoted = [];
+            $group_values = [];
+            foreach ($raw as $row) {
+                $x_val = $row[$axis_x] ?? '';
+                $g_val = $row[$group_alias] ?? '';
+                $val   = $row[$y_col] ?? 0;
+
+                if (!isset($pivoted[$x_val])) {
+                    $pivoted[$x_val] = [$axis_x => $x_val];
+                }
+                $series_key = $y_col . '_' . $g_val;
+                $pivoted[$x_val][$series_key] = $val;
+
+                if (!in_array($g_val, $group_values, true)) {
+                    $group_values[] = $g_val;
+                }
+            }
+
+            // Fill missing group values with 0
+            $result = [];
+            foreach ($pivoted as $row) {
+                foreach ($group_values as $gv) {
+                    $sk = $y_col . '_' . $gv;
+                    if (!isset($row[$sk])) {
+                        $row[$sk] = 0;
+                    }
+                }
+                $result[] = $row;
+            }
+
+            // Attach group metadata so frontend knows the series names
+            if (!empty($result)) {
+                $result['__group_meta__'] = [
+                    'base_column'  => $y_col,
+                    'group_column' => $group_alias,
+                    'group_values' => $group_values,
+                ];
+            }
+
+            return $result;
+        }
+
+        // Standard mode (no group by)
+        $select_parts = ["`$axis_x`"];
+        foreach ($y_columns as $col) {
+            if (!in_array($col, $valid_columns, true)) {
+                continue;
+            }
+            $select_parts[] = "$agg_func(`$col`) AS `$col`";
+        }
+
+        if (count($select_parts) < 2) {
+            return [];
+        }
+
+        $select = implode(', ', $select_parts);
 
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table/column names validated above
         $sql = "SELECT $select FROM `$table` WHERE $where GROUP BY `$axis_x` ORDER BY `$axis_x` ASC LIMIT 1000";
