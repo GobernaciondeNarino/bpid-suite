@@ -433,6 +433,16 @@
         var btn = qs('#btn-update-preview');
         if (!btn) return;
 
+        // Ensure Chart.js is available for preview rendering
+        if (typeof Chart === 'undefined') {
+            var script = document.createElement('script');
+            script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
+            script.onload = function() {
+                btn.disabled = false;
+            };
+            document.head.appendChild(script);
+        }
+
         btn.addEventListener('click', function() {
             var form = qs('#post');
             if (!form) return;
@@ -440,7 +450,7 @@
             var previewContainer = qs('#chart-preview-container');
             if (!previewContainer) return;
 
-            previewContainer.innerHTML = '<p class="loading">Cargando vista previa\u2026</p>';
+            previewContainer.innerHTML = '<p class="loading" style="text-align:center;color:#666;padding:20px;">Cargando vista previa\u2026</p>';
             btn.disabled = true;
 
             var formData = new FormData(form);
@@ -457,14 +467,21 @@
                             var json = JSON.parse(xhr.responseText);
                             if (json.success && json.data) {
                                 previewContainer.innerHTML = json.data;
+                                // Execute any inline scripts from the preview HTML
+                                var scripts = previewContainer.querySelectorAll('script:not([type])');
+                                scripts.forEach(function(s) {
+                                    var newScript = document.createElement('script');
+                                    newScript.textContent = s.textContent;
+                                    s.parentNode.replaceChild(newScript, s);
+                                });
                             } else {
-                                previewContainer.innerHTML = '<p class="error">Error al generar la vista previa.</p>';
+                                previewContainer.innerHTML = '<p class="error" style="color:#c00;text-align:center;padding:20px;">Error al generar la vista previa.</p>';
                             }
                         } catch (e) {
-                            previewContainer.innerHTML = '<p class="error">Respuesta inv\u00e1lida del servidor.</p>';
+                            previewContainer.innerHTML = '<p class="error" style="color:#c00;text-align:center;padding:20px;">Respuesta inv\u00e1lida del servidor.</p>';
                         }
                     } else {
-                        previewContainer.innerHTML = '<p class="error">Error de conexi\u00f3n.</p>';
+                        previewContainer.innerHTML = '<p class="error" style="color:#c00;text-align:center;padding:20px;">Error de conexi\u00f3n.</p>';
                     }
                 }
             };
@@ -653,6 +670,83 @@
     function validateYColumnsFromCurrent() {
         validateYColumns(getSelectedChartType());
     }
+
+    // -------------------------------------------------------------------------
+    // 9. Preview Chart Builder (exposed globally for AJAX preview)
+    // -------------------------------------------------------------------------
+
+    function mapChartType(internal) {
+        var map = {
+            bar: 'bar', bar_horizontal: 'bar', bar_stacked: 'bar',
+            bar_grouped: 'bar', line: 'line', area: 'line',
+            area_stacked: 'line', pie: 'pie', donut: 'doughnut', radar: 'radar'
+        };
+        return map[internal] || 'bar';
+    }
+
+    function hexToRgba(hex, alpha) {
+        if (!hex || hex.length < 7) return 'rgba(0,0,0,' + alpha + ')';
+        var r = parseInt(hex.slice(1, 3), 16);
+        var g = parseInt(hex.slice(3, 5), 16);
+        var b = parseInt(hex.slice(5, 7), 16);
+        return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
+    }
+
+    window.bpidBuildPreviewChart = function(canvas, config, data) {
+        if (typeof Chart === 'undefined' || !data || !data.length) return;
+
+        var chartJsType = mapChartType(config.type);
+        var yColumns = config.y_columns || [];
+        var yColors = config.y_colors || [];
+        var palette = config.color_palette || DEFAULT_COLORS;
+        var isArea = config.type === 'area' || config.type === 'area_stacked';
+        var isStacked = config.type === 'bar_stacked' || config.type === 'area_stacked';
+        var isHoriz = config.type === 'bar_horizontal';
+
+        var labels = data.map(function(row) { return row[config.axis_x] || ''; });
+
+        var datasets = yColumns.map(function(col, i) {
+            var color = yColors[i] || palette[i % palette.length] || '#3eba6a';
+            return {
+                label: col,
+                data: data.map(function(row) { return parseFloat(row[col]) || 0; }),
+                backgroundColor: isArea ? hexToRgba(color, 0.3) : color,
+                borderColor: color,
+                borderWidth: chartJsType === 'line' ? 2 : 0,
+                fill: isArea,
+                tension: 0.3
+            };
+        });
+
+        // Single series per-bar colors
+        if (datasets.length === 1 && (chartJsType === 'bar' || chartJsType === 'pie' || chartJsType === 'doughnut')) {
+            datasets[0].backgroundColor = labels.map(function(_, i) {
+                return palette[i % palette.length] || yColors[0] || '#3eba6a';
+            });
+            datasets[0].borderColor = datasets[0].backgroundColor;
+        }
+
+        var opts = {
+            responsive: true,
+            maintainAspectRatio: false,
+            indexAxis: isHoriz ? 'y' : 'x',
+            plugins: { legend: { display: !!config.show_legend } },
+            scales: {}
+        };
+
+        if (chartJsType !== 'pie' && chartJsType !== 'doughnut' && chartJsType !== 'radar') {
+            opts.scales = {
+                x: { grid: { display: false }, stacked: isStacked },
+                y: { grid: { color: 'rgba(0,0,0,0.06)' }, stacked: isStacked }
+            };
+        }
+
+        new Chart(canvas.getContext('2d'), {
+            type: chartJsType,
+            data: { labels: labels, datasets: datasets },
+            options: opts
+        });
+    };
 
     // -------------------------------------------------------------------------
     // Initialization

@@ -818,16 +818,78 @@ final class BPID_Suite_Visualizer {
             wp_send_json_error('Unauthorized', 403);
         }
 
-        // Build temporary config from POST data
         $post_id = absint($_POST['post_ID'] ?? 0);
-        if ($post_id < 1) {
+        if ($post_id < 1 || 'bpid_chart' !== get_post_type($post_id)) {
             wp_send_json_error('Invalid post ID');
         }
 
-        // Temporarily save meta to generate preview, then render
-        wp_send_json_success([
-            'html' => '<p style="text-align:center;color:#666;padding:40px;">Vista previa disponible después de guardar. Guarde el gráfico primero.</p>',
-        ]);
+        // Save current form data to post meta so build_config/get_chart_data work
+        $post = get_post($post_id);
+        if ($post) {
+            $this->save_meta_box($post_id, $post);
+        }
+
+        // Build config and get data using the saved meta
+        $config = $this->build_config($post_id);
+        if (empty($config['type']) || empty($config['axis_x'])) {
+            wp_send_json_success('<p style="text-align:center;color:#999;padding:30px;">Configure el tipo de gráfico, eje X y al menos una variable Y.</p>');
+            return;
+        }
+
+        $data = $this->get_chart_data($post_id);
+        if (empty($data)) {
+            wp_send_json_success('<p style="text-align:center;color:#999;padding:30px;">Sin datos para la configuración actual. Verifique la tabla, columnas y filtros.</p>');
+            return;
+        }
+
+        $chart_id     = 'preview-' . $post_id;
+        $chart_type   = $config['type'];
+        $chart_data   = $data;
+        $chart_config = $config;
+        $height       = $config['height'];
+        $width        = '100%';
+        $extra_class  = 'bpid-chart-preview-render';
+        $json_flags   = JSON_HEX_TAG | JSON_HEX_AMP;
+
+        // Render the chart container + JSON data inline
+        $html = '<div class="bpid-chart-container ' . esc_attr($extra_class) . '"'
+            . ' id="bpid-chart-' . esc_attr($chart_id) . '"'
+            . ' style="min-height:' . esc_attr((string) $height) . 'px;width:' . $width . '"'
+            . ' data-chart-type="' . esc_attr($chart_type) . '"'
+            . ' data-chart-id="' . esc_attr($chart_id) . '">'
+            . '</div>';
+
+        $html .= '<script type="application/json" id="bpid-chart-config-' . esc_attr($chart_id) . '">'
+            . wp_json_encode($chart_config, $json_flags)
+            . '</script>';
+
+        $html .= '<script type="application/json" id="bpid-chart-data-' . esc_attr($chart_id) . '">'
+            . wp_json_encode($chart_data, $json_flags)
+            . '</script>';
+
+        // Inline JS to initialize the preview chart immediately
+        $html .= '<script>'
+            . '(function(){'
+            . 'if(typeof Chart==="undefined"){document.getElementById("bpid-chart-' . esc_js($chart_id) . '").innerHTML="<p style=\\"color:#c00;text-align:center;padding:20px\\">Chart.js no está disponible. Guarde y use el shortcode.</p>";return;}'
+            . 'var c=document.getElementById("bpid-chart-' . esc_js($chart_id) . '");'
+            . 'var configEl=document.getElementById("bpid-chart-config-' . esc_js($chart_id) . '");'
+            . 'var dataEl=document.getElementById("bpid-chart-data-' . esc_js($chart_id) . '");'
+            . 'if(!c||!dataEl)return;'
+            . 'try{'
+            . 'var cfg=JSON.parse(configEl.textContent);'
+            . 'var dat=JSON.parse(dataEl.textContent);'
+            . 'c.innerHTML="";'
+            . 'var wrap=document.createElement("div");'
+            . 'wrap.style.height="' . esc_js((string) $height) . 'px";'
+            . 'var cvs=document.createElement("canvas");'
+            . 'wrap.appendChild(cvs);c.appendChild(wrap);'
+            . 'if(typeof bpidBuildPreviewChart==="function"){bpidBuildPreviewChart(cvs,cfg,dat);}'
+            . 'else{c.innerHTML="<p style=\\"color:#666;text-align:center;padding:20px\\">Datos: "+dat.length+" registros. Guarde y visualice con el shortcode.</p>";}'
+            . '}catch(e){c.innerHTML="<p style=\\"color:#c00\\">Error: "+e.message+"</p>";}'
+            . '})();'
+            . '</script>';
+
+        wp_send_json_success($html);
     }
 
     public function ajax_chart_data(): void {
