@@ -203,6 +203,11 @@ $number_formats = array(
 							<option value=""><?php esc_html_e( '— Seleccione tabla primero —', 'bpid-suite' ); ?></option>
 						<?php endif; ?>
 					</select>
+					<div class="bpid-type-legend">
+						<span><span class="bpid-type-swatch" style="background:#e8f5e9;border-color:#4caf50;"></span> # Número</span>
+						<span><span class="bpid-type-swatch" style="background:#e3f2fd;border-color:#2196f3;"></span> Abc Texto</span>
+						<span><span class="bpid-type-swatch" style="background:#fff3e0;border-color:#ff9800;"></span> 📅 Fecha</span>
+					</div>
 				</div>
 
 				<!-- Aggregation Function -->
