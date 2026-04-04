@@ -5,6 +5,16 @@
 
     var yRowCounter = 0;
 
+    // Column type colors for visual guidance
+    var TYPE_COLORS = {
+        number: { bg: '#e8f5e9', border: '#4caf50', label: '#2e7d32', icon: '#' },
+        text:   { bg: '#e3f2fd', border: '#2196f3', label: '#1565c0', icon: 'Abc' },
+        date:   { bg: '#fff3e0', border: '#ff9800', label: '#e65100', icon: '📅' }
+    };
+
+    // Store loaded columns with metadata
+    var currentColumnsData = [];
+
     // -------------------------------------------------------------------------
     // Helpers
     // -------------------------------------------------------------------------
@@ -45,6 +55,41 @@
         xhr.send(fd);
     }
 
+    /**
+     * Create a styled <option> element with type color coding
+     */
+    function createTypedOption(col) {
+        var opt = document.createElement('option');
+        opt.value = col.name;
+
+        var typeInfo = TYPE_COLORS[col.type] || TYPE_COLORS.text;
+        var prefix = col.type === 'number' ? '#  ' : (col.type === 'date' ? '📅 ' : 'Abc ');
+        var tableHint = col.table ? ' [' + col.table + ']' : '';
+        opt.textContent = prefix + col.name + tableHint;
+        opt.style.backgroundColor = typeInfo.bg;
+        opt.style.borderLeft = '3px solid ' + typeInfo.border;
+        opt.setAttribute('data-type', col.type);
+        opt.setAttribute('data-table', col.table || '');
+
+        return opt;
+    }
+
+    /**
+     * Apply background color to a select based on its selected option type
+     */
+    function applySelectColor(select) {
+        var selected = select.options[select.selectedIndex];
+        if (selected && selected.getAttribute('data-type')) {
+            var type = selected.getAttribute('data-type');
+            var typeInfo = TYPE_COLORS[type] || {};
+            select.style.backgroundColor = typeInfo.bg || '';
+            select.style.borderColor = typeInfo.border || '';
+        } else {
+            select.style.backgroundColor = '';
+            select.style.borderColor = '';
+        }
+    }
+
     // -------------------------------------------------------------------------
     // 1. Chart Type Grid Selection
     // -------------------------------------------------------------------------
@@ -56,12 +101,9 @@
             card.addEventListener('click', function(e) {
                 e.preventDefault();
 
-                // Remove active from all cards
                 cards.forEach(function(c) { c.classList.remove('active'); });
-                // Activate this card
                 card.classList.add('active');
 
-                // Check the radio input
                 var radio = qs('input[type="radio"]', card);
                 if (radio) {
                     radio.checked = true;
@@ -73,7 +115,6 @@
             });
         });
 
-        // Initialize from already-checked radio
         var checkedRadio = qs('.bpid-chart-type-card input[type="radio"]:checked');
         if (checkedRadio) {
             var parentCard = checkedRadio.closest('.bpid-chart-type-card');
@@ -118,7 +159,7 @@
         ajaxPost('bpid_get_tables', null, function(err, res) {
             if (err || !res || !res.success) return;
 
-            tableSelect.innerHTML = '<option value="">— Seleccionar tabla —</option>';
+            tableSelect.innerHTML = '<option value="">\u2014 Seleccionar tabla \u2014</option>';
             var tables = res.data || [];
             tables.forEach(function(t) {
                 var opt = document.createElement('option');
@@ -127,7 +168,6 @@
                 tableSelect.appendChild(opt);
             });
 
-            // Restore saved table
             var saved = (typeof bpidChartSavedTable !== 'undefined' && bpidChartSavedTable) ? bpidChartSavedTable : '';
             if (saved) {
                 tableSelect.value = saved;
@@ -142,88 +182,87 @@
         ajaxPost('bpid_get_columns', { table: table }, function(err, res) {
             if (err || !res || !res.success) return;
 
-            var columns = res.data || [];
+            var rawColumns = res.data || [];
+
+            // Normalize: API may return objects {name, type, table} or plain strings
+            currentColumnsData = rawColumns.map(function(col) {
+                if (typeof col === 'string') {
+                    return { name: col, type: 'text', table: '' };
+                }
+                return col;
+            });
 
             // Populate X axis select
             var xSelect = qs('#chart_axis_x');
             if (xSelect) {
-                xSelect.innerHTML = '<option value="">— Seleccionar columna —</option>';
-                columns.forEach(function(col) {
-                    var opt = document.createElement('option');
-                    opt.value = col;
-                    opt.textContent = col;
-                    xSelect.appendChild(opt);
+                xSelect.innerHTML = '<option value="">\u2014 Seleccionar columna \u2014</option>';
+                currentColumnsData.forEach(function(col) {
+                    xSelect.appendChild(createTypedOption(col));
                 });
 
-                // Restore saved X axis
                 var savedX = (typeof bpidChartSavedAxisX !== 'undefined' && bpidChartSavedAxisX) ? bpidChartSavedAxisX : '';
                 if (savedX) {
                     xSelect.value = savedX;
                 }
+                applySelectColor(xSelect);
+                xSelect.addEventListener('change', function() { applySelectColor(xSelect); });
             }
 
-            // Populate Group By select
+            // Populate Group By select — show table origin for each column
             var groupBySelect = qs('#chart_group_by');
             if (groupBySelect) {
                 var savedGroupBy = groupBySelect.value || '';
                 groupBySelect.innerHTML = '<option value="">\u2014 Sin agrupaci\u00f3n adicional \u2014</option>';
-                columns.forEach(function(col) {
-                    var opt = document.createElement('option');
-                    opt.value = col;
-                    opt.textContent = col;
+
+                // Only show text/categorical columns for grouping (not numeric)
+                currentColumnsData.forEach(function(col) {
+                    var opt = createTypedOption(col);
                     groupBySelect.appendChild(opt);
                 });
                 if (savedGroupBy) {
                     groupBySelect.value = savedGroupBy;
                 }
+                applySelectColor(groupBySelect);
+                groupBySelect.addEventListener('change', function() { applySelectColor(groupBySelect); });
             }
 
-            // Populate all existing Y column selects
-            populateYColumnSelects(columns);
+            // Populate Y column selects
+            populateYColumnSelects();
 
-            // Restore saved Y columns/colors if not already initialized
+            // Restore saved Y rows
             if (yRowCounter === 0) {
-                restoreSavedYRows(columns);
+                restoreSavedYRows();
             }
         });
     }
 
-    function populateYColumnSelects(columns) {
+    function populateYColumnSelects() {
         var selects = qsa('.y-column-select');
         selects.forEach(function(sel) {
             var currentVal = sel.value;
-            sel.innerHTML = '<option value="">— Columna Y —</option>';
-            columns.forEach(function(col) {
-                var opt = document.createElement('option');
-                opt.value = col;
-                opt.textContent = col;
-                sel.appendChild(opt);
+            sel.innerHTML = '<option value="">\u2014 Columna Y \u2014</option>';
+            currentColumnsData.forEach(function(col) {
+                sel.appendChild(createTypedOption(col));
             });
             if (currentVal) {
                 sel.value = currentVal;
             }
+            applySelectColor(sel);
         });
     }
 
-    function getCurrentColumns() {
-        var xSelect = qs('#chart_axis_x');
-        if (!xSelect) return [];
-        var cols = [];
-        var options = xSelect.querySelectorAll('option');
-        options.forEach(function(opt) {
-            if (opt.value) cols.push(opt.value);
-        });
-        return cols;
+    function getCurrentColumnNames() {
+        return currentColumnsData.map(function(c) { return c.name; });
     }
 
-    function restoreSavedYRows(columns) {
+    function restoreSavedYRows() {
         var savedCols = (typeof bpidChartSavedYColumns !== 'undefined') ? bpidChartSavedYColumns : [];
         var savedColors = (typeof bpidChartSavedYColors !== 'undefined') ? bpidChartSavedYColors : [];
 
         if (savedCols && savedCols.length > 0) {
             savedCols.forEach(function(col, i) {
                 var color = savedColors[i] || DEFAULT_COLORS[i % DEFAULT_COLORS.length];
-                addYAxisRow(col, color, columns);
+                addYAxisRow(col, color);
             });
         }
     }
@@ -232,16 +271,13 @@
     // 3. Dynamic Y-Axis Rows
     // -------------------------------------------------------------------------
 
-    function addYAxisRow(columnValue, colorValue, columns) {
+    function addYAxisRow(columnValue, colorValue) {
         var container = qs('#y-axis-rows');
         if (!container) return;
 
         yRowCounter++;
         var index = yRowCounter;
         var color = colorValue || DEFAULT_COLORS[(index - 1) % DEFAULT_COLORS.length];
-
-        // Use provided columns or get current ones from X select
-        var cols = columns || getCurrentColumns();
 
         var row = document.createElement('div');
         row.className = 'y-axis-row';
@@ -253,23 +289,22 @@
         var badgeNum = container.querySelectorAll('.y-axis-row').length + 1;
         badge.textContent = 'Y' + badgeNum;
 
-        // Column select
+        // Column select with type colors
         var select = document.createElement('select');
         select.className = 'y-column-select';
         select.name = 'chart_y_columns[]';
         var defaultOpt = document.createElement('option');
         defaultOpt.value = '';
-        defaultOpt.textContent = '— Columna Y —';
+        defaultOpt.textContent = '\u2014 Columna Y \u2014';
         select.appendChild(defaultOpt);
-        cols.forEach(function(col) {
-            var opt = document.createElement('option');
-            opt.value = col;
-            opt.textContent = col;
-            select.appendChild(opt);
+        currentColumnsData.forEach(function(col) {
+            select.appendChild(createTypedOption(col));
         });
         if (columnValue) {
             select.value = columnValue;
         }
+        applySelectColor(select);
+        select.addEventListener('change', function() { applySelectColor(select); });
 
         // Color input
         var colorInput = document.createElement('input');
@@ -334,7 +369,6 @@
             renderSwatches(paletteInput.value);
         });
 
-        // Initialize from saved value
         if (paletteInput.value) {
             renderSwatches(paletteInput.value);
         }
@@ -406,7 +440,7 @@
             var previewContainer = qs('#chart-preview-container');
             if (!previewContainer) return;
 
-            previewContainer.innerHTML = '<p class="loading">Cargando vista previa…</p>';
+            previewContainer.innerHTML = '<p class="loading">Cargando vista previa\u2026</p>';
             btn.disabled = true;
 
             var formData = new FormData(form);
@@ -484,7 +518,6 @@
                 var xCol = axisX ? axisX.value : '';
                 var agg = aggFunc ? aggFunc.value : 'SUM';
 
-                // Gather Y columns
                 var ySelects = qsa('.y-column-select');
                 var yCols = [];
                 ySelects.forEach(function(sel) {
@@ -502,7 +535,6 @@
                     selectParts.push(agg + '(`' + yCol + '`) AS `' + yCol + '`');
                 });
 
-                // Check group by
                 var vigenciaCheck = qs('#chart_group_by_vigencia');
                 var groupBySelect = qs('#chart_group_by');
                 var groupByCol = '';
@@ -627,7 +659,6 @@
     // -------------------------------------------------------------------------
 
     document.addEventListener('DOMContentLoaded', function() {
-        // Only initialize on chart edit screens
         if (!qs('.bpid-chart-config')) return;
 
         // 1. Chart type grid

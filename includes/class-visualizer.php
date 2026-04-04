@@ -402,14 +402,6 @@ final class BPID_Suite_Visualizer {
             BPID_SUITE_VERSION
         );
 
-        // Extract group metadata if present (from pivoted data)
-        if (isset($data['__group_meta__'])) {
-            $config['group_meta'] = $data['__group_meta__'];
-            unset($data['__group_meta__']);
-            // Re-index after removing metadata
-            $data = array_values($data);
-        }
-
         $chart_id     = (string) $post_id;
         $chart_type   = $config['type'];
         $chart_data   = $data;
@@ -650,11 +642,10 @@ final class BPID_Suite_Visualizer {
         }
 
         // ── Group By mode ──
+        // Group By only adds an extra dimension to GROUP BY without pivoting.
+        // The group column value is concatenated with the X-axis label so the
+        // chart renders as a normal (non-pivoted) chart.
         if (!empty($effective_group)) {
-            $first_y_key = array_key_first($y_col_exprs);
-            $first_y_expr = $y_col_exprs[$first_y_key];
-            $y_alias = preg_replace('/[^a-zA-Z0-9_]/', '_', $first_y_key);
-
             if ($effective_group === '__vigencia__') {
                 $group_expr = 'YEAR(c.fecha_importacion)';
                 $group_alias_gb = 'vigencia';
@@ -667,60 +658,37 @@ final class BPID_Suite_Visualizer {
                 $group_alias_gb = $effective_group;
             }
 
-            $select = "$x_expr AS `$x_alias`, $group_expr AS `$group_alias_gb`, $agg_func($first_y_expr) AS `$y_alias`";
-            $group = "`$x_alias`, `$group_alias_gb`";
+            // Build SELECT: X axis, group column, then all Y columns aggregated
+            $select_parts = [
+                "CONCAT($x_expr, ' — ', $group_expr) AS `$x_alias`",
+                "$group_expr AS `$group_alias_gb`",
+            ];
+            foreach ($y_col_exprs as $col_key => $col_expr) {
+                $col_alias = preg_replace('/[^a-zA-Z0-9_]/', '_', $col_key);
+                $select_parts[] = "$agg_func($col_expr) AS `$col_alias`";
+            }
+
+            $select = implode(', ', $select_parts);
+            $group = "$x_expr, $group_expr";
 
             // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-            $sql = "SELECT $select FROM $from_table $full_join WHERE $where GROUP BY $group ORDER BY `$x_alias` ASC LIMIT 5000";
+            $sql = "SELECT $select FROM $from_table $full_join WHERE $where GROUP BY $group ORDER BY $group_expr ASC, $x_expr ASC LIMIT 5000";
 
             // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
-            $raw = $wpdb->get_results($sql, ARRAY_A);
+            $results = $wpdb->get_results($sql, ARRAY_A);
 
-            if (!is_array($raw)) {
+            if (!is_array($results)) {
                 return [];
             }
 
-            // Pivot: transform grouped rows into { axis_x, series1, series2, ... }
-            $pivoted = [];
-            $group_values = [];
-            foreach ($raw as $row) {
-                $x_val = $row[$x_alias] ?? '';
-                $g_val = $row[$group_alias_gb] ?? '';
-                $val   = $row[$y_alias] ?? 0;
-
-                if (!isset($pivoted[$x_val])) {
-                    $pivoted[$x_val] = [$x_alias => $x_val];
-                }
-                $series_key = $y_alias . '_' . $g_val;
-                $pivoted[$x_val][$series_key] = $val;
-
-                if (!in_array($g_val, $group_values, true)) {
-                    $group_values[] = $g_val;
-                }
+            // Remove the extra group column from the output — it was only used
+            // for ordering.  The X-axis label already contains the group info.
+            foreach ($results as &$row) {
+                unset($row[$group_alias_gb]);
             }
+            unset($row);
 
-            // Fill missing group values with 0
-            $result = [];
-            foreach ($pivoted as $row) {
-                foreach ($group_values as $gv) {
-                    $sk = $y_alias . '_' . $gv;
-                    if (!isset($row[$sk])) {
-                        $row[$sk] = 0;
-                    }
-                }
-                $result[] = $row;
-            }
-
-            // Attach group metadata so frontend knows the series names
-            if (!empty($result)) {
-                $result['__group_meta__'] = [
-                    'base_column'  => $y_alias,
-                    'group_column' => $group_alias_gb,
-                    'group_values' => $group_values,
-                ];
-            }
-
-            return $result;
+            return $results;
         }
 
         // ── Standard mode (no group by) ──
@@ -788,18 +756,35 @@ final class BPID_Suite_Visualizer {
             wp_send_json_error('Invalid table');
         }
 
-        $columns = $this->get_table_columns($table);
+        // Get columns with their types for color-coding
+        $columns_with_types = $this->get_table_columns_typed($table);
 
         // If this is the main contratos table, add virtual relational columns
         $db = BPID_Suite_Database::get_instance();
         if ($table === $db->get_table_name()) {
-            $columns[] = '⟶ municipio (individual)';
-            $columns[] = '⟶ ods (individual)';
-            $columns[] = '⟶ meta_texto (individual)';
-            $columns[] = '⟶ municipio_beneficiarios';
+            $columns_with_types[] = [
+                'name'  => '⟶ municipio (individual)',
+                'type'  => 'text',
+                'table' => 'bpid_contrato_municipios',
+            ];
+            $columns_with_types[] = [
+                'name'  => '⟶ ods (individual)',
+                'type'  => 'text',
+                'table' => 'bpid_contrato_odss',
+            ];
+            $columns_with_types[] = [
+                'name'  => '⟶ meta_texto (individual)',
+                'type'  => 'text',
+                'table' => 'bpid_contrato_metas',
+            ];
+            $columns_with_types[] = [
+                'name'  => '⟶ municipio_beneficiarios',
+                'type'  => 'number',
+                'table' => 'bpid_contrato_municipios',
+            ];
         }
 
-        wp_send_json_success($columns);
+        wp_send_json_success($columns_with_types);
     }
 
     public function ajax_get_filter_values(): void {
@@ -881,6 +866,47 @@ final class BPID_Suite_Visualizer {
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
         $columns = $wpdb->get_col("SHOW COLUMNS FROM `$table`");
         return is_array($columns) ? $columns : [];
+    }
+
+    /**
+     * Get columns with their MySQL types for the admin UI color coding.
+     *
+     * @return array<int, array{name: string, type: string, table: string}>
+     */
+    private function get_table_columns_typed(string $table): array {
+        if (!$this->validate_table_name($table)) {
+            return [];
+        }
+
+        global $wpdb;
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        $rows = $wpdb->get_results("SHOW COLUMNS FROM `$table`", ARRAY_A);
+        if (!is_array($rows)) {
+            return [];
+        }
+
+        // Extract short table name for display
+        $short_table = preg_replace('/^' . preg_quote($wpdb->prefix, '/') . '/', '', $table);
+
+        $result = [];
+        foreach ($rows as $row) {
+            $raw_type = strtolower($row['Type'] ?? '');
+            // Classify: numeric vs text
+            $type = 'text'; // default
+            if (preg_match('/^(int|bigint|smallint|tinyint|decimal|float|double|numeric)/', $raw_type)) {
+                $type = 'number';
+            } elseif (preg_match('/^(date|datetime|timestamp|time|year)/', $raw_type)) {
+                $type = 'date';
+            }
+
+            $result[] = [
+                'name'  => $row['Field'],
+                'type'  => $type,
+                'table' => $short_table,
+            ];
+        }
+
+        return $result;
     }
 
     /**
