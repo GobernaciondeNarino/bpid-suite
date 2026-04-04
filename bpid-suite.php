@@ -4,7 +4,7 @@ declare(strict_types=1);
  * Plugin Name:       BPID Suite
  * Plugin URI:        https://github.com/GobernaciondeNarino/bpid-suite
  * Description:       Plugin para importar, filtrar, graficar y visualizar datos del Banco de Proyectos de Inversión y Desarrollo (BPID) de la Gobernación de Nariño.
- * Version:           1.6.2
+ * Version:           1.6.3
  * Requires at least: 6.0
  * Requires PHP:      8.1
  * Author:            Gobernación de Nariño — Secretaría de TIC, Innovación y Gobierno Abierto
@@ -27,7 +27,7 @@ if (!defined('WPINC')) {
 /**
  * Plugin constants
  */
-define('BPID_SUITE_VERSION', '1.6.2');
+define('BPID_SUITE_VERSION', '1.6.3');
 define('BPID_SUITE_PATH', plugin_dir_path(__FILE__));
 define('BPID_SUITE_URL', plugin_dir_url(__FILE__));
 define('BPID_SUITE_BASENAME', plugin_basename(__FILE__));
@@ -342,10 +342,26 @@ final class BPID_Suite {
                 true
             );
 
+            // Chart.js plugins for treemap and heatmap previews
+            wp_enqueue_script(
+                'bpid-chartjs-treemap-admin',
+                'https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@3',
+                ['bpid-chartjs-admin'],
+                null,
+                true
+            );
+            wp_enqueue_script(
+                'bpid-chartjs-matrix-admin',
+                'https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@3',
+                ['bpid-chartjs-admin'],
+                null,
+                true
+            );
+
             wp_enqueue_script(
                 'bpid-suite-admin-charts',
                 BPID_SUITE_URL . 'assets/js/admin-charts.js',
-                ['bpid-chartjs-admin'],
+                ['bpid-chartjs-admin', 'bpid-chartjs-treemap-admin', 'bpid-chartjs-matrix-admin'],
                 BPID_SUITE_VERSION,
                 true
             );

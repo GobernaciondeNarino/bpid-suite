@@ -400,24 +400,23 @@ final class BPID_Suite_Visualizer {
             true
         );
 
-        // Heatmap requires chartjs-chart-matrix plugin
+        // chartjs-chart-matrix plugin for heatmap
         if ($config['type'] === 'heatmap') {
             wp_enqueue_script(
                 'bpid-chartjs-matrix',
-                'https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@2',
+                'https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@3',
                 ['bpid-chartjs'],
                 null,
                 true
             );
         }
 
-        // D3plus for treemap, plot, heatmap, and legacy types
-        $d3plus_types = ['treemap', 'plot', 'heatmap', 'tree', 'pack', 'network', 'scatter', 'box_whisker', 'matrix', 'bump'];
-        if (in_array($config['type'], $d3plus_types, true)) {
+        // chartjs-chart-treemap plugin for treemap
+        if ($config['type'] === 'treemap') {
             wp_enqueue_script(
-                'bpid-d3plus',
-                'https://cdn.jsdelivr.net/npm/d3plus@2/build/d3plus.full.min.js',
-                [],
+                'bpid-chartjs-treemap',
+                'https://cdn.jsdelivr.net/npm/chartjs-chart-treemap@3',
+                ['bpid-chartjs'],
                 null,
                 true
             );

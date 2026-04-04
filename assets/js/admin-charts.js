@@ -825,7 +825,8 @@
         var map = {
             bar: 'bar', bar_horizontal: 'bar', bar_stacked: 'bar',
             bar_grouped: 'bar', line: 'line', area: 'line',
-            area_stacked: 'line', pie: 'pie', donut: 'doughnut', radar: 'radar'
+            area_stacked: 'line', pie: 'pie', donut: 'doughnut', radar: 'radar',
+            heatmap: 'matrix', treemap: 'treemap', plot: 'scatter'
         };
         return map[internal] || 'bar';
     }
@@ -841,10 +842,128 @@
     window.bpidBuildPreviewChart = function(canvas, config, data) {
         if (typeof Chart === 'undefined' || !data || !data.length) return;
 
-        var chartJsType = mapChartType(config.type);
         var yColumns = config.y_columns || [];
         var yColors = config.y_colors || [];
         var palette = config.color_palette || DEFAULT_COLORS;
+
+        // --- Treemap ---
+        if (config.type === 'treemap') {
+            var yCol = yColumns[0] || '';
+            var tree = data.map(function(row) {
+                return { category: String(row[config.axis_x] || ''), value: parseFloat(row[yCol]) || 0 };
+            }).filter(function(d) { return d.value > 0; });
+
+            new Chart(canvas.getContext('2d'), {
+                type: 'treemap',
+                data: {
+                    datasets: [{
+                        tree: tree,
+                        key: 'value',
+                        groups: ['category'],
+                        borderColor: 'rgba(255,255,255,0.8)',
+                        borderWidth: 2,
+                        spacing: 1,
+                        backgroundColor: function(ctx) {
+                            if (!ctx.raw || !ctx.raw._data) return palette[0] || '#3eba6a';
+                            return palette[(ctx.dataIndex || 0) % palette.length] || '#3eba6a';
+                        },
+                        labels: {
+                            display: true, align: 'center', position: 'middle',
+                            color: '#fff', font: { size: 11, weight: 'bold' },
+                            formatter: function(ctx) {
+                                if (ctx && ctx.raw && ctx.raw._data) return ctx.raw._data.category;
+                                return '';
+                            }
+                        }
+                    }]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: {
+                        callbacks: {
+                            title: function(items) { return items.length && items[0].raw && items[0].raw._data ? items[0].raw._data.category : ''; },
+                            label: function(ctx) { return ctx.raw && ctx.raw._data ? yCol + ': ' + (ctx.raw._data.value || 0) : ''; }
+                        }
+                    }}
+                }
+            });
+            return;
+        }
+
+        // --- Heatmap ---
+        if (config.type === 'heatmap') {
+            var keys = Object.keys(data[0]);
+            var groupCol = '';
+            for (var k = 0; k < keys.length; k++) {
+                if (keys[k] !== config.axis_x && keys[k] !== 'value') { groupCol = keys[k]; break; }
+            }
+            var xLabelsSet = {}, yLabelsSet = {};
+            data.forEach(function(row) { xLabelsSet[row[config.axis_x]] = true; yLabelsSet[row[groupCol]] = true; });
+            var xLabels = Object.keys(xLabelsSet), yLabels = Object.keys(yLabelsSet);
+            var values = data.map(function(r) { return parseFloat(r.value) || 0; });
+            var minVal = Math.min.apply(null, values), maxVal = Math.max.apply(null, values);
+            var range = maxVal - minVal || 1;
+            var matrixData = data.map(function(row) { return { x: row[config.axis_x], y: row[groupCol], v: parseFloat(row.value) || 0 }; });
+            var bc = palette[0] || '#1a5276';
+            var r0 = parseInt(bc.slice(1,3),16), g0 = parseInt(bc.slice(3,5),16), b0 = parseInt(bc.slice(5,7),16);
+
+            new Chart(canvas.getContext('2d'), {
+                type: 'matrix',
+                data: { datasets: [{ label: yColumns[0] || 'Valor', data: matrixData,
+                    backgroundColor: function(ctx) {
+                        if (!ctx.raw) return 'rgba(200,200,200,0.3)';
+                        var alpha = 0.15 + 0.85 * ((ctx.raw.v - minVal) / range);
+                        return 'rgba(' + r0 + ',' + g0 + ',' + b0 + ',' + alpha.toFixed(2) + ')';
+                    },
+                    borderColor: 'rgba(255,255,255,0.6)', borderWidth: 1,
+                    width: function(ctx) { var a = ctx.chart.chartArea; return a ? Math.max(8, (a.right - a.left) / xLabels.length - 2) : 20; },
+                    height: function(ctx) { var a = ctx.chart.chartArea; return a ? Math.max(8, (a.bottom - a.top) / yLabels.length - 2) : 20; }
+                }]},
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: false }, tooltip: { callbacks: {
+                        title: function(items) { return items.length ? items[0].raw.x + ' / ' + items[0].raw.y : ''; },
+                        label: function(ctx) { return 'Valor: ' + (ctx.raw.v || 0); }
+                    }}},
+                    scales: {
+                        x: { type: 'category', labels: xLabels, grid: { display: false } },
+                        y: { type: 'category', labels: yLabels, grid: { display: false }, offset: true }
+                    }
+                }
+            });
+            return;
+        }
+
+        // --- Plot / Scatter ---
+        if (config.type === 'plot') {
+            var scatterDatasets = yColumns.map(function(col, i) {
+                var color = yColors[i] || palette[i % palette.length] || '#3eba6a';
+                return {
+                    label: col,
+                    data: data.map(function(row) { return { x: row[config.axis_x], y: parseFloat(row[col]) || 0 }; }),
+                    backgroundColor: hexToRgba(color, 0.6),
+                    borderColor: color,
+                    pointRadius: 5, pointHoverRadius: 8, pointBorderWidth: 2
+                };
+            });
+
+            new Chart(canvas.getContext('2d'), {
+                type: 'scatter',
+                data: { datasets: scatterDatasets },
+                options: {
+                    responsive: true, maintainAspectRatio: false,
+                    plugins: { legend: { display: !!config.show_legend } },
+                    scales: {
+                        x: { grid: { color: 'rgba(0,0,0,0.06)' } },
+                        y: { grid: { color: 'rgba(0,0,0,0.06)' } }
+                    }
+                }
+            });
+            return;
+        }
+
+        // --- Standard types ---
+        var chartJsType = mapChartType(config.type);
         var isArea = config.type === 'area' || config.type === 'area_stacked';
         var isStacked = config.type === 'bar_stacked' || config.type === 'area_stacked';
         var isHoriz = config.type === 'bar_horizontal';
