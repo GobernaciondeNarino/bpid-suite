@@ -71,7 +71,8 @@
             pie: 'pie',
             donut: 'doughnut',
             radar: 'radar',
-            heatmap: 'matrix'
+            heatmap: 'matrix',
+            plot: 'scatter'
         };
         return map[internal] || 'bar';
     }
@@ -100,6 +101,49 @@
         // Heatmap rendering
         if (config.type === 'heatmap') {
             return buildHeatmapConfig(config, data, formatter, palette);
+        }
+
+        // Scatter/Plot fallback (Chart.js)
+        if (config.type === 'plot' || config._chartJsFallbackType === 'scatter') {
+            chartJsType = 'scatter';
+            var scatterDatasets = yColumns.map(function (col, i) {
+                var color = yColors[i] || palette[i % palette.length] || '#3eba6a';
+                return {
+                    label: col,
+                    data: data.map(function (row) {
+                        return { x: row[config.axis_x], y: parseFloat(row[col]) || 0 };
+                    }),
+                    backgroundColor: color,
+                    borderColor: color,
+                    pointRadius: 5,
+                    pointHoverRadius: 7
+                };
+            });
+            return {
+                type: 'scatter',
+                data: { datasets: scatterDatasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: !!config.show_legend },
+                        tooltip: {
+                            callbacks: {
+                                label: function (ctx) {
+                                    return ctx.dataset.label + ': (' + ctx.parsed.x + ', ' + formatter(ctx.parsed.y) + ')';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { title: { display: !!config.title_x, text: config.title_x || '' } },
+                        y: {
+                            title: { display: !!config.title_y, text: config.title_y || '' },
+                            ticks: { callback: function (v) { return formatter(v); } }
+                        }
+                    }
+                }
+            };
         }
 
         var labels = data.map(function (row) { return row[config.axis_x] || ''; });
@@ -497,23 +541,109 @@
     }
 
     /* ========================================
-       D3plus Fallback Factory (legacy charts)
+       D3plus Chart Rendering
        ======================================== */
-    function createD3plusChart(chartType) {
+
+    /**
+     * Build and render a d3plus chart with the correct data mapping.
+     * D3plus uses: groupBy (category), x, y, size, column, row.
+     */
+    function renderD3plusChart(renderDivId, chartType, chartData, config) {
         if (typeof d3plus === 'undefined') return null;
-        var map = {
-            'treemap':     function () { return new d3plus.Treemap(); },
-            'tree':        function () { return new d3plus.Tree(); },
-            'pack':        function () { return new d3plus.Pack(); },
-            'network':     function () { return new d3plus.Network(); },
-            'scatter':     function () { return new d3plus.Plot(); },
-            'box_whisker': function () { return new d3plus.BoxWhisker(); },
-            'matrix':      function () { return new d3plus.Matrix(); },
-            'bump':        function () { return new d3plus.BumpChart(); }
-        };
-        var factory = map[chartType];
-        if (!factory) return null;
-        try { return factory(); } catch (e) { return null; }
+
+        var axisX = config.axis_x || '';
+        var yCol = (config.y_columns && config.y_columns[0]) || '';
+        var palette = config.color_palette || ['#3eba6a','#e84c4c','#4a90d9','#f5a623','#9b59b6','#1abc9c'];
+
+        // Transform data: ensure numeric Y values
+        var data = chartData.map(function(row) {
+            var d = {};
+            for (var k in row) {
+                if (row.hasOwnProperty(k)) d[k] = row[k];
+            }
+            if (yCol && d[yCol] !== undefined) {
+                d[yCol] = parseFloat(d[yCol]) || 0;
+            }
+            return d;
+        });
+
+        var selector = '#' + renderDivId;
+
+        try {
+            if (chartType === 'treemap') {
+                new d3plus.Treemap()
+                    .select(selector)
+                    .data(data)
+                    .groupBy(axisX)
+                    .sum(yCol)
+                    .shapeConfig({ label: function(d) { return d[axisX] || ''; } })
+                    .tooltipConfig({
+                        body: function(d) {
+                            var val = d[yCol];
+                            return yCol + ': ' + NumberFormatter.formatCOP(val);
+                        }
+                    })
+                    .render();
+                return true;
+
+            } else if (chartType === 'heatmap') {
+                // D3plus Matrix: rows vs columns with color intensity
+                var groupCol = '';
+                var keys = Object.keys(data[0] || {});
+                for (var k = 0; k < keys.length; k++) {
+                    if (keys[k] !== axisX && keys[k] !== yCol && keys[k] !== 'value') {
+                        groupCol = keys[k];
+                        break;
+                    }
+                }
+                var valueKey = yCol || 'value';
+
+                new d3plus.Matrix()
+                    .select(selector)
+                    .data(data)
+                    .column(axisX)
+                    .row(groupCol || axisX)
+                    .colorScale(valueKey)
+                    .colorScaleConfig({ color: ['#f7fbff', '#08306b'] })
+                    .render();
+                return true;
+
+            } else if (chartType === 'plot') {
+                new d3plus.Plot()
+                    .select(selector)
+                    .data(data)
+                    .groupBy(axisX)
+                    .x(axisX)
+                    .y(yCol)
+                    .shape('Circle')
+                    .shapeConfig({
+                        Circle: { r: 6 }
+                    })
+                    .render();
+                return true;
+
+            } else {
+                // Generic fallback for other d3plus types
+                var factory = {
+                    'tree': function() { return new d3plus.Tree(); },
+                    'pack': function() { return new d3plus.Pack(); },
+                    'network': function() { return new d3plus.Network(); },
+                    'bump': function() { return new d3plus.BumpChart(); }
+                };
+                var create = factory[chartType];
+                if (!create) return null;
+
+                var chart = create();
+                chart.select(selector).data(data);
+                if (axisX) chart.groupBy(axisX);
+                if (yCol) chart.size(yCol);
+                chart.render();
+                return true;
+            }
+        } catch (e) {
+            console.error('[BPID Suite] D3plus render error for ' + chartType + ':', e);
+            return null;
+        }
     }
 
     /* ========================================
@@ -607,14 +737,24 @@
             return;
         }
 
-        // Use Chart.js for supported types, D3plus for legacy
-        // Note: 'heatmap' uses chartjs-chart-matrix plugin, not D3plus
-        var d3plusOnlyTypes = ['treemap', 'tree', 'pack', 'network', 'scatter', 'box_whisker', 'bump'];
-        var useD3plus = d3plusOnlyTypes.indexOf(config.type) !== -1 && typeof d3plus !== 'undefined';
+        // D3plus-only types: treemap, heatmap (matrix), plot, and legacy types
+        var d3plusTypes = ['treemap', 'plot', 'tree', 'pack', 'network', 'bump'];
+        var isD3plusType = d3plusTypes.indexOf(config.type) !== -1;
 
-        if (useD3plus) {
+        // Heatmap: prefer d3plus Matrix if available, fallback to chartjs-chart-matrix
+        if (config.type === 'heatmap') {
+            if (typeof d3plus !== 'undefined') {
+                this.renderD3plus(container, chartData, config, chartId);
+            } else if (typeof Chart !== 'undefined') {
+                this.renderChartJs(container, chartData, config, chartId);
+            } else {
+                container.innerHTML = '<div class="bpid-chart-no-data">Librería de gráficos no disponible</div>';
+            }
+        } else if (isD3plusType && typeof d3plus !== 'undefined') {
             this.renderD3plus(container, chartData, config, chartId);
         } else if (typeof Chart !== 'undefined') {
+            // Scatter fallback for 'plot' when d3plus not available
+            if (config.type === 'plot') config._chartJsFallbackType = 'scatter';
             this.renderChartJs(container, chartData, config, chartId);
         } else {
             container.innerHTML = '<div class="bpid-chart-no-data">Librería de gráficos no disponible</div>';
@@ -668,33 +808,28 @@
         renderDiv.style.height = (config.height || 400) + 'px';
         container.appendChild(renderDiv);
 
-        try {
-            var chart = createD3plusChart(config.type);
-            if (!chart) {
-                container.innerHTML = '<div class="bpid-chart-no-data">Tipo de gráfico no soportado</div>';
-                return;
-            }
+        var result = renderD3plusChart(renderDiv.id, config.type, chartData, config);
 
-            chart.select('#' + renderDiv.id).data(chartData);
-            if (config.axis_x) chart.x('x');
-            if (config.y_columns && config.y_columns[0]) chart.y('y');
-            if (config.group) chart.groupBy('group');
-            if (config.y_colors && config.y_colors[0]) {
-                chart.shapeConfig({ fill: config.y_colors[0] });
-            }
-            chart.render();
-
-            this.charts.push({
-                id: chartId,
-                container: container,
-                instance: chart,
-                data: chartData,
-                config: config
-            });
-        } catch (e) {
-            console.error('[BPID Suite] D3plus error:', e);
-            container.innerHTML = '<div class="bpid-chart-no-data" style="color:var(--bpid-color-danger,#c00);">Error al renderizar</div>';
+        if (!result) {
+            container.innerHTML = '<div class="bpid-chart-no-data">Tipo de gráfico no soportado o error al renderizar</div>';
+            return;
         }
+
+        // Create wrapper for toolbar
+        var wrapper = document.createElement('div');
+        wrapper.className = 'bpid-chart-wrapper';
+        wrapper.id = 'bpid-chart-wrapper-' + chartId;
+        container.insertBefore(wrapper, container.firstChild);
+        wrapper.appendChild(renderDiv);
+        createToolbar(wrapper, null, chartData, config);
+
+        this.charts.push({
+            id: chartId,
+            container: container,
+            instance: null,
+            data: chartData,
+            config: config
+        });
     };
 
     ChartManager.prototype.buildLegacyConfig = function (container) {

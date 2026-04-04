@@ -22,7 +22,7 @@ final class BPID_Suite_Visualizer {
     private const CHART_TYPES = [
         'bar', 'bar_horizontal', 'bar_stacked', 'bar_grouped',
         'line', 'area', 'area_stacked',
-        'pie', 'donut', 'treemap', 'radar', 'heatmap',
+        'pie', 'donut', 'treemap', 'radar', 'heatmap', 'plot',
     ];
 
     /** @var string[] Allowed aggregation functions */
@@ -107,6 +107,7 @@ final class BPID_Suite_Visualizer {
             'treemap'        => __('Treemap', 'bpid-suite'),
             'radar'          => __('Radar', 'bpid-suite'),
             'heatmap'        => __('Mapa de Calor', 'bpid-suite'),
+            'plot'           => __('Dispersión', 'bpid-suite'),
         ];
     }
 
@@ -315,6 +316,41 @@ final class BPID_Suite_Visualizer {
         $group_vigencia = isset($_POST['chart_group_by_vigencia']) ? '1' : '0';
         update_post_meta($post_id, '_chart_group_by_vigencia', $group_vigencia);
 
+        // Advanced filters (dynamic rows)
+        $raw_filters = $_POST['chart_adv_filters'] ?? [];
+        $adv_filters = [];
+        if (is_array($raw_filters)) {
+            foreach ($raw_filters as $f) {
+                $col = sanitize_text_field(wp_unslash($f['column'] ?? ''));
+                $op  = sanitize_text_field(wp_unslash($f['operator'] ?? '='));
+                $val = sanitize_text_field(wp_unslash($f['value'] ?? ''));
+                if (!empty($col) && !empty($val)) {
+                    $allowed_ops = ['=', '!=', '>', '<', '>=', '<=', 'LIKE'];
+                    if (!in_array($op, $allowed_ops, true)) {
+                        $op = '=';
+                    }
+                    $adv_filters[] = ['column' => $col, 'operator' => $op, 'value' => $val];
+                }
+            }
+        }
+        update_post_meta($post_id, '_chart_adv_filters', $adv_filters);
+
+        // Query limit
+        $query_limit = absint($_POST['chart_query_limit'] ?? 1000);
+        if ($query_limit < 1) $query_limit = 1000;
+        if ($query_limit > 50000) $query_limit = 50000;
+        update_post_meta($post_id, '_chart_query_limit', (string) $query_limit);
+
+        // Query order by
+        $query_orderby = sanitize_text_field(wp_unslash($_POST['chart_query_orderby'] ?? ''));
+        update_post_meta($post_id, '_chart_query_orderby', $query_orderby);
+
+        $query_order = strtoupper(sanitize_text_field(wp_unslash($_POST['chart_query_order'] ?? 'ASC')));
+        if (!in_array($query_order, ['ASC', 'DESC'], true)) {
+            $query_order = 'ASC';
+        }
+        update_post_meta($post_id, '_chart_query_order', $query_order);
+
         // Custom query (SELECT only)
         $custom_query = wp_unslash($_POST['chart_custom_query'] ?? '');
         $custom_query = sanitize_textarea_field($custom_query);
@@ -375,8 +411,8 @@ final class BPID_Suite_Visualizer {
             );
         }
 
-        // D3plus fallback for legacy types
-        $d3plus_types = ['treemap', 'tree', 'pack', 'network', 'scatter', 'box_whisker', 'matrix', 'bump'];
+        // D3plus for treemap, plot, heatmap, and legacy types
+        $d3plus_types = ['treemap', 'plot', 'heatmap', 'tree', 'pack', 'network', 'scatter', 'box_whisker', 'matrix', 'bump'];
         if (in_array($config['type'], $d3plus_types, true)) {
             wp_enqueue_script(
                 'bpid-d3plus',
@@ -468,6 +504,10 @@ final class BPID_Suite_Visualizer {
             ],
             'group_by'         => get_post_meta($post_id, '_chart_group_by', true) ?: '',
             'group_by_vigencia' => (bool) get_post_meta($post_id, '_chart_group_by_vigencia', true),
+            'adv_filters'      => get_post_meta($post_id, '_chart_adv_filters', true) ?: [],
+            'query_limit'      => absint(get_post_meta($post_id, '_chart_query_limit', true) ?: 1000),
+            'query_orderby'    => get_post_meta($post_id, '_chart_query_orderby', true) ?: '',
+            'query_order'      => get_post_meta($post_id, '_chart_query_order', true) ?: 'ASC',
         ];
     }
 
@@ -609,6 +649,51 @@ final class BPID_Suite_Visualizer {
             $where .= $wpdb->prepare(' AND MONTH(c.fecha_importacion) = %d', $month);
         }
 
+        // Advanced filters (dynamic WHERE clauses)
+        $adv_filters = $config['adv_filters'] ?? [];
+        if (is_array($adv_filters)) {
+            $allowed_ops = ['=', '!=', '>', '<', '>=', '<=', 'LIKE'];
+            foreach ($adv_filters as $f) {
+                $f_col = $f['column'] ?? '';
+                $f_op  = $f['operator'] ?? '=';
+                $f_val = $f['value'] ?? '';
+
+                if (empty($f_col) || empty($f_val) || !in_array($f_op, $allowed_ops, true)) {
+                    continue;
+                }
+
+                // Resolve relational virtual columns for filters
+                if ($is_main_table && isset($relational_map[$f_col])) {
+                    $frel = $relational_map[$f_col];
+                    // Use existing join alias if it matches, otherwise use main table alias
+                    $f_expr = "c.`" . $frel['alias'] . "`";
+                    // For relational filters, we actually need to filter on the joined table
+                    // This is a simplified approach — filter on the main table's flattened column
+                    if (in_array($frel['alias'], $valid_columns, true)) {
+                        $f_expr = "c.`{$frel['alias']}`";
+                    } else {
+                        // Skip this filter if we can't resolve it safely
+                        continue;
+                    }
+                } elseif (in_array($f_col, $valid_columns, true)) {
+                    $f_expr = "c.`$f_col`";
+                } else {
+                    continue; // skip invalid column
+                }
+
+                if ($f_op === 'LIKE') {
+                    $where .= $wpdb->prepare(" AND $f_expr LIKE %s", $f_val);
+                } else {
+                    $where .= $wpdb->prepare(" AND $f_expr {$f_op} %s", $f_val);
+                }
+            }
+        }
+
+        // Query config: limit, order
+        $query_limit = max(1, min(50000, $config['query_limit'] ?? 1000));
+        $query_orderby_col = $config['query_orderby'] ?? '';
+        $query_order = in_array($config['query_order'] ?? 'ASC', ['ASC', 'DESC'], true) ? ($config['query_order'] ?? 'ASC') : 'ASC';
+
         $full_join = $join_sql . $group_join_sql . $y_join_sql;
 
         // ── Heatmap mode ──
@@ -632,8 +717,13 @@ final class BPID_Suite_Visualizer {
             $select = "$x_expr AS `$x_alias`, $group_expr AS `$group_alias_hm`, $agg_func($first_y_expr) AS `value`";
             $group = "`$x_alias`, `$group_alias_hm`";
 
+            // Build ORDER BY clause
+            $hm_order = !empty($query_orderby_col) && in_array($query_orderby_col, $valid_columns, true)
+                ? "c.`$query_orderby_col` $query_order"
+                : "`$group_alias_hm` ASC, `$x_alias` ASC";
+
             // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-            $sql = "SELECT $select FROM $from_table $full_join WHERE $where GROUP BY $group ORDER BY `$group_alias_hm` ASC, `$x_alias` ASC LIMIT 5000";
+            $sql = "SELECT $select FROM $from_table $full_join WHERE $where GROUP BY $group ORDER BY $hm_order LIMIT $query_limit";
 
             // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
             $results = $wpdb->get_results($sql, ARRAY_A);
@@ -671,8 +761,12 @@ final class BPID_Suite_Visualizer {
             $select = implode(', ', $select_parts);
             $group = "$x_expr, $group_expr";
 
+            $gb_order = !empty($query_orderby_col) && in_array($query_orderby_col, $valid_columns, true)
+                ? "c.`$query_orderby_col` $query_order"
+                : "$group_expr ASC, $x_expr ASC";
+
             // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-            $sql = "SELECT $select FROM $from_table $full_join WHERE $where GROUP BY $group ORDER BY $group_expr ASC, $x_expr ASC LIMIT 5000";
+            $sql = "SELECT $select FROM $from_table $full_join WHERE $where GROUP BY $group ORDER BY $gb_order LIMIT $query_limit";
 
             // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
             $results = $wpdb->get_results($sql, ARRAY_A);
@@ -700,8 +794,13 @@ final class BPID_Suite_Visualizer {
 
         $select = implode(', ', $select_parts);
 
+        // Custom order or default to X axis
+        $std_order = !empty($query_orderby_col) && in_array($query_orderby_col, $valid_columns, true)
+            ? "c.`$query_orderby_col` $query_order"
+            : "`$x_alias` $query_order";
+
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-        $sql = "SELECT $select FROM $from_table $full_join WHERE $where GROUP BY `$x_alias` ORDER BY `$x_alias` ASC LIMIT 1000";
+        $sql = "SELECT $select FROM $from_table $full_join WHERE $where GROUP BY `$x_alias` ORDER BY $std_order LIMIT $query_limit";
 
         // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
         $results = $wpdb->get_results($sql, ARRAY_A);

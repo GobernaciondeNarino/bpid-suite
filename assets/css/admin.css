@@ -1206,6 +1206,82 @@
     gap: 4px;
 }
 
+/* Advanced Filter Rows */
+.bpid-adv-filter-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.adv-filter-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: var(--bpid-gray-50, #f8f9fa);
+    border: 1px solid var(--bpid-gray-200, #e0e0e0);
+    border-radius: var(--bpid-radius-sm, 6px);
+    transition: border-color 0.2s;
+}
+
+.adv-filter-row:hover {
+    border-color: var(--bpid-primary-light, #a0c4f0);
+    background: #fff;
+}
+
+.adv-filter-column {
+    flex: 2;
+    min-width: 0;
+}
+
+.adv-filter-operator {
+    flex: 0 0 80px;
+    text-align: center;
+    font-weight: 600;
+}
+
+.adv-filter-value {
+    flex: 2;
+    min-width: 0;
+}
+
+.adv-filter-remove {
+    flex-shrink: 0;
+    color: var(--bpid-danger, #e74c3c) !important;
+    border-color: transparent !important;
+    background: transparent !important;
+    box-shadow: none !important;
+}
+
+.adv-filter-remove:hover {
+    color: #8a1f1f !important;
+    background: rgba(231, 76, 60, 0.08) !important;
+}
+
+/* 3-col grid */
+.bpid-chart-form-grid--3col {
+    display: grid;
+    grid-template-columns: 1fr 1fr 120px;
+    gap: 16px;
+}
+
+@media (max-width: 782px) {
+    .adv-filter-row {
+        flex-wrap: wrap;
+    }
+    .adv-filter-column,
+    .adv-filter-value {
+        flex: 1 1 100%;
+    }
+    .adv-filter-operator {
+        flex: 0 0 auto;
+    }
+    .bpid-chart-form-grid--3col {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* Typed Select Colors — visual guide for variable types */
 .bpid-chart-select option[data-type="number"],
 .y-column-select option[data-type="number"] {
