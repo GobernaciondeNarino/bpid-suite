@@ -19,6 +19,9 @@ final class BPID_Suite_Database {
     private static ?self $instance = null;
 
     private string $table_name;
+    private string $table_municipios;
+    private string $table_odss;
+    private string $table_metas;
 
     /** @var string[] Columns allowed in queries for filtering/ordering/distinct. */
     private const ALLOWED_COLUMNS = [
@@ -69,7 +72,10 @@ final class BPID_Suite_Database {
 
     private function __construct() {
         global $wpdb;
-        $this->table_name = $wpdb->prefix . 'bpid_suite_contratos';
+        $this->table_name       = $wpdb->prefix . 'bpid_suite_contratos';
+        $this->table_municipios = $wpdb->prefix . 'bpid_contrato_municipios';
+        $this->table_odss       = $wpdb->prefix . 'bpid_contrato_odss';
+        $this->table_metas      = $wpdb->prefix . 'bpid_contrato_metas';
     }
 
     private function __clone() {}
@@ -83,6 +89,18 @@ final class BPID_Suite_Database {
      */
     public function get_table_name(): string {
         return $this->table_name;
+    }
+
+    public function get_table_municipios(): string {
+        return $this->table_municipios;
+    }
+
+    public function get_table_odss(): string {
+        return $this->table_odss;
+    }
+
+    public function get_table_metas(): string {
+        return $this->table_metas;
     }
 
     /**
@@ -124,6 +142,39 @@ final class BPID_Suite_Database {
             KEY idx_valor_contrato (valor_contrato),
             KEY idx_valor_proyecto (valor_proyecto),
             KEY idx_es_ops (es_ops)
+        ) ENGINE=InnoDB {$charset};";
+
+        // Relational table: municipios (one row per municipio per contrato)
+        $t_mun = $this->table_municipios;
+        $sql .= "CREATE TABLE {$t_mun} (
+            id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            contrato_id BIGINT(20) UNSIGNED NOT NULL,
+            municipio VARCHAR(200) NOT NULL DEFAULT '',
+            beneficiarios INT UNSIGNED DEFAULT 0,
+            PRIMARY KEY  (id),
+            KEY idx_contrato_id (contrato_id),
+            KEY idx_municipio (municipio)
+        ) ENGINE=InnoDB {$charset};";
+
+        // Relational table: ODS (one row per ODS per contrato)
+        $t_ods = $this->table_odss;
+        $sql .= "CREATE TABLE {$t_ods} (
+            id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            contrato_id BIGINT(20) UNSIGNED NOT NULL,
+            ods VARCHAR(300) NOT NULL DEFAULT '',
+            PRIMARY KEY  (id),
+            KEY idx_contrato_id (contrato_id),
+            KEY idx_ods (ods)
+        ) ENGINE=InnoDB {$charset};";
+
+        // Relational table: metas (one row per meta per contrato)
+        $t_met = $this->table_metas;
+        $sql .= "CREATE TABLE {$t_met} (
+            id BIGINT(20) UNSIGNED NOT NULL AUTO_INCREMENT,
+            contrato_id BIGINT(20) UNSIGNED NOT NULL,
+            meta_texto TEXT NOT NULL,
+            PRIMARY KEY  (id),
+            KEY idx_contrato_id (contrato_id)
         ) ENGINE=InnoDB {$charset};";
 
         require_once ABSPATH . 'wp-admin/includes/upgrade.php';
@@ -257,6 +308,179 @@ final class BPID_Suite_Database {
         }
 
         return 'inserted';
+    }
+
+    // ------------------------------------------------------------------
+    // Relational Table Helpers
+    // ------------------------------------------------------------------
+
+    /**
+     * Insert municipios into the relational table for a given contrato.
+     *
+     * @param int   $contrato_id  The contrato row ID.
+     * @param mixed $municipios   Raw municipios data from API.
+     */
+    public function insert_municipios(int $contrato_id, mixed $municipios): void {
+        global $wpdb;
+
+        // Delete existing entries for this contrato (handles re-imports)
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        $wpdb->delete($this->table_municipios, ['contrato_id' => $contrato_id], ['%d']);
+
+        if (is_string($municipios)) {
+            $decoded = json_decode($municipios, true);
+            $municipios = is_array($decoded) ? $decoded : [];
+        }
+
+        if (!is_array($municipios) || empty($municipios)) {
+            return;
+        }
+
+        foreach ($municipios as $item) {
+            $nombre = '';
+            $beneficiarios = 0;
+
+            if (is_string($item) && '' !== trim($item)) {
+                $nombre = trim($item);
+            } elseif (is_array($item)) {
+                $nombre = trim((string) ($item['nombre'] ?? $item['name'] ?? ''));
+                $beneficiarios = absint($item['poblacion_beneficiada'] ?? $item['beneficiarios'] ?? 0);
+            }
+
+            if ('' === $nombre) {
+                continue;
+            }
+
+            $nombre = $this->clean_categorical($nombre);
+
+            $wpdb->insert(
+                $this->table_municipios,
+                [
+                    'contrato_id'   => $contrato_id,
+                    'municipio'     => $nombre,
+                    'beneficiarios' => $beneficiarios,
+                ],
+                ['%d', '%s', '%d']
+            );
+        }
+    }
+
+    /**
+     * Insert ODS into the relational table for a given contrato.
+     *
+     * @param int   $contrato_id  The contrato row ID.
+     * @param mixed $odss         Raw ODS data from API.
+     */
+    public function insert_odss(int $contrato_id, mixed $odss): void {
+        global $wpdb;
+
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        $wpdb->delete($this->table_odss, ['contrato_id' => $contrato_id], ['%d']);
+
+        if (is_string($odss)) {
+            $decoded = json_decode($odss, true);
+            $odss = is_array($decoded) ? $decoded : [];
+        }
+
+        if (!is_array($odss) || empty($odss)) {
+            return;
+        }
+
+        foreach ($odss as $item) {
+            $nombre = '';
+
+            if (is_string($item) && '' !== trim($item)) {
+                $nombre = trim($item);
+            } elseif (is_array($item)) {
+                $nombre = trim((string) ($item['nombre'] ?? $item['name'] ?? $item['descripcion'] ?? ''));
+            }
+
+            if ('' === $nombre) {
+                continue;
+            }
+
+            $nombre = $this->clean_categorical($nombre);
+
+            $wpdb->insert(
+                $this->table_odss,
+                [
+                    'contrato_id' => $contrato_id,
+                    'ods'         => $nombre,
+                ],
+                ['%d', '%s']
+            );
+        }
+    }
+
+    /**
+     * Insert metas into the relational table for a given contrato.
+     *
+     * @param int   $contrato_id  The contrato row ID.
+     * @param mixed $metas        Raw metas data from API.
+     */
+    public function insert_metas(int $contrato_id, mixed $metas): void {
+        global $wpdb;
+
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        $wpdb->delete($this->table_metas, ['contrato_id' => $contrato_id], ['%d']);
+
+        if (is_string($metas)) {
+            $decoded = json_decode($metas, true);
+            $metas = is_array($decoded) ? $decoded : [];
+        }
+
+        if (!is_array($metas) || empty($metas)) {
+            return;
+        }
+
+        foreach ($metas as $item) {
+            $texto = '';
+
+            if (is_string($item) && '' !== trim($item)) {
+                $texto = trim($item);
+            } elseif (is_array($item)) {
+                $texto = trim((string) ($item['nombre'] ?? $item['name'] ?? $item['descripcion'] ?? ''));
+            }
+
+            if ('' === $texto) {
+                continue;
+            }
+
+            $texto = $this->clean_text($texto);
+
+            $wpdb->insert(
+                $this->table_metas,
+                [
+                    'contrato_id' => $contrato_id,
+                    'meta_texto'  => $texto,
+                ],
+                ['%d', '%s']
+            );
+        }
+    }
+
+    /**
+     * Get the last inserted/updated contrato ID by unique key.
+     *
+     * @param string $numero_contrato
+     * @param string $numero_proyecto
+     * @return int|null
+     */
+    public function get_contrato_id(string $numero_contrato, string $numero_proyecto): ?int {
+        global $wpdb;
+
+        $table = $this->table_name;
+
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        $id = $wpdb->get_var(
+            $wpdb->prepare(
+                "SELECT id FROM `{$table}` WHERE numero_contrato = %s AND numero_proyecto = %s LIMIT 1",
+                $numero_contrato,
+                $numero_proyecto
+            )
+        );
+
+        return $id !== null ? (int) $id : null;
     }
 
     // ------------------------------------------------------------------
@@ -657,10 +881,18 @@ final class BPID_Suite_Database {
     }
 
     /**
-     * Remove all rows from the table without dropping it.
+     * Remove all rows from all tables without dropping them.
      */
     public function truncate_table(): bool {
         global $wpdb;
+
+        // Truncate relational tables first
+        foreach ([$this->table_municipios, $this->table_odss, $this->table_metas] as $t) {
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+            $wpdb->query(
+                $wpdb->prepare("TRUNCATE TABLE `{$t}` /* %s */", $t)
+            );
+        }
 
         $table = $this->table_name;
 
@@ -689,10 +921,18 @@ final class BPID_Suite_Database {
     }
 
     /**
-     * Drop the plugin table entirely.
+     * Drop all plugin tables entirely.
      */
     public function drop_table(): void {
         global $wpdb;
+
+        // Drop relational tables first (foreign key dependencies)
+        foreach ([$this->table_municipios, $this->table_odss, $this->table_metas] as $t) {
+            // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+            $wpdb->query(
+                $wpdb->prepare("DROP TABLE IF EXISTS `{$t}` /* %s */", $t)
+            );
+        }
 
         $table = $this->table_name;
 

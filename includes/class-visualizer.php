@@ -438,11 +438,20 @@ final class BPID_Suite_Visualizer {
             })
             : self::DEFAULT_PALETTE;
 
+        // Resolve virtual column names to clean aliases for frontend display
+        $axis_x_raw = get_post_meta($post_id, '_chart_axis_x', true);
+        $axis_x_display = $this->resolve_virtual_column_alias($axis_x_raw);
+
+        $y_cols_raw = is_array($y_columns) ? $y_columns : [];
+        $y_cols_display = array_map([$this, 'resolve_virtual_column_alias'], $y_cols_raw);
+
         return [
             'type'          => get_post_meta($post_id, '_chart_type', true) ?: 'bar',
             'table'         => get_post_meta($post_id, '_chart_data_table', true),
-            'axis_x'        => get_post_meta($post_id, '_chart_axis_x', true),
-            'y_columns'     => is_array($y_columns) ? $y_columns : [],
+            'axis_x'        => $axis_x_display,
+            'axis_x_raw'    => $axis_x_raw,
+            'y_columns'     => $y_cols_display,
+            'y_columns_raw' => $y_cols_raw,
             'y_colors'      => is_array($y_colors) ? $y_colors : [],
             'agg_function'  => get_post_meta($post_id, '_chart_agg_function', true) ?: 'SUM',
             'height'        => absint(get_post_meta($post_id, '_chart_height', true) ?: 400),
@@ -484,36 +493,116 @@ final class BPID_Suite_Visualizer {
         }
 
         $table = $config['table'];
-        $axis_x = $config['axis_x'];
-        $y_columns = $config['y_columns'];
+        $raw_axis_x = $config['axis_x_raw'] ?? $config['axis_x'];
+        $y_columns = $config['y_columns_raw'] ?? $config['y_columns'];
         $agg = $config['agg_function'];
         $group_by = $config['group_by'] ?? '';
         $group_vigencia = $config['group_by_vigencia'] ?? false;
         $chart_type = $config['type'] ?? 'bar';
 
-        if (empty($table) || empty($axis_x) || empty($y_columns)) {
+        if (empty($table) || empty($raw_axis_x) || empty($y_columns)) {
             return [];
         }
 
-        // Validate table and columns
+        // Validate table
         if (!$this->validate_table_name($table)) {
             return [];
         }
 
         $valid_columns = $this->get_table_columns($table);
-        if (!in_array($axis_x, $valid_columns, true)) {
-            return [];
-        }
+        $db = BPID_Suite_Database::get_instance();
+        $is_main_table = ($table === $db->get_table_name());
 
         global $wpdb;
         $agg_func = in_array($agg, self::ALLOWED_AGG, true) ? $agg : 'SUM';
 
-        // Determine effective group-by column
+        // ── Detect relational (virtual) columns ──
+        // Virtual columns from relational tables: "⟶ municipio (individual)", etc.
+        $relational_map = [
+            '⟶ municipio (individual)'   => ['table' => $db->get_table_municipios(), 'col' => 'municipio',  'alias' => 'municipio'],
+            '⟶ ods (individual)'         => ['table' => $db->get_table_odss(),       'col' => 'ods',        'alias' => 'ods'],
+            '⟶ meta_texto (individual)'  => ['table' => $db->get_table_metas(),      'col' => 'meta_texto', 'alias' => 'meta_texto'],
+            '⟶ municipio_beneficiarios'  => ['table' => $db->get_table_municipios(), 'col' => 'beneficiarios', 'alias' => 'beneficiarios_municipio'],
+        ];
+
+        $axis_x = $raw_axis_x;
+        $join_sql = '';
+        $x_expr = '';
+        $x_alias = '';
+        $join_table_alias = 'r';
+
+        if ($is_main_table && isset($relational_map[$raw_axis_x])) {
+            $rel = $relational_map[$raw_axis_x];
+            $rel_table = $rel['table'];
+            $rel_col   = $rel['col'];
+            $x_alias   = $rel['alias'];
+            $join_sql  = " JOIN `$rel_table` AS $join_table_alias ON c.id = $join_table_alias.contrato_id";
+            $x_expr    = "$join_table_alias.`$rel_col`";
+            $axis_x    = $x_alias; // for output
+        } elseif (in_array($raw_axis_x, $valid_columns, true)) {
+            $x_expr  = "c.`$raw_axis_x`";
+            $x_alias = $raw_axis_x;
+        } else {
+            return [];
+        }
+
+        // Also check if group_by is a relational column
+        $group_join_sql = '';
+        $group_table_alias = 'g';
+        $raw_group_by = $group_by;
+
+        if ($is_main_table && isset($relational_map[$group_by])) {
+            $grel = $relational_map[$group_by];
+            $grel_table = $grel['table'];
+            $grel_col   = $grel['col'];
+            // Avoid duplicate join if same table
+            if ($grel_table !== ($relational_map[$raw_axis_x]['table'] ?? '')) {
+                $group_join_sql = " JOIN `$grel_table` AS $group_table_alias ON c.id = $group_table_alias.contrato_id";
+            } else {
+                $group_table_alias = $join_table_alias; // reuse same alias
+            }
+            $group_by = $grel['alias'];
+        }
+
+        // Also check if Y columns are relational
+        $y_join_sql = '';
+        $y_table_alias = 'yrel';
+        $y_col_exprs = [];
+
+        foreach ($y_columns as $ycol) {
+            if ($is_main_table && isset($relational_map[$ycol])) {
+                $yrel = $relational_map[$ycol];
+                // Beneficiarios from municipio table
+                if ($yrel['table'] === ($relational_map[$raw_axis_x]['table'] ?? '') && !empty($join_sql)) {
+                    $y_col_exprs[$ycol] = "$join_table_alias.`{$yrel['col']}`";
+                } else {
+                    $y_join_sql = " JOIN `{$yrel['table']}` AS $y_table_alias ON c.id = $y_table_alias.contrato_id";
+                    $y_col_exprs[$ycol] = "$y_table_alias.`{$yrel['col']}`";
+                }
+            } elseif (in_array($ycol, $valid_columns, true)) {
+                $y_col_exprs[$ycol] = "c.`$ycol`";
+            }
+        }
+
+        if (empty($y_col_exprs)) {
+            return [];
+        }
+
+        // Table reference (alias 'c' for main table when using joins)
+        $from_table = !empty($join_sql) || !empty($group_join_sql) || !empty($y_join_sql)
+            ? "`$table` AS c"
+            : "`$table` AS c";
+
+        // Determine effective group-by
         $effective_group = '';
         if ($group_vigencia) {
             $effective_group = '__vigencia__';
-        } elseif (!empty($group_by) && in_array($group_by, $valid_columns, true)) {
-            $effective_group = $group_by;
+        } elseif (!empty($group_by)) {
+            if ($is_main_table && isset($relational_map[$raw_group_by])) {
+                $effective_group = $group_by; // already resolved
+            } elseif (in_array($group_by, $valid_columns, true)) {
+                $effective_group = $group_by;
+            }
         }
 
         // Build WHERE
@@ -522,35 +611,37 @@ final class BPID_Suite_Visualizer {
         $month = $config['filters']['month'] ?? 0;
 
         if ($year > 0) {
-            $where .= $wpdb->prepare(' AND YEAR(fecha_importacion) = %d', $year);
+            $where .= $wpdb->prepare(' AND YEAR(c.fecha_importacion) = %d', $year);
         }
         if ($month > 0 && $month <= 12) {
-            $where .= $wpdb->prepare(' AND MONTH(fecha_importacion) = %d', $month);
+            $where .= $wpdb->prepare(' AND MONTH(c.fecha_importacion) = %d', $month);
         }
 
-        // Heatmap: requires axis_x and exactly one Y column, generates a cross-tabulation
-        if ($chart_type === 'heatmap' && count($y_columns) >= 1) {
-            $y_col = $y_columns[0];
-            if (!in_array($y_col, $valid_columns, true)) {
-                return [];
-            }
+        $full_join = $join_sql . $group_join_sql . $y_join_sql;
 
-            // For heatmap we need: x, group (rows), value
+        // ── Heatmap mode ──
+        if ($chart_type === 'heatmap' && count($y_col_exprs) >= 1) {
+            $first_y_key = array_key_first($y_col_exprs);
+            $first_y_expr = $y_col_exprs[$first_y_key];
+
             $heatmap_group = $effective_group;
             if (empty($heatmap_group) || $heatmap_group === '__vigencia__') {
-                // Use vigencia as the Y-axis of the heatmap
-                $group_expr = 'YEAR(fecha_importacion)';
-                $group_alias = 'vigencia';
+                $group_expr = 'YEAR(c.fecha_importacion)';
+                $group_alias_hm = 'vigencia';
+            } elseif ($is_main_table && isset($relational_map[$raw_group_by])) {
+                $grel = $relational_map[$raw_group_by];
+                $group_expr = "{$group_table_alias}.`{$grel['col']}`";
+                $group_alias_hm = $grel['alias'];
             } else {
-                $group_expr = "`$heatmap_group`";
-                $group_alias = $heatmap_group;
+                $group_expr = "c.`$heatmap_group`";
+                $group_alias_hm = $heatmap_group;
             }
 
-            $select = "`$axis_x`, $group_expr AS `$group_alias`, $agg_func(`$y_col`) AS `value`";
-            $group = "`$axis_x`, `$group_alias`";
+            $select = "$x_expr AS `$x_alias`, $group_expr AS `$group_alias_hm`, $agg_func($first_y_expr) AS `value`";
+            $group = "`$x_alias`, `$group_alias_hm`";
 
             // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-            $sql = "SELECT $select FROM `$table` WHERE $where GROUP BY $group ORDER BY `$group_alias` ASC, `$axis_x` ASC LIMIT 5000";
+            $sql = "SELECT $select FROM $from_table $full_join WHERE $where GROUP BY $group ORDER BY `$group_alias_hm` ASC, `$x_alias` ASC LIMIT 5000";
 
             // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
             $results = $wpdb->get_results($sql, ARRAY_A);
@@ -558,26 +649,29 @@ final class BPID_Suite_Visualizer {
             return is_array($results) ? $results : [];
         }
 
-        // Group By mode: pivot data so each group value becomes a separate series
+        // ── Group By mode ──
         if (!empty($effective_group)) {
-            $y_col = $y_columns[0];
-            if (!in_array($y_col, $valid_columns, true)) {
-                return [];
-            }
+            $first_y_key = array_key_first($y_col_exprs);
+            $first_y_expr = $y_col_exprs[$first_y_key];
+            $y_alias = preg_replace('/[^a-zA-Z0-9_]/', '_', $first_y_key);
 
             if ($effective_group === '__vigencia__') {
-                $group_expr = 'YEAR(fecha_importacion)';
-                $group_alias = 'vigencia';
+                $group_expr = 'YEAR(c.fecha_importacion)';
+                $group_alias_gb = 'vigencia';
+            } elseif ($is_main_table && isset($relational_map[$raw_group_by])) {
+                $grel = $relational_map[$raw_group_by];
+                $group_expr = "{$group_table_alias}.`{$grel['col']}`";
+                $group_alias_gb = $grel['alias'];
             } else {
-                $group_expr = "`$effective_group`";
-                $group_alias = $effective_group;
+                $group_expr = "c.`$effective_group`";
+                $group_alias_gb = $effective_group;
             }
 
-            $select = "`$axis_x`, $group_expr AS `$group_alias`, $agg_func(`$y_col`) AS `$y_col`";
-            $group = "`$axis_x`, `$group_alias`";
+            $select = "$x_expr AS `$x_alias`, $group_expr AS `$group_alias_gb`, $agg_func($first_y_expr) AS `$y_alias`";
+            $group = "`$x_alias`, `$group_alias_gb`";
 
             // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
-            $sql = "SELECT $select FROM `$table` WHERE $where GROUP BY $group ORDER BY `$axis_x` ASC LIMIT 5000";
+            $sql = "SELECT $select FROM $from_table $full_join WHERE $where GROUP BY $group ORDER BY `$x_alias` ASC LIMIT 5000";
 
             // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
             $raw = $wpdb->get_results($sql, ARRAY_A);
@@ -590,14 +684,14 @@ final class BPID_Suite_Visualizer {
             $pivoted = [];
             $group_values = [];
             foreach ($raw as $row) {
-                $x_val = $row[$axis_x] ?? '';
-                $g_val = $row[$group_alias] ?? '';
-                $val   = $row[$y_col] ?? 0;
+                $x_val = $row[$x_alias] ?? '';
+                $g_val = $row[$group_alias_gb] ?? '';
+                $val   = $row[$y_alias] ?? 0;
 
                 if (!isset($pivoted[$x_val])) {
-                    $pivoted[$x_val] = [$axis_x => $x_val];
+                    $pivoted[$x_val] = [$x_alias => $x_val];
                 }
-                $series_key = $y_col . '_' . $g_val;
+                $series_key = $y_alias . '_' . $g_val;
                 $pivoted[$x_val][$series_key] = $val;
 
                 if (!in_array($g_val, $group_values, true)) {
@@ -609,7 +703,7 @@ final class BPID_Suite_Visualizer {
             $result = [];
             foreach ($pivoted as $row) {
                 foreach ($group_values as $gv) {
-                    $sk = $y_col . '_' . $gv;
+                    $sk = $y_alias . '_' . $gv;
                     if (!isset($row[$sk])) {
                         $row[$sk] = 0;
                     }
@@ -620,8 +714,8 @@ final class BPID_Suite_Visualizer {
             // Attach group metadata so frontend knows the series names
             if (!empty($result)) {
                 $result['__group_meta__'] = [
-                    'base_column'  => $y_col,
-                    'group_column' => $group_alias,
+                    'base_column'  => $y_alias,
+                    'group_column' => $group_alias_gb,
                     'group_values' => $group_values,
                 ];
             }
@@ -629,23 +723,17 @@ final class BPID_Suite_Visualizer {
             return $result;
         }
 
-        // Standard mode (no group by)
-        $select_parts = ["`$axis_x`"];
-        foreach ($y_columns as $col) {
-            if (!in_array($col, $valid_columns, true)) {
-                continue;
-            }
-            $select_parts[] = "$agg_func(`$col`) AS `$col`";
-        }
-
-        if (count($select_parts) < 2) {
-            return [];
+        // ── Standard mode (no group by) ──
+        $select_parts = ["$x_expr AS `$x_alias`"];
+        foreach ($y_col_exprs as $col_key => $col_expr) {
+            $col_alias = preg_replace('/[^a-zA-Z0-9_]/', '_', $col_key);
+            $select_parts[] = "$agg_func($col_expr) AS `$col_alias`";
         }
 
         $select = implode(', ', $select_parts);
 
-        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared -- Table/column names validated above
-        $sql = "SELECT $select FROM `$table` WHERE $where GROUP BY `$axis_x` ORDER BY `$axis_x` ASC LIMIT 1000";
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        $sql = "SELECT $select FROM $from_table $full_join WHERE $where GROUP BY `$x_alias` ORDER BY `$x_alias` ASC LIMIT 1000";
 
         // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared
         $results = $wpdb->get_results($sql, ARRAY_A);
@@ -701,6 +789,16 @@ final class BPID_Suite_Visualizer {
         }
 
         $columns = $this->get_table_columns($table);
+
+        // If this is the main contratos table, add virtual relational columns
+        $db = BPID_Suite_Database::get_instance();
+        if ($table === $db->get_table_name()) {
+            $columns[] = '⟶ municipio (individual)';
+            $columns[] = '⟶ ods (individual)';
+            $columns[] = '⟶ meta_texto (individual)';
+            $columns[] = '⟶ municipio_beneficiarios';
+        }
+
         wp_send_json_success($columns);
     }
 
@@ -783,6 +881,19 @@ final class BPID_Suite_Visualizer {
         // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
         $columns = $wpdb->get_col("SHOW COLUMNS FROM `$table`");
         return is_array($columns) ? $columns : [];
+    }
+
+    /**
+     * Resolve virtual column names (with arrow prefix) to clean aliases.
+     */
+    private function resolve_virtual_column_alias(string $col): string {
+        $map = [
+            '⟶ municipio (individual)'   => 'municipio',
+            '⟶ ods (individual)'         => 'ods',
+            '⟶ meta_texto (individual)'  => 'meta_texto',
+            '⟶ municipio_beneficiarios'  => 'beneficiarios_municipio',
+        ];
+        return $map[$col] ?? $col;
     }
 
     private function is_safe_query(string $query): bool {

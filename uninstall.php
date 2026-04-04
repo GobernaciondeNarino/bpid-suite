@@ -14,17 +14,34 @@ if (!defined('WP_UNINSTALL_PLUGIN')) {
 
 global $wpdb;
 
-// 1. Drop custom table
-$table_name = $wpdb->prefix . 'bpid_suite_contratos';
-$wpdb->query("DROP TABLE IF EXISTS {$table_name}");
+// Check if user opted to delete all data on uninstall
+$delete_data = get_option('bpid_suite_delete_data_on_uninstall', '0');
 
-// 2. Delete all plugin options
+if ('1' === $delete_data) {
+    // 1. Drop all custom tables (relational + main)
+    $tables_to_drop = [
+        $wpdb->prefix . 'bpid_contrato_municipios',
+        $wpdb->prefix . 'bpid_contrato_odss',
+        $wpdb->prefix . 'bpid_contrato_metas',
+        $wpdb->prefix . 'bpid_suite_contratos',
+    ];
+
+    foreach ($tables_to_drop as $t) {
+        // phpcs:ignore WordPress.DB.PreparedSQL.InterpolatedNotPrepared
+        $wpdb->query("DROP TABLE IF EXISTS `{$t}`");
+    }
+}
+
+// 2. Delete all plugin options (always clean up options)
 $options_to_delete = [
     'bpid_suite_api_key',
     'bpid_suite_db_version',
+    'BPID_SUITE_DB_VERSION',
     'bpid_suite_cron_frequency',
     'bpid_suite_last_import',
+    'bpid_suite_last_import_date',
     'bpid_suite_import_stats',
+    'bpid_suite_delete_data_on_uninstall',
 ];
 
 foreach ($options_to_delete as $option) {

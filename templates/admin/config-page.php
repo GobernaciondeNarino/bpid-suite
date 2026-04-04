@@ -124,7 +124,7 @@ if ($transient_errors) {
                 <h2><span class="dashicons dashicons-admin-tools"></span> <?php echo esc_html__('Mantenimiento', 'bpid-suite'); ?></h2>
             </div>
             <div class="bpid-card-body">
-                <div class="bpid-form-group" style="margin-bottom:0;">
+                <div class="bpid-form-group">
                     <label><?php echo esc_html__('Regenerar tabla', 'bpid-suite'); ?></label>
                     <button type="button" id="bpid-regenerate-table" class="button button-secondary">
                         <?php echo esc_html__('Regenerar tabla', 'bpid-suite'); ?>
@@ -139,6 +139,22 @@ if ($transient_errors) {
                         ?>
                     </p>
                     <div id="bpid-regenerate-result" style="margin-top:8px;"></div>
+                </div>
+
+                <div class="bpid-form-group" style="margin-bottom:0;margin-top:16px;padding-top:16px;border-top:1px solid var(--bpid-gray-200, #e9ecef);">
+                    <label for="bpid_suite_delete_data_on_uninstall">
+                        <input
+                            type="checkbox"
+                            id="bpid_suite_delete_data_on_uninstall"
+                            name="bpid_suite_delete_data_on_uninstall"
+                            value="1"
+                            <?php checked(get_option('bpid_suite_delete_data_on_uninstall', '0'), '1'); ?>
+                        />
+                        <?php echo esc_html__('Eliminar todas las tablas de datos al desinstalar el plugin', 'bpid-suite'); ?>
+                    </label>
+                    <p class="description" style="color:var(--bpid-danger, #e74c3c);">
+                        <?php echo esc_html__('Si está marcado, al eliminar el plugin desde WordPress se borrarán permanentemente todas las tablas (contratos, municipios, ODS, metas). Los datos se pueden re-importar desde la API.', 'bpid-suite'); ?>
+                    </p>
                 </div>
             </div>
         </div>
