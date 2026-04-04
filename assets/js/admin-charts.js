@@ -229,6 +229,9 @@
             // Populate Y column selects
             populateYColumnSelects();
 
+            // Populate advanced filter column selects and orderby
+            populateAdvFilterSelects();
+
             // Restore saved Y rows
             if (yRowCounter === 0) {
                 restoreSavedYRows();
@@ -612,7 +615,150 @@
     }
 
     // -------------------------------------------------------------------------
-    // 7.5. Vigencia Toggle
+    // 7.5. Advanced Filters (dynamic rows)
+    // -------------------------------------------------------------------------
+
+    var advFilterCounter = 0;
+
+    function initAdvFilters() {
+        var addBtn = qs('#add-adv-filter');
+        if (!addBtn) return;
+
+        addBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            addAdvFilterRow('', '=', '');
+        });
+
+        // Bind remove buttons for existing rows (restored from saved)
+        var existing = qsa('.adv-filter-remove');
+        existing.forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                btn.closest('.adv-filter-row').remove();
+                reindexAdvFilters();
+            });
+        });
+
+        // Count existing rows
+        advFilterCounter = qsa('.adv-filter-row').length;
+    }
+
+    function addAdvFilterRow(column, operator, value) {
+        var container = qs('#adv-filter-rows');
+        if (!container) return;
+
+        var index = advFilterCounter++;
+        var row = document.createElement('div');
+        row.className = 'adv-filter-row';
+        row.setAttribute('data-index', index);
+
+        // Column select
+        var colSelect = document.createElement('select');
+        colSelect.name = 'chart_adv_filters[' + index + '][column]';
+        colSelect.className = 'adv-filter-column bpid-chart-select';
+        var defaultOpt = document.createElement('option');
+        defaultOpt.value = '';
+        defaultOpt.textContent = '\u2014 Campo \u2014';
+        colSelect.appendChild(defaultOpt);
+        currentColumnsData.forEach(function(col) {
+            colSelect.appendChild(createTypedOption(col));
+        });
+        if (column) colSelect.value = column;
+        applySelectColor(colSelect);
+        colSelect.addEventListener('change', function() { applySelectColor(colSelect); });
+
+        // Operator select
+        var opSelect = document.createElement('select');
+        opSelect.name = 'chart_adv_filters[' + index + '][operator]';
+        opSelect.className = 'adv-filter-operator bpid-chart-select';
+        var ops = [
+            { v: '=', l: '=' }, { v: '!=', l: '!=' },
+            { v: '>', l: '>' }, { v: '<', l: '<' },
+            { v: '>=', l: '>=' }, { v: '<=', l: '<=' },
+            { v: 'LIKE', l: 'LIKE' }
+        ];
+        ops.forEach(function(op) {
+            var o = document.createElement('option');
+            o.value = op.v;
+            o.textContent = op.l;
+            if (op.v === operator) o.selected = true;
+            opSelect.appendChild(o);
+        });
+
+        // Value input
+        var valInput = document.createElement('input');
+        valInput.type = 'text';
+        valInput.name = 'chart_adv_filters[' + index + '][value]';
+        valInput.className = 'adv-filter-value bpid-chart-input';
+        valInput.placeholder = 'Valor';
+        if (value) valInput.value = value;
+
+        // Remove button
+        var removeBtn = document.createElement('button');
+        removeBtn.type = 'button';
+        removeBtn.className = 'adv-filter-remove button button-small';
+        removeBtn.title = 'Eliminar';
+        removeBtn.innerHTML = '<span class="dashicons dashicons-no-alt" style="font-size:16px;width:16px;height:16px;margin-top:2px;"></span>';
+        removeBtn.addEventListener('click', function() {
+            row.remove();
+            reindexAdvFilters();
+        });
+
+        row.appendChild(colSelect);
+        row.appendChild(opSelect);
+        row.appendChild(valInput);
+        row.appendChild(removeBtn);
+        container.appendChild(row);
+    }
+
+    function reindexAdvFilters() {
+        var rows = qsa('.adv-filter-row');
+        rows.forEach(function(row, i) {
+            row.setAttribute('data-index', i);
+            var colSel = qs('.adv-filter-column', row);
+            var opSel = qs('.adv-filter-operator', row);
+            var valInp = qs('.adv-filter-value', row);
+            if (colSel) colSel.name = 'chart_adv_filters[' + i + '][column]';
+            if (opSel)  opSel.name = 'chart_adv_filters[' + i + '][operator]';
+            if (valInp) valInp.name = 'chart_adv_filters[' + i + '][value]';
+        });
+    }
+
+    function populateAdvFilterSelects() {
+        // Populate existing filter column selects and orderby select
+        var filterColSelects = qsa('.adv-filter-column');
+        filterColSelects.forEach(function(sel) {
+            var currentVal = sel.value;
+            sel.innerHTML = '<option value="">\u2014 Campo \u2014</option>';
+            currentColumnsData.forEach(function(col) {
+                sel.appendChild(createTypedOption(col));
+            });
+            if (currentVal) sel.value = currentVal;
+            applySelectColor(sel);
+            if (!sel._hasChangeHandler) {
+                sel.addEventListener('change', function() { applySelectColor(sel); });
+                sel._hasChangeHandler = true;
+            }
+        });
+
+        // Populate orderby select
+        var orderBySelect = qs('#chart_query_orderby');
+        if (orderBySelect) {
+            var savedOrderBy = orderBySelect.value || '';
+            orderBySelect.innerHTML = '<option value="">\u2014 Eje X (defecto) \u2014</option>';
+            currentColumnsData.forEach(function(col) {
+                orderBySelect.appendChild(createTypedOption(col));
+            });
+            if (savedOrderBy) orderBySelect.value = savedOrderBy;
+            applySelectColor(orderBySelect);
+            if (!orderBySelect._hasChangeHandler) {
+                orderBySelect.addEventListener('change', function() { applySelectColor(orderBySelect); });
+                orderBySelect._hasChangeHandler = true;
+            }
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 7.6. Vigencia Toggle
     // -------------------------------------------------------------------------
 
     function initVigenciaToggle() {
@@ -781,7 +927,10 @@
         initCustomQueryToggle();
         initQueryGenerator();
 
-        // 7.5 Group By vigencia toggle
+        // 7.5 Advanced filters
+        initAdvFilters();
+
+        // 7.6 Group By vigencia toggle
         initVigenciaToggle();
 
         // 7. Copy shortcode

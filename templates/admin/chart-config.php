@@ -42,6 +42,14 @@ $chart_toolbar_csv      = get_post_meta( $post->ID, '_chart_toolbar_csv', true )
 $chart_custom_query     = get_post_meta( $post->ID, '_chart_custom_query', true );
 $chart_group_by         = get_post_meta( $post->ID, '_chart_group_by', true );
 $chart_group_vigencia   = get_post_meta( $post->ID, '_chart_group_by_vigencia', true );
+$chart_adv_filters      = get_post_meta( $post->ID, '_chart_adv_filters', true );
+$chart_query_limit      = get_post_meta( $post->ID, '_chart_query_limit', true ) ?: '1000';
+$chart_query_orderby    = get_post_meta( $post->ID, '_chart_query_orderby', true );
+$chart_query_order      = get_post_meta( $post->ID, '_chart_query_order', true ) ?: 'ASC';
+
+if ( ! is_array( $chart_adv_filters ) ) {
+	$chart_adv_filters = array();
+}
 
 // Ensure arrays.
 if ( ! is_array( $chart_y_columns ) ) {
@@ -107,6 +115,10 @@ $chart_types = array(
 	'heatmap'        => array(
 		'label' => 'Mapa de Calor',
 		'icon'  => '<svg viewBox="0 0 32 32" width="32" height="32"><rect x="3" y="3" width="8" height="8" rx="1" fill="currentColor" opacity=".2"/><rect x="12" y="3" width="8" height="8" rx="1" fill="currentColor" opacity=".6"/><rect x="21" y="3" width="8" height="8" rx="1" fill="currentColor" opacity=".9"/><rect x="3" y="12" width="8" height="8" rx="1" fill="currentColor" opacity=".5"/><rect x="12" y="12" width="8" height="8" rx="1" fill="currentColor" opacity=".8"/><rect x="21" y="12" width="8" height="8" rx="1" fill="currentColor" opacity=".3"/><rect x="3" y="21" width="8" height="8" rx="1" fill="currentColor" opacity=".9"/><rect x="12" y="21" width="8" height="8" rx="1" fill="currentColor" opacity=".4"/><rect x="21" y="21" width="8" height="8" rx="1" fill="currentColor" opacity=".7"/></svg>',
+	),
+	'plot'           => array(
+		'label' => 'Dispersión',
+		'icon'  => '<svg viewBox="0 0 32 32" width="32" height="32"><line x1="4" y1="28" x2="4" y2="4" stroke="currentColor" stroke-width="1.5"/><line x1="4" y1="28" x2="28" y2="28" stroke="currentColor" stroke-width="1.5"/><circle cx="8" cy="20" r="2.5" fill="currentColor" opacity=".7"/><circle cx="14" cy="12" r="2.5" fill="currentColor" opacity=".7"/><circle cx="20" cy="16" r="2.5" fill="currentColor" opacity=".7"/><circle cx="25" cy="8" r="2.5" fill="currentColor" opacity=".7"/><circle cx="11" cy="24" r="2.5" fill="currentColor" opacity=".7"/><circle cx="22" cy="22" r="2.5" fill="currentColor" opacity=".4"/></svg>',
 	),
 );
 
@@ -281,6 +293,7 @@ $number_formats = array(
 			<?php esc_html_e( 'Filtros de Datos', 'bpid-suite' ); ?>
 		</div>
 		<div class="bpid-chart-card-body">
+			<!-- Quick filters: Year / Month -->
 			<div class="bpid-chart-form-grid bpid-chart-form-grid--2col">
 				<div class="bpid-chart-form-group">
 					<label for="chart_filter_year"><?php esc_html_e( 'A&ntilde;o', 'bpid-suite' ); ?></label>
@@ -308,6 +321,80 @@ $number_formats = array(
 						placeholder="Todos"
 					/>
 					<span class="bpid-chart-help"><?php esc_html_e( '0 o vac&iacute;o = todos los meses.', 'bpid-suite' ); ?></span>
+				</div>
+			</div>
+
+			<!-- Advanced dynamic filters -->
+			<div class="bpid-adv-filters-section" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--bpid-gray-200,#e0e0e0);">
+				<label class="bpid-chart-y-label"><?php esc_html_e( 'Filtros Avanzados (WHERE)', 'bpid-suite' ); ?></label>
+				<div id="adv-filter-rows" class="bpid-adv-filter-rows">
+					<?php if ( ! empty( $chart_adv_filters ) ) : ?>
+						<?php foreach ( $chart_adv_filters as $idx => $f ) : ?>
+							<div class="adv-filter-row" data-index="<?php echo (int) $idx; ?>">
+								<select name="chart_adv_filters[<?php echo (int) $idx; ?>][column]" class="adv-filter-column bpid-chart-select">
+									<option value="<?php echo esc_attr( $f['column'] ?? '' ); ?>" selected>
+										<?php echo esc_html( $f['column'] ?? '— Campo —' ); ?>
+									</option>
+								</select>
+								<select name="chart_adv_filters[<?php echo (int) $idx; ?>][operator]" class="adv-filter-operator bpid-chart-select">
+									<?php
+									$ops = array( '=' => '=', '!=' => '!=', '>' => '>', '<' => '<', '>=' => '>=', '<=' => '<=', 'LIKE' => 'LIKE' );
+									foreach ( $ops as $op_val => $op_label ) :
+									?>
+										<option value="<?php echo esc_attr( $op_val ); ?>" <?php selected( $f['operator'] ?? '=', $op_val ); ?>>
+											<?php echo esc_html( $op_label ); ?>
+										</option>
+									<?php endforeach; ?>
+								</select>
+								<input type="text" name="chart_adv_filters[<?php echo (int) $idx; ?>][value]" class="adv-filter-value bpid-chart-input" value="<?php echo esc_attr( $f['value'] ?? '' ); ?>" placeholder="Valor" />
+								<button type="button" class="adv-filter-remove button button-small" title="Eliminar">
+									<span class="dashicons dashicons-no-alt" style="font-size:16px;width:16px;height:16px;margin-top:2px;"></span>
+								</button>
+							</div>
+						<?php endforeach; ?>
+					<?php endif; ?>
+				</div>
+				<button type="button" class="button button-secondary bpid-add-y-btn" id="add-adv-filter">
+					<span class="dashicons dashicons-plus-alt2" style="margin-top:4px;"></span>
+					<?php esc_html_e( 'Agregar Filtro', 'bpid-suite' ); ?>
+				</button>
+				<span class="bpid-chart-help" style="margin-top:6px;display:block;">
+					<?php esc_html_e( 'Cada filtro se aplica como condici&oacute;n WHERE. LIKE usa % como comod&iacute;n (ej: %Pasto%).', 'bpid-suite' ); ?>
+				</span>
+			</div>
+
+			<!-- Limit & Order -->
+			<div class="bpid-chart-form-grid bpid-chart-form-grid--3col" style="margin-top:20px;padding-top:16px;border-top:1px solid var(--bpid-gray-200,#e0e0e0);">
+				<div class="bpid-chart-form-group">
+					<label for="chart_query_limit"><?php esc_html_e( 'L&iacute;mite de registros', 'bpid-suite' ); ?></label>
+					<input
+						type="number"
+						name="chart_query_limit"
+						id="chart_query_limit"
+						value="<?php echo esc_attr( $chart_query_limit ); ?>"
+						min="1"
+						max="50000"
+						class="bpid-chart-input-sm"
+					/>
+				</div>
+				<div class="bpid-chart-form-group">
+					<label for="chart_query_orderby"><?php esc_html_e( 'Ordenar por', 'bpid-suite' ); ?></label>
+					<select name="chart_query_orderby" id="chart_query_orderby" class="adv-filter-column bpid-chart-select">
+						<?php if ( $chart_query_orderby ) : ?>
+							<option value="<?php echo esc_attr( $chart_query_orderby ); ?>" selected>
+								<?php echo esc_html( $chart_query_orderby ); ?>
+							</option>
+						<?php else : ?>
+							<option value=""><?php esc_html_e( '— Eje X (defecto) —', 'bpid-suite' ); ?></option>
+						<?php endif; ?>
+					</select>
+				</div>
+				<div class="bpid-chart-form-group">
+					<label for="chart_query_order"><?php esc_html_e( 'Direcci&oacute;n', 'bpid-suite' ); ?></label>
+					<select name="chart_query_order" id="chart_query_order" class="bpid-chart-select">
+						<option value="ASC" <?php selected( $chart_query_order, 'ASC' ); ?>>ASC ↑</option>
+						<option value="DESC" <?php selected( $chart_query_order, 'DESC' ); ?>>DESC ↓</option>
+					</select>
 				</div>
 			</div>
 		</div>
