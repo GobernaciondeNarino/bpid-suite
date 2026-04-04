@@ -4,7 +4,7 @@ declare(strict_types=1);
  * Plugin Name:       BPID Suite
  * Plugin URI:        https://github.com/GobernaciondeNarino/bpid-suite
  * Description:       Plugin para importar, filtrar, graficar y visualizar datos del Banco de Proyectos de Inversión y Desarrollo (BPID) de la Gobernación de Nariño.
- * Version:           1.5.1
+ * Version:           1.6.0
  * Requires at least: 6.0
  * Requires PHP:      8.1
  * Author:            Gobernación de Nariño — Secretaría de TIC, Innovación y Gobierno Abierto
@@ -27,12 +27,12 @@ if (!defined('WPINC')) {
 /**
  * Plugin constants
  */
-define('BPID_SUITE_VERSION', '1.5.1');
+define('BPID_SUITE_VERSION', '1.6.0');
 define('BPID_SUITE_PATH', plugin_dir_path(__FILE__));
 define('BPID_SUITE_URL', plugin_dir_url(__FILE__));
 define('BPID_SUITE_BASENAME', plugin_basename(__FILE__));
 define('BPID_SUITE_API_URL', 'https://bpid.narino.gov.co/bpid/publico/consulta_contratos_con_ejecucion_contractual.php');
-define('BPID_SUITE_DB_VERSION', '2.0.0');
+define('BPID_SUITE_DB_VERSION', '3.0.0');
 
 /**
  * Main plugin class — Singleton pattern
@@ -269,6 +269,10 @@ final class BPID_Suite {
 
         update_option('bpid_suite_cron_frequency', $cron_frequency);
         $this->schedule_cron($cron_frequency);
+
+        // Delete data on uninstall option
+        $delete_on_uninstall = isset($_POST['bpid_suite_delete_data_on_uninstall']) ? '1' : '0';
+        update_option('bpid_suite_delete_data_on_uninstall', $delete_on_uninstall);
 
         add_settings_error('bpid_suite', 'settings_updated', __('Configuración guardada correctamente.', 'bpid-suite'), 'updated');
         set_transient('bpid_suite_settings_errors', get_settings_errors('bpid_suite'), 30);

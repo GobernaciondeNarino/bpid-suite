@@ -1,0 +1,123 @@
+{
+  "descripcion": "Estructura actual de la tabla wp_bpid_suite_contratos (DB v2.0.0) - Diagnóstico",
+  "problema": "Las columnas municipios, odss y metas almacenan valores separados por coma en una sola celda. Al hacer GROUP BY municipios, agrupa 'Pasto, Tumaco, Ipiales' como un solo valor en vez de valores individuales.",
+
+  "esquema_actual": {
+    "tabla": "wp_bpid_suite_contratos",
+    "columnas": {
+      "id": "BIGINT AUTO_INCREMENT",
+      "numero_proyecto": "VARCHAR(100) - ej: 'BP-2025-001'",
+      "nombre_proyecto": "TEXT - ej: 'Mejoramiento vías rurales'",
+      "dependencia": "VARCHAR(500) - ej: 'Sec. Infraestructura' (valor único - OK para GROUP BY)",
+      "entidad_ejecutora": "VARCHAR(500)",
+      "valor_proyecto": "DECIMAL(20,2) - ej: 1500000000.00",
+      "metas": "TEXT - PROBLEMA: 'Meta 1, Meta 2, Meta 3' (comma-separated)",
+      "odss": "TEXT - PROBLEMA: 'ODS 1 Fin De La Pobreza, ODS 4 Educación De Calidad' (comma-separated)",
+      "numero_contrato": "VARCHAR(200)",
+      "objeto_contrato": "LONGTEXT",
+      "descripcion_contrato": "LONGTEXT",
+      "valor_contrato": "DECIMAL(20,2) - ej: 250000000.00",
+      "avance_fisico": "DECIMAL(5,2) - ej: 65.50",
+      "es_ops": "TINYINT(1)",
+      "municipios": "TEXT - PROBLEMA: 'Pasto, Tumaco, Ipiales, Barbacoas' (comma-separated)",
+      "beneficiarios": "INT - suma total de beneficiarios (pierde detalle por municipio)",
+      "imagenes": "LONGTEXT - URLs comma-separated",
+      "fecha_importacion": "DATETIME",
+      "fecha_actualizacion": "DATETIME"
+    }
+  },
+
+  "ejemplo_fila_actual": {
+    "id": 1,
+    "numero_proyecto": "BP-2025-001",
+    "nombre_proyecto": "Mejoramiento De Vías Rurales En El Departamento De Nariño",
+    "dependencia": "Sec. Infraestructura",
+    "entidad_ejecutora": "Gobernación De Nariño",
+    "valor_proyecto": 1500000000.00,
+    "metas": "Mejorar 50km de vías rurales, Beneficiar 10 municipios",
+    "odss": "ODS 9 Industria Innovación E Infraestructura, ODS 11 Ciudades Y Comunidades Sostenibles",
+    "numero_contrato": "GN-2025-0150",
+    "objeto_contrato": "Mejoramiento de vías rurales terciarias...",
+    "descripcion_contrato": "Mejoramiento de vías rurales terciarias...",
+    "valor_contrato": 250000000.00,
+    "avance_fisico": 65.50,
+    "es_ops": 0,
+    "municipios": "Pasto, Tumaco, Ipiales, Barbacoas",
+    "beneficiarios": 15000,
+    "imagenes": "https://example.com/img1.jpg, https://example.com/img2.jpg",
+    "fecha_importacion": "2025-03-15 10:30:00",
+    "fecha_actualizacion": null
+  },
+
+  "problema_detallado": {
+    "grafica_municipios": {
+      "query_actual": "SELECT municipios, SUM(valor_contrato) FROM tabla GROUP BY municipios",
+      "resultado_incorrecto": [
+        {"municipios": "Pasto, Tumaco, Ipiales, Barbacoas", "SUM(valor_contrato)": 250000000},
+        {"municipios": "Pasto, Cumbal", "SUM(valor_contrato)": 180000000},
+        {"municipios": "Tumaco", "SUM(valor_contrato)": 90000000}
+      ],
+      "resultado_deseado": [
+        {"municipio": "Pasto", "SUM(valor_contrato)": 430000000},
+        {"municipio": "Tumaco", "SUM(valor_contrato)": 340000000},
+        {"municipio": "Ipiales", "SUM(valor_contrato)": 250000000},
+        {"municipio": "Barbacoas", "SUM(valor_contrato)": 250000000},
+        {"municipio": "Cumbal", "SUM(valor_contrato)": 180000000}
+      ]
+    },
+    "grafica_ods": {
+      "mismo_problema": "ODS se almacena como texto concatenado, no permite GROUP BY individual"
+    },
+    "grafica_metas": {
+      "mismo_problema": "Metas se almacena como texto concatenado"
+    },
+    "beneficiarios_por_municipio": {
+      "problema": "La columna beneficiarios tiene la suma total. Se pierde cuántos beneficiarios hay por cada municipio individual. La API provee poblacion_beneficiada por municipio pero se pierde al sumar."
+    }
+  },
+
+  "estructura_api_original": {
+    "nota": "El API devuelve arrays anidados que se aplastan al importar",
+    "municipios_del_api": [
+      {"nombre": "Pasto", "poblacion_beneficiada": 5000},
+      {"nombre": "Tumaco", "poblacion_beneficiada": 4000},
+      {"nombre": "Ipiales", "poblacion_beneficiada": 3000},
+      {"nombre": "Barbacoas", "poblacion_beneficiada": 3000}
+    ],
+    "odss_del_api": [
+      {"nombre": "ODS 9 Industria, Innovación e Infraestructura"},
+      {"nombre": "ODS 11 Ciudades y Comunidades Sostenibles"}
+    ],
+    "metas_del_api": [
+      "Mejorar 50km de vías rurales",
+      "Beneficiar 10 municipios"
+    ]
+  },
+
+  "solucion_propuesta": {
+    "estrategia": "Tablas relacionales (junction tables) para relaciones muchos-a-muchos",
+    "tablas_nuevas": {
+      "wp_bpid_contrato_municipios": {
+        "id": "BIGINT AUTO_INCREMENT",
+        "contrato_id": "BIGINT FK → wp_bpid_suite_contratos.id",
+        "municipio": "VARCHAR(200) - valor individual: 'Pasto'",
+        "beneficiarios": "INT - beneficiarios de ESE municipio en ESE contrato"
+      },
+      "wp_bpid_contrato_odss": {
+        "id": "BIGINT AUTO_INCREMENT",
+        "contrato_id": "BIGINT FK → wp_bpid_suite_contratos.id",
+        "ods": "VARCHAR(300) - valor individual: 'ODS 9 Industria Innovación E Infraestructura'"
+      },
+      "wp_bpid_contrato_metas": {
+        "id": "BIGINT AUTO_INCREMENT",
+        "contrato_id": "BIGINT FK → wp_bpid_suite_contratos.id",
+        "meta_texto": "TEXT - valor individual: 'Mejorar 50km de vías rurales'"
+      }
+    },
+    "query_corregida": {
+      "municipios_x_valor": "SELECT m.municipio, SUM(c.valor_contrato) FROM wp_bpid_suite_contratos c JOIN wp_bpid_contrato_municipios m ON c.id = m.contrato_id GROUP BY m.municipio ORDER BY SUM(c.valor_contrato) DESC",
+      "ods_x_beneficiarios": "SELECT o.ods, SUM(m.beneficiarios) FROM wp_bpid_suite_contratos c JOIN wp_bpid_contrato_odss o ON c.id = o.contrato_id JOIN wp_bpid_contrato_municipios m ON c.id = m.contrato_id GROUP BY o.ods",
+      "municipios_x_dependencia_heatmap": "SELECT m.municipio, c.dependencia, SUM(c.valor_contrato) FROM wp_bpid_suite_contratos c JOIN wp_bpid_contrato_municipios m ON c.id = m.contrato_id GROUP BY m.municipio, c.dependencia"
+    }
+  }
+}

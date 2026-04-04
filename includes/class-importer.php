@@ -360,10 +360,33 @@ final class BPID_Suite_Importer {
                 try {
                     $result = $database->upsert_contrato($contrato);
 
-                    if ('inserted' === $result) {
-                        $progress['inserted']++;
-                    } elseif ('updated' === $result) {
-                        $progress['updated']++;
+                    if ('inserted' === $result || 'updated' === $result) {
+                        if ('inserted' === $result) {
+                            $progress['inserted']++;
+                        } else {
+                            $progress['updated']++;
+                        }
+
+                        // Populate relational tables with individual values
+                        $contrato_id = $database->get_contrato_id(
+                            (string) ($contrato['numeroContrato'] ?? ''),
+                            (string) ($contrato['numeroProyecto'] ?? '')
+                        );
+
+                        if ($contrato_id) {
+                            $database->insert_municipios(
+                                $contrato_id,
+                                $contrato['municipios'] ?? []
+                            );
+                            $database->insert_odss(
+                                $contrato_id,
+                                $contrato['odss'] ?? []
+                            );
+                            $database->insert_metas(
+                                $contrato_id,
+                                $contrato['metas'] ?? []
+                            );
+                        }
                     } else {
                         $progress['errors']++;
                     }
