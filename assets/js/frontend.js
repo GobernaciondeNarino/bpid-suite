@@ -97,16 +97,9 @@
         var yColumns = config.y_columns || [];
         var yColors = config.y_colors || [];
         var palette = config.color_palette || [];
-        var groupMeta = config.group_meta || null;
-
         // Heatmap rendering
         if (config.type === 'heatmap') {
             return buildHeatmapConfig(config, data, formatter, palette);
-        }
-
-        // If group_meta is present, use pivoted series
-        if (groupMeta && groupMeta.group_values) {
-            return buildGroupedChartConfig(config, data, groupMeta, formatter, palette);
         }
 
         var labels = data.map(function (row) { return row[config.axis_x] || ''; });
@@ -153,74 +146,6 @@
         };
 
         // Scales for non-pie/donut/radar types
-        if (chartJsType !== 'pie' && chartJsType !== 'doughnut' && chartJsType !== 'radar') {
-            options.scales = {
-                x: {
-                    title: { display: !!config.title_x, text: config.title_x || '', color: '#555' },
-                    grid: { display: false },
-                    ticks: { font: { size: 11 }, color: '#666' },
-                    stacked: isStacked(config.type)
-                },
-                y: {
-                    title: { display: !!config.title_y, text: config.title_y || '', color: '#555' },
-                    grid: { color: 'rgba(0,0,0,0.06)' },
-                    ticks: {
-                        font: { size: 11 },
-                        color: '#666',
-                        callback: function (value) { return formatter(value); }
-                    },
-                    stacked: isStacked(config.type)
-                }
-            };
-        }
-
-        return {
-            type: chartJsType,
-            data: { labels: labels, datasets: datasets },
-            options: options
-        };
-    }
-
-    /* ========================================
-       Build Grouped Chart Config (pivoted data)
-       ======================================== */
-    function buildGroupedChartConfig(config, data, groupMeta, formatter, palette) {
-        var chartJsType = mapChartType(config.type);
-        var labels = data.map(function (row) { return row[config.axis_x] || ''; });
-        var baseCol = groupMeta.base_column;
-        var groupValues = groupMeta.group_values || [];
-
-        var datasets = groupValues.map(function (gv, i) {
-            var seriesKey = baseCol + '_' + gv;
-            var color = palette[i % palette.length] || '#3eba6a';
-            return {
-                label: String(gv),
-                data: data.map(function (row) { return parseFloat(row[seriesKey]) || 0; }),
-                backgroundColor: isAreaType(config.type) ? hexToRgba(color, 0.3) : color,
-                borderColor: color,
-                borderWidth: (chartJsType === 'line') ? 2 : 0,
-                fill: isAreaType(config.type),
-                tension: 0.3
-            };
-        });
-
-        var options = {
-            responsive: true,
-            maintainAspectRatio: false,
-            indexAxis: isHorizontal(config.type) ? 'y' : 'x',
-            plugins: {
-                legend: { display: true },
-                tooltip: {
-                    callbacks: {
-                        label: function (ctx) {
-                            return ctx.dataset.label + ': ' + formatter(ctx.parsed.y || ctx.parsed.x || ctx.raw);
-                        }
-                    }
-                }
-            },
-            scales: {}
-        };
-
         if (chartJsType !== 'pie' && chartJsType !== 'doughnut' && chartJsType !== 'radar') {
             options.scales = {
                 x: {
