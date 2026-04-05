@@ -48,9 +48,8 @@
     border-bottom: 2px solid var(--bpid-color-primario-light);
 }
 
-.bpid-chart-container canvas {
+.bpid-chart-container svg {
     width: 100% !important;
-    max-height: 400px;
 }
 
 /* Chart loading spinner */
@@ -90,7 +89,7 @@
 }
 
 /* ----------------------------------------
-   Chart.js Wrapper (Instructions v2)
+   Chart Wrapper
    ---------------------------------------- */
 .bpid-chart-wrapper {
     background: #fdfdf8;
@@ -100,9 +99,57 @@
     font-family: inherit;
 }
 
-.bpid-chart-canvas-container {
+/* d3plus chart container — responsive */
+.bpid-chart-d3plus-container {
     position: relative;
     width: 100%;
+    overflow: hidden;
+}
+
+.bpid-chart-d3plus-container svg {
+    width: 100% !important;
+    max-width: 100%;
+}
+
+/* ----------------------------------------
+   d3plus Tooltip Override
+   ---------------------------------------- */
+.d3plus-tooltip {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15) !important;
+    border: 1px solid rgba(0, 0, 0, 0.08) !important;
+    max-width: 320px !important;
+}
+
+.d3plus-tooltip .d3plus-tooltip-title {
+    font-size: 14px !important;
+    font-weight: 700 !important;
+    padding: 10px 14px 6px !important;
+    color: #1d2327 !important;
+    border-bottom: 1px solid #eee !important;
+}
+
+.d3plus-tooltip .d3plus-tooltip-body {
+    padding: 8px 14px 10px !important;
+    font-size: 13px !important;
+    line-height: 1.6 !important;
+    color: #444 !important;
+}
+
+.d3plus-tooltip .d3plus-tooltip-body strong {
+    color: #1d2327;
+    font-weight: 600;
+}
+
+.bpid-tooltip-custom {
+    display: block;
+    margin-top: 6px;
+    padding-top: 6px;
+    border-top: 1px solid #eee;
+    font-size: 11px;
+    color: #888;
+    font-style: italic;
 }
 
 /* ----------------------------------------
@@ -155,26 +202,6 @@
     outline-offset: 1px;
 }
 
-/* Legacy toolbar compat */
-.bpid-chart-toolbar-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border: 1px solid var(--bpid-color-border);
-    border-radius: 6px;
-    background: var(--bpid-color-surface);
-    color: var(--bpid-color-text-muted);
-    cursor: pointer;
-    transition: all 0.2s ease;
-}
-
-.bpid-chart-toolbar-btn:hover {
-    background: var(--bpid-color-primario-light);
-    color: var(--bpid-color-primario);
-    border-color: var(--bpid-color-primario);
-}
 
 /* ----------------------------------------
    Inline Data Table (toggle via Datos btn)
@@ -1472,6 +1499,17 @@
     .bpid-filter-field {
         flex: 1 1 100%;
     }
+
+    /* Chart toolbar: wrap on tablet */
+    .bpid-chart-toolbar {
+        flex-wrap: wrap;
+        gap: 2px;
+    }
+
+    .sct-btn {
+        font-size: 12px;
+        padding: 4px 8px;
+    }
 }
 
 /* ----------------------------------------
@@ -1537,11 +1575,45 @@
     }
 
     .bpid-chart-container {
-        padding: 16px;
+        padding: 12px;
+        min-height: 250px;
+    }
+
+    .bpid-chart-wrapper {
+        padding: 8px 10px;
+    }
+
+    .bpid-chart-d3plus-container {
+        min-height: 220px;
+    }
+
+    /* Toolbar: icons only on mobile */
+    .bpid-chart-toolbar {
+        top: 6px;
+        right: 8px;
+        gap: 1px;
+    }
+
+    .sct-btn {
+        font-size: 0;
+        padding: 6px;
+        min-width: 28px;
+        justify-content: center;
+    }
+
+    .sct-btn svg {
+        width: 16px;
+        height: 16px;
     }
 
     .bpid-filter-container {
         padding: 16px;
+    }
+
+    /* d3plus tooltip: constrain on mobile */
+    .d3plus-tooltip {
+        max-width: 260px !important;
+        font-size: 12px !important;
     }
 }
 

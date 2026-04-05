@@ -46,6 +46,7 @@ $chart_adv_filters      = get_post_meta( $post->ID, '_chart_adv_filters', true )
 $chart_query_limit      = get_post_meta( $post->ID, '_chart_query_limit', true ) ?: '1000';
 $chart_query_orderby    = get_post_meta( $post->ID, '_chart_query_orderby', true );
 $chart_query_order      = get_post_meta( $post->ID, '_chart_query_order', true ) ?: 'ASC';
+$chart_tooltip_text     = get_post_meta( $post->ID, '_chart_tooltip_text', true );
 
 if ( ! is_array( $chart_adv_filters ) ) {
 	$chart_adv_filters = array();
@@ -461,6 +462,20 @@ $number_formats = array(
 						class="bpid-chart-input"
 					/>
 				</div>
+			</div>
+
+			<!-- Tooltip Custom Text -->
+			<div class="bpid-chart-form-group" style="margin-top:16px;">
+				<label for="chart_tooltip_text"><?php esc_html_e( 'Texto personalizado del Tooltip', 'bpid-suite' ); ?></label>
+				<input
+					type="text"
+					name="chart_tooltip_text"
+					id="chart_tooltip_text"
+					value="<?php echo esc_attr( $chart_tooltip_text ); ?>"
+					class="bpid-chart-input"
+					placeholder="<?php esc_attr_e( 'Ej: Fuente: SECOP II — Valores en pesos colombianos', 'bpid-suite' ); ?>"
+				/>
+				<span class="bpid-chart-help"><?php esc_html_e( 'Texto adicional que se mostrará al pie del tooltip al pasar el cursor sobre los datos del gráfico.', 'bpid-suite' ); ?></span>
 			</div>
 
 			<!-- Color Palette -->
