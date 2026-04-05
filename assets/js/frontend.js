@@ -1,9 +1,9 @@
 /**
- * BPID Suite — Frontend Chart Manager v3.0.0
- * Gobernación de Nariño
+ * BPID Suite — Frontend Chart Manager v4.0.0
+ * Gobernacion de Narino
  *
- * Single rendering engine: Chart.js + plugins.
- * Plugins: chartjs-chart-treemap (treemap), chartjs-chart-matrix (heatmap).
+ * Single rendering engine: d3plus.js (includes d3.js).
+ * CDN: https://cdn.jsdelivr.net/npm/@d3plus/core
  *
  * Supported types (13):
  *   bar, bar_horizontal, bar_stacked, bar_grouped, line, area, area_stacked,
@@ -11,6 +11,15 @@
  */
 (function () {
     'use strict';
+
+    /* ========================================
+       Default Palette
+       ======================================== */
+    var DEFAULT_PALETTE = [
+        '#3eba6a', '#e84c4c', '#4a90d9', '#f5a623', '#9b59b6',
+        '#1abc9c', '#844c00', '#ff7300', '#2ecc71', '#e74c3c',
+        '#3498db', '#f39c12', '#8e44ad', '#16a085', '#d35400'
+    ];
 
     /* ========================================
        Number Formatter (Colombian locale)
@@ -45,14 +54,6 @@
     /* ========================================
        Helpers
        ======================================== */
-    function hexToRgba(hex, alpha) {
-        if (!hex || hex.length < 7) return 'rgba(100,100,100,' + alpha + ')';
-        var r = parseInt(hex.slice(1, 3), 16);
-        var g = parseInt(hex.slice(3, 5), 16);
-        var b = parseInt(hex.slice(5, 7), 16);
-        return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
-    }
-
     function escapeHtml(text) {
         var div = document.createElement('div');
         div.appendChild(document.createTextNode(text));
@@ -65,316 +66,504 @@
             .replace(/\-\-+/g, '-').replace(/^-+|-+$/g, '');
     }
 
-    function isStacked(type) { return type === 'bar_stacked' || type === 'area_stacked'; }
-    function isHorizontal(type) { return type === 'bar_horizontal'; }
-    function isAreaType(type) { return type === 'area' || type === 'area_stacked'; }
-
     /* ========================================
-       Chart.js Type Mapping
+       Data Transformation for d3plus
+       d3plus expects flat data with a single value column.
+       For multi-series (multiple y_columns) we "melt" the data.
        ======================================== */
-    function mapChartType(internal) {
-        var map = {
-            bar: 'bar', bar_horizontal: 'bar', bar_stacked: 'bar', bar_grouped: 'bar',
-            line: 'line', area: 'line', area_stacked: 'line',
-            pie: 'pie', donut: 'doughnut', radar: 'radar',
-            heatmap: 'matrix', treemap: 'treemap', plot: 'scatter'
-        };
-        return map[internal] || 'bar';
+    function meltData(data, axisX, yColumns) {
+        var melted = [];
+        data.forEach(function (row) {
+            yColumns.forEach(function (col) {
+                var obj = {};
+                obj[axisX] = row[axisX] != null ? String(row[axisX]) : '';
+                obj._measure = col;
+                obj._value = parseFloat(row[col]) || 0;
+                melted.push(obj);
+            });
+        });
+        return melted;
+    }
+
+    /* For single series, keep the data flat with string category */
+    function prepareData(data, axisX, yColumns) {
+        return data.map(function (row) {
+            var obj = {};
+            obj[axisX] = row[axisX] != null ? String(row[axisX]) : '';
+            yColumns.forEach(function (col) {
+                obj[col] = parseFloat(row[col]) || 0;
+            });
+            return obj;
+        });
     }
 
     /* ========================================
-       Build standard Chart.js Config
+       d3plus Chart Builders
+       Each returns a d3plus chart instance (not yet rendered).
        ======================================== */
-    function buildChartConfig(config, data) {
-        var formatter = NumberFormatter.byFormat(config.number_format);
+
+    function buildBarChart(container, config, data, palette) {
+        var axisX = config.axis_x;
         var yColumns = config.y_columns || [];
-        var yColors = config.y_colors || [];
-        var palette = config.color_palette || ['#3eba6a','#e84c4c','#4a90d9','#f5a623','#9b59b6','#1abc9c','#844c00','#ff7300'];
+        var isMulti = yColumns.length > 1;
+        var isHoriz = config.type === 'bar_horizontal';
+        var isStacked = config.type === 'bar_stacked';
 
-        // --- Treemap (chartjs-chart-treemap plugin) ---
-        if (config.type === 'treemap') {
-            return buildTreemapConfig(config, data, formatter, palette);
+        var chartData, groupBy, xKey, yKey;
+
+        if (isMulti) {
+            chartData = meltData(data, axisX, yColumns);
+            groupBy = '_measure';
+            xKey = axisX;
+            yKey = '_value';
+        } else {
+            chartData = prepareData(data, axisX, yColumns);
+            groupBy = axisX;
+            xKey = axisX;
+            yKey = yColumns[0];
         }
 
-        // --- Heatmap (chartjs-chart-matrix plugin) ---
-        if (config.type === 'heatmap') {
-            return buildHeatmapConfig(config, data, formatter, palette);
+        var cfg = {
+            data: chartData,
+            groupBy: groupBy,
+            x: isHoriz ? yKey : xKey,
+            y: isHoriz ? xKey : yKey,
+            discrete: isHoriz ? 'y' : 'x',
+            stacked: isStacked,
+            tooltipConfig: {
+                body: function (d) {
+                    if (isMulti) return d._measure + ': ' + NumberFormatter.number(d._value);
+                    return yColumns[0] + ': ' + NumberFormatter.number(d[yColumns[0]]);
+                }
+            },
+            shapeConfig: {
+                fill: function (d) {
+                    if (isMulti) {
+                        var idx = yColumns.indexOf(d._measure);
+                        return (config.y_colors && config.y_colors[idx]) || palette[idx % palette.length];
+                    }
+                    var items = chartData.map(function (r) { return r[axisX]; });
+                    var unique = [];
+                    items.forEach(function (v) { if (unique.indexOf(v) === -1) unique.push(v); });
+                    var ci = unique.indexOf(d[axisX]);
+                    return palette[ci % palette.length];
+                }
+            },
+            legend: !!config.show_legend,
+            select: container
+        };
+
+        if (config.title_x) cfg.xConfig = { title: config.title_x };
+        if (config.title_y) cfg.yConfig = { title: config.title_y };
+
+        return new d3plus.BarChart().config(cfg);
+    }
+
+    function buildLineChart(container, config, data, palette) {
+        var axisX = config.axis_x;
+        var yColumns = config.y_columns || [];
+        var isMulti = yColumns.length > 1;
+
+        var chartData, groupBy, xKey, yKey;
+
+        if (isMulti) {
+            chartData = meltData(data, axisX, yColumns);
+            groupBy = '_measure';
+            xKey = axisX;
+            yKey = '_value';
+        } else {
+            chartData = prepareData(data, axisX, yColumns);
+            groupBy = axisX;
+            xKey = axisX;
+            yKey = yColumns[0];
         }
 
-        // --- Scatter / Plot ---
-        if (config.type === 'plot') {
-            return buildScatterConfig(config, data, formatter, yColumns, yColors, palette);
-        }
-
-        // --- Standard types ---
-        var chartJsType = mapChartType(config.type);
-        var labels = data.map(function (row) { return row[config.axis_x] || ''; });
-
-        var datasets = yColumns.map(function (col, i) {
-            var color = yColors[i] || palette[i % palette.length] || '#3eba6a';
-            return {
-                label: col,
-                data: data.map(function (row) { return parseFloat(row[col]) || 0; }),
-                backgroundColor: isAreaType(config.type) ? hexToRgba(color, 0.3) : color,
-                borderColor: color,
-                borderWidth: (chartJsType === 'line') ? 2 : 0,
-                fill: isAreaType(config.type),
-                tension: 0.3
-            };
-        });
-
-        // Single series per-bar/slice colors
-        if (datasets.length === 1 && (chartJsType === 'bar' || chartJsType === 'pie' || chartJsType === 'doughnut')) {
-            if (chartJsType === 'bar') {
-                datasets[0].backgroundColor = labels.map(function (_, i) {
-                    return palette[i % palette.length] || yColors[0] || '#3eba6a';
-                });
-                datasets[0].borderColor = datasets[0].backgroundColor;
-            }
-        }
-
-        var options = {
-            responsive: true,
-            maintainAspectRatio: false,
-            indexAxis: isHorizontal(config.type) ? 'y' : 'x',
-            plugins: {
-                legend: { display: !!config.show_legend },
-                tooltip: {
-                    callbacks: {
-                        label: function (ctx) {
-                            var val = ctx.parsed.y != null ? ctx.parsed.y : (ctx.parsed.x != null ? ctx.parsed.x : ctx.raw);
-                            return ctx.dataset.label + ': ' + formatter(val);
+        var cfg = {
+            data: chartData,
+            groupBy: isMulti ? groupBy : function () { return yColumns[0]; },
+            x: xKey,
+            y: yKey,
+            discrete: 'x',
+            tooltipConfig: {
+                body: function (d) {
+                    if (isMulti) return d._measure + ': ' + NumberFormatter.number(d._value);
+                    return yColumns[0] + ': ' + NumberFormatter.number(d[yColumns[0]]);
+                }
+            },
+            shapeConfig: {
+                Line: {
+                    stroke: function (d) {
+                        if (isMulti) {
+                            var idx = yColumns.indexOf(d._measure);
+                            return (config.y_colors && config.y_colors[idx]) || palette[idx % palette.length];
                         }
+                        return (config.y_colors && config.y_colors[0]) || palette[0];
+                    },
+                    strokeWidth: 2
+                }
+            },
+            legend: !!config.show_legend,
+            select: container
+        };
+
+        if (config.title_x) cfg.xConfig = { title: config.title_x };
+        if (config.title_y) cfg.yConfig = { title: config.title_y };
+
+        return new d3plus.LinePlot().config(cfg);
+    }
+
+    function buildAreaChart(container, config, data, palette) {
+        var axisX = config.axis_x;
+        var yColumns = config.y_columns || [];
+        var isMulti = yColumns.length > 1;
+        var isStacked = config.type === 'area_stacked';
+
+        var chartData, groupBy, xKey, yKey;
+
+        if (isMulti) {
+            chartData = meltData(data, axisX, yColumns);
+            groupBy = '_measure';
+            xKey = axisX;
+            yKey = '_value';
+        } else {
+            chartData = prepareData(data, axisX, yColumns);
+            groupBy = function () { return yColumns[0]; };
+            xKey = axisX;
+            yKey = yColumns[0];
+        }
+
+        var cfg = {
+            data: chartData,
+            groupBy: isMulti ? groupBy : function () { return yColumns[0]; },
+            x: xKey,
+            y: yKey,
+            discrete: 'x',
+            stacked: isStacked,
+            tooltipConfig: {
+                body: function (d) {
+                    if (isMulti) return d._measure + ': ' + NumberFormatter.number(d._value);
+                    return yColumns[0] + ': ' + NumberFormatter.number(d[yColumns[0]]);
+                }
+            },
+            shapeConfig: {
+                Area: {
+                    fill: function (d) {
+                        if (isMulti) {
+                            var idx = yColumns.indexOf(d._measure);
+                            return (config.y_colors && config.y_colors[idx]) || palette[idx % palette.length];
+                        }
+                        return (config.y_colors && config.y_colors[0]) || palette[0];
                     }
                 }
             },
-            scales: {}
+            legend: !!config.show_legend,
+            select: container
         };
 
-        if (chartJsType !== 'pie' && chartJsType !== 'doughnut' && chartJsType !== 'radar') {
-            options.scales = {
-                x: {
-                    title: { display: !!config.title_x, text: config.title_x || '', color: '#555' },
-                    grid: { display: false },
-                    ticks: { font: { size: 11 }, color: '#666' },
-                    stacked: isStacked(config.type)
-                },
-                y: {
-                    title: { display: !!config.title_y, text: config.title_y || '', color: '#555' },
-                    grid: { color: 'rgba(0,0,0,0.06)' },
-                    ticks: { font: { size: 11 }, color: '#666', callback: function (v) { return formatter(v); } },
-                    stacked: isStacked(config.type)
-                }
-            };
-        }
+        if (config.title_x) cfg.xConfig = { title: config.title_x };
+        if (config.title_y) cfg.yConfig = { title: config.title_y };
 
-        return { type: chartJsType, data: { labels: labels, datasets: datasets }, options: options };
+        if (isStacked) {
+            return new d3plus.StackedArea().config(cfg);
+        }
+        return new d3plus.AreaPlot().config(cfg);
     }
 
-    /* ========================================
-       Treemap Config (chartjs-chart-treemap)
-       ======================================== */
-    function buildTreemapConfig(config, data, formatter, palette) {
-        var axisX = config.axis_x || '';
+    function buildPieChart(container, config, data, palette) {
+        var axisX = config.axis_x;
         var yCol = (config.y_columns && config.y_columns[0]) || '';
 
-        // Build tree data: array of objects with group + value
-        var tree = data.map(function (row) {
-            return {
-                category: String(row[axisX] || ''),
-                value: parseFloat(row[yCol]) || 0
-            };
-        }).filter(function (d) { return d.value > 0; });
+        var chartData = prepareData(data, axisX, [yCol]);
 
-        return {
-            type: 'treemap',
-            data: {
-                datasets: [{
-                    tree: tree,
-                    key: 'value',
-                    groups: ['category'],
-                    borderColor: 'rgba(255,255,255,0.8)',
-                    borderWidth: 2,
-                    spacing: 1,
-                    backgroundColor: function (ctx) {
-                        if (!ctx.raw || !ctx.raw._data) return palette[0] || '#3eba6a';
-                        var i = ctx.dataIndex || 0;
-                        return palette[i % palette.length] || '#3eba6a';
-                    },
-                    labels: {
-                        display: true,
-                        align: 'center',
-                        position: 'middle',
-                        color: '#fff',
-                        font: { size: 12, weight: 'bold' },
-                        formatter: function (ctx) {
-                            if (ctx && ctx.raw && ctx.raw._data) {
-                                return ctx.raw._data.category + '\n' + formatter(ctx.raw._data.value);
-                            }
-                            return '';
-                        }
-                    }
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            title: function (items) {
-                                if (!items.length || !items[0].raw || !items[0].raw._data) return '';
-                                return items[0].raw._data.category;
-                            },
-                            label: function (ctx) {
-                                if (!ctx.raw || !ctx.raw._data) return '';
-                                return yCol + ': ' + formatter(ctx.raw._data.value);
-                            }
-                        }
-                    }
+        var cfg = {
+            data: chartData,
+            groupBy: axisX,
+            size: yCol,
+            tooltipConfig: {
+                body: function (d) {
+                    return yCol + ': ' + NumberFormatter.number(d[yCol]);
                 }
-            }
+            },
+            shapeConfig: {
+                fill: function (d) {
+                    var items = chartData.map(function (r) { return r[axisX]; });
+                    var unique = [];
+                    items.forEach(function (v) { if (unique.indexOf(v) === -1) unique.push(v); });
+                    var ci = unique.indexOf(d[axisX]);
+                    return palette[ci % palette.length];
+                }
+            },
+            legend: !!config.show_legend,
+            select: container
         };
+
+        return new d3plus.Pie().config(cfg);
     }
 
-    /* ========================================
-       Heatmap Config (chartjs-chart-matrix)
-       ======================================== */
-    function buildHeatmapConfig(config, data, formatter, palette) {
-        if (!data || !data.length) return { type: 'matrix', data: { datasets: [] }, options: {} };
-
+    function buildDonutChart(container, config, data, palette) {
         var axisX = config.axis_x;
-        // Detect the group column (key that is not axis_x and not 'value')
-        var keys = Object.keys(data[0]);
+        var yCol = (config.y_columns && config.y_columns[0]) || '';
+
+        var chartData = prepareData(data, axisX, [yCol]);
+
+        var cfg = {
+            data: chartData,
+            groupBy: axisX,
+            size: yCol,
+            tooltipConfig: {
+                body: function (d) {
+                    return yCol + ': ' + NumberFormatter.number(d[yCol]);
+                }
+            },
+            shapeConfig: {
+                fill: function (d) {
+                    var items = chartData.map(function (r) { return r[axisX]; });
+                    var unique = [];
+                    items.forEach(function (v) { if (unique.indexOf(v) === -1) unique.push(v); });
+                    var ci = unique.indexOf(d[axisX]);
+                    return palette[ci % palette.length];
+                }
+            },
+            legend: !!config.show_legend,
+            select: container
+        };
+
+        return new d3plus.Donut().config(cfg);
+    }
+
+    function buildTreemap(container, config, data, palette) {
+        var axisX = config.axis_x;
+        var yCol = (config.y_columns && config.y_columns[0]) || '';
+
+        var chartData = prepareData(data, axisX, [yCol]).filter(function (d) {
+            return d[yCol] > 0;
+        });
+
+        var cfg = {
+            data: chartData,
+            groupBy: axisX,
+            size: yCol,
+            tooltipConfig: {
+                body: function (d) {
+                    return yCol + ': ' + NumberFormatter.number(d[yCol]);
+                }
+            },
+            shapeConfig: {
+                fill: function (d) {
+                    var items = chartData.map(function (r) { return r[axisX]; });
+                    var unique = [];
+                    items.forEach(function (v) { if (unique.indexOf(v) === -1) unique.push(v); });
+                    var ci = unique.indexOf(d[axisX]);
+                    return palette[ci % palette.length];
+                }
+            },
+            legend: !!config.show_legend,
+            select: container
+        };
+
+        return new d3plus.Treemap().config(cfg);
+    }
+
+    function buildRadarChart(container, config, data, palette) {
+        var axisX = config.axis_x;
+        var yColumns = config.y_columns || [];
+        var isMulti = yColumns.length > 1;
+
+        var chartData, groupBy, xKey, yKey;
+
+        if (isMulti) {
+            chartData = meltData(data, axisX, yColumns);
+            groupBy = '_measure';
+            xKey = axisX;
+            yKey = '_value';
+        } else {
+            chartData = prepareData(data, axisX, yColumns);
+            groupBy = function () { return yColumns[0]; };
+            xKey = axisX;
+            yKey = yColumns[0];
+        }
+
+        var cfg = {
+            data: chartData,
+            groupBy: isMulti ? groupBy : function () { return yColumns[0]; },
+            x: xKey,
+            y: yKey,
+            discrete: 'x',
+            tooltipConfig: {
+                body: function (d) {
+                    if (isMulti) return d._measure + ': ' + NumberFormatter.number(d._value);
+                    return yColumns[0] + ': ' + NumberFormatter.number(d[yColumns[0]]);
+                }
+            },
+            shapeConfig: {
+                fill: function (d) {
+                    if (isMulti) {
+                        var idx = yColumns.indexOf(d._measure);
+                        return (config.y_colors && config.y_colors[idx]) || palette[idx % palette.length];
+                    }
+                    return (config.y_colors && config.y_colors[0]) || palette[0];
+                }
+            },
+            legend: !!config.show_legend,
+            select: container
+        };
+
+        return new d3plus.Radar().config(cfg);
+    }
+
+    function buildHeatmap(container, config, data, palette) {
+        var axisX = config.axis_x;
+        var yColumns = config.y_columns || [];
+        var yCol = yColumns[0] || '';
+
+        // Detect group column for the matrix rows
+        var keys = Object.keys(data[0] || {});
         var groupCol = '';
         for (var k = 0; k < keys.length; k++) {
-            if (keys[k] !== axisX && keys[k] !== 'value') {
+            if (keys[k] !== axisX && keys[k] !== 'value' && keys[k] !== yCol) {
                 groupCol = keys[k];
                 break;
             }
         }
+        if (!groupCol) groupCol = yCol;
 
-        // Collect unique labels
-        var xLabelsSet = {}, yLabelsSet = {};
-        data.forEach(function (row) {
-            xLabelsSet[row[axisX]] = true;
-            yLabelsSet[row[groupCol]] = true;
-        });
-        var xLabels = Object.keys(xLabelsSet);
-        var yLabels = Object.keys(yLabelsSet);
-
-        // Value range for color scaling
-        var values = data.map(function (r) { return parseFloat(r.value) || 0; });
-        var minVal = Math.min.apply(null, values);
-        var maxVal = Math.max.apply(null, values);
-        var range = maxVal - minVal || 1;
-
-        var matrixData = data.map(function (row) {
-            return { x: row[axisX], y: row[groupCol], v: parseFloat(row.value) || 0 };
+        var chartData = data.map(function (row) {
+            var obj = {};
+            obj[axisX] = String(row[axisX] || '');
+            obj[groupCol] = String(row[groupCol] || '');
+            obj._value = parseFloat(row.value || row[yCol]) || 0;
+            return obj;
         });
 
-        var baseColor = palette[0] || '#1a5276';
-        var r0 = parseInt(baseColor.slice(1, 3), 16);
-        var g0 = parseInt(baseColor.slice(3, 5), 16);
-        var b0 = parseInt(baseColor.slice(5, 7), 16);
-
-        return {
-            type: 'matrix',
-            data: {
-                datasets: [{
-                    label: (config.y_columns && config.y_columns[0]) || 'Valor',
-                    data: matrixData,
-                    backgroundColor: function (ctx) {
-                        if (!ctx.raw) return 'rgba(200,200,200,0.3)';
-                        var alpha = 0.15 + 0.85 * ((ctx.raw.v - minVal) / range);
-                        return 'rgba(' + r0 + ',' + g0 + ',' + b0 + ',' + alpha.toFixed(2) + ')';
-                    },
-                    borderColor: 'rgba(255,255,255,0.6)',
-                    borderWidth: 1,
-                    width: function (ctx) {
-                        var a = ctx.chart.chartArea;
-                        return a ? Math.max(8, (a.right - a.left) / xLabels.length - 2) : 20;
-                    },
-                    height: function (ctx) {
-                        var a = ctx.chart.chartArea;
-                        return a ? Math.max(8, (a.bottom - a.top) / yLabels.length - 2) : 20;
-                    }
-                }]
+        var cfg = {
+            data: chartData,
+            groupBy: [axisX, groupCol],
+            column: axisX,
+            row: groupCol,
+            colorScale: '_value',
+            colorScaleConfig: {
+                color: [palette[0] || '#1a5276']
             },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: false },
-                    tooltip: {
-                        callbacks: {
-                            title: function (items) {
-                                if (!items.length) return '';
-                                return items[0].raw.x + ' / ' + items[0].raw.y;
-                            },
-                            label: function (ctx) { return 'Valor: ' + formatter(ctx.raw.v); }
-                        }
-                    }
-                },
-                scales: {
-                    x: { type: 'category', labels: xLabels, grid: { display: false }, ticks: { font: { size: 10 } },
-                         title: { display: !!config.title_x, text: config.title_x || '' } },
-                    y: { type: 'category', labels: yLabels, grid: { display: false }, ticks: { font: { size: 10 } },
-                         offset: true, title: { display: !!config.title_y, text: config.title_y || '' } }
+            tooltipConfig: {
+                body: function (d) {
+                    return d[axisX] + ' / ' + d[groupCol] + ': ' + NumberFormatter.number(d._value);
                 }
-            }
+            },
+            legend: false,
+            select: container
         };
+
+        if (config.title_x) cfg.columnConfig = { title: config.title_x };
+        if (config.title_y) cfg.rowConfig = { title: config.title_y };
+
+        return new d3plus.Matrix().config(cfg);
+    }
+
+    function buildPlotChart(container, config, data, palette) {
+        var axisX = config.axis_x;
+        var yColumns = config.y_columns || [];
+        var isMulti = yColumns.length > 1;
+
+        var chartData, groupBy, xKey, yKey;
+
+        if (isMulti) {
+            chartData = meltData(data, axisX, yColumns);
+            groupBy = '_measure';
+            xKey = axisX;
+            yKey = '_value';
+        } else {
+            chartData = prepareData(data, axisX, yColumns);
+            groupBy = axisX;
+            xKey = axisX;
+            yKey = yColumns[0];
+        }
+
+        var cfg = {
+            data: chartData,
+            groupBy: isMulti ? groupBy : axisX,
+            x: xKey,
+            y: yKey,
+            size: function () { return 4; },
+            tooltipConfig: {
+                body: function (d) {
+                    if (isMulti) return d._measure + ': (' + d[axisX] + ', ' + NumberFormatter.number(d._value) + ')';
+                    return '(' + d[axisX] + ', ' + NumberFormatter.number(d[yColumns[0]]) + ')';
+                }
+            },
+            shapeConfig: {
+                Circle: {
+                    fill: function (d) {
+                        if (isMulti) {
+                            var idx = yColumns.indexOf(d._measure);
+                            return (config.y_colors && config.y_colors[idx]) || palette[idx % palette.length];
+                        }
+                        var items = chartData.map(function (r) { return r[axisX]; });
+                        var unique = [];
+                        items.forEach(function (v) { if (unique.indexOf(v) === -1) unique.push(v); });
+                        var ci = unique.indexOf(d[axisX]);
+                        return palette[ci % palette.length];
+                    },
+                    r: 5
+                }
+            },
+            legend: !!config.show_legend,
+            select: container
+        };
+
+        if (config.title_x) cfg.xConfig = { title: config.title_x };
+        if (config.title_y) cfg.yConfig = { title: config.title_y };
+
+        return new d3plus.Plot().config(cfg);
     }
 
     /* ========================================
-       Scatter / Plot Config
+       Main chart builder dispatcher
+       Returns a d3plus chart instance.
        ======================================== */
-    function buildScatterConfig(config, data, formatter, yColumns, yColors, palette) {
-        var datasets = yColumns.map(function (col, i) {
-            var color = yColors[i] || palette[i % palette.length] || '#3eba6a';
-            return {
-                label: col,
-                data: data.map(function (row) {
-                    return { x: row[config.axis_x], y: parseFloat(row[col]) || 0 };
-                }),
-                backgroundColor: hexToRgba(color, 0.6),
-                borderColor: color,
-                pointRadius: 6,
-                pointHoverRadius: 9,
-                pointBorderWidth: 2
-            };
-        });
+    function buildD3PlusChart(container, config, data) {
+        var palette = config.color_palette || DEFAULT_PALETTE;
 
-        return {
-            type: 'scatter',
-            data: { datasets: datasets },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { display: !!config.show_legend },
-                    tooltip: {
-                        callbacks: {
-                            label: function (ctx) {
-                                return ctx.dataset.label + ': (' + ctx.parsed.x + ', ' + formatter(ctx.parsed.y) + ')';
-                            }
-                        }
-                    }
-                },
-                scales: {
-                    x: { title: { display: !!config.title_x, text: config.title_x || '' }, grid: { color: 'rgba(0,0,0,0.06)' } },
-                    y: { title: { display: !!config.title_y, text: config.title_y || '' }, grid: { color: 'rgba(0,0,0,0.06)' },
-                         ticks: { callback: function (v) { return formatter(v); } } }
-                }
-            }
-        };
+        switch (config.type) {
+            case 'bar':
+            case 'bar_horizontal':
+            case 'bar_stacked':
+            case 'bar_grouped':
+                return buildBarChart(container, config, data, palette);
+
+            case 'line':
+                return buildLineChart(container, config, data, palette);
+
+            case 'area':
+            case 'area_stacked':
+                return buildAreaChart(container, config, data, palette);
+
+            case 'pie':
+                return buildPieChart(container, config, data, palette);
+
+            case 'donut':
+                return buildDonutChart(container, config, data, palette);
+
+            case 'treemap':
+                return buildTreemap(container, config, data, palette);
+
+            case 'radar':
+                return buildRadarChart(container, config, data, palette);
+
+            case 'heatmap':
+                return buildHeatmap(container, config, data, palette);
+
+            case 'plot':
+                return buildPlotChart(container, config, data, palette);
+
+            default:
+                return buildBarChart(container, config, data, palette);
+        }
     }
 
     /* ========================================
        Toolbar Builder
        ======================================== */
-    function createToolbar(wrapper, chartInstance, chartData, config) {
+    function createToolbar(wrapper, chartData, config) {
         var toolbar = config.toolbar || {};
         if (!toolbar.show) return;
 
@@ -402,14 +591,29 @@
                 function () { toggleDataTable(wrapper, uid + '-dt', chartData, config); }
             ));
         }
-        if (toolbar.save_img && chartInstance) {
+        if (toolbar.save_img) {
             container.appendChild(makeToolbarBtn('image', 'Imagen',
                 '<svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg>',
                 function () {
-                    var link = document.createElement('a');
-                    link.download = slugify(config.title || 'grafico') + '.png';
-                    link.href = chartInstance.toBase64Image('image/png', 1.0);
-                    link.click();
+                    // Export SVG from d3plus container
+                    var svg = wrapper.querySelector('svg');
+                    if (!svg) { showToast('No se pudo exportar'); return; }
+                    var svgData = new XMLSerializer().serializeToString(svg);
+                    var canvas = document.createElement('canvas');
+                    var svgRect = svg.getBoundingClientRect();
+                    canvas.width = svgRect.width * 2;
+                    canvas.height = svgRect.height * 2;
+                    var ctx = canvas.getContext('2d');
+                    ctx.scale(2, 2);
+                    var img = new Image();
+                    img.onload = function () {
+                        ctx.drawImage(img, 0, 0);
+                        var link = document.createElement('a');
+                        link.download = slugify(config.title || 'grafico') + '.png';
+                        link.href = canvas.toDataURL('image/png');
+                        link.click();
+                    };
+                    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
                 }
             ));
         }
@@ -446,7 +650,7 @@
             '<div class="bpid-chart-data-modal-header"><h3>Detalle</h3>' +
             '<button class="bpid-chart-data-modal-close">&times;</button></div>' +
             '<div class="bpid-chart-data-modal-body" style="padding:20px;">' +
-            '<p><strong>Título:</strong> ' + escapeHtml(config.title || '') + '</p>' +
+            '<p><strong>Titulo:</strong> ' + escapeHtml(config.title || '') + '</p>' +
             '<p><strong>Tipo:</strong> ' + escapeHtml(config.type || '') + '</p>' +
             '<p><strong>Fuente:</strong> ' + escapeHtml(config.table || '') + '</p>' +
             '<p><strong>Eje X:</strong> ' + escapeHtml(config.axis_x || '') + '</p>' +
@@ -514,7 +718,6 @@
     function ChartManager() {
         this.charts = [];
         this.observer = null;
-        this.resizeTimer = null;
         this.init();
     }
 
@@ -533,7 +736,7 @@
                 });
             }, { rootMargin: '100px' });
             containers.forEach(function (c) {
-                if (!c.querySelector('canvas') && !c.querySelector('.bpid-chart-wrapper')) {
+                if (!c.querySelector('svg') && !c.querySelector('.bpid-chart-wrapper')) {
                     c.innerHTML = '<div class="bpid-chart-loading"></div>';
                 }
                 self.observer.observe(c);
@@ -541,15 +744,6 @@
         } else {
             containers.forEach(function (c) { self.loadChart(c); });
         }
-
-        window.addEventListener('resize', function () {
-            clearTimeout(self.resizeTimer);
-            self.resizeTimer = setTimeout(function () {
-                self.charts.forEach(function (entry) {
-                    if (entry.instance && typeof entry.instance.resize === 'function') entry.instance.resize();
-                });
-            }, 300);
-        });
     };
 
     ChartManager.prototype.loadChart = function (container) {
@@ -570,7 +764,7 @@
                 type: container.dataset.chartType || 'bar',
                 axis_x: container.dataset.columnX || 'x',
                 y_columns: container.dataset.columnY ? [container.dataset.columnY] : ['y'],
-                y_colors: ['#3eba6a'], color_palette: ['#3eba6a','#e84c4c','#4a90d9','#f5a623','#9b59b6','#1abc9c'],
+                y_colors: ['#3eba6a'], color_palette: DEFAULT_PALETTE,
                 height: 400, number_format: 'es-CO', show_legend: false,
                 toolbar: { show: true, info: false, share: false, data: true, save_img: true, csv: false },
                 title: '', title_y: '', title_x: ''
@@ -582,12 +776,12 @@
         }
 
         if (!chartData || !chartData.length) {
-            container.innerHTML = '<div class="bpid-chart-no-data">Sin datos disponibles para esta gráfica</div>';
+            container.innerHTML = '<div class="bpid-chart-no-data">Sin datos disponibles para esta grafica</div>';
             return;
         }
 
-        if (typeof Chart === 'undefined') {
-            container.innerHTML = '<div class="bpid-chart-no-data">Chart.js no disponible</div>';
+        if (typeof d3plus === 'undefined') {
+            container.innerHTML = '<div class="bpid-chart-no-data">d3plus no disponible</div>';
             return;
         }
 
@@ -601,21 +795,20 @@
         wrapper.className = 'bpid-chart-wrapper';
         wrapper.id = 'bpid-chart-wrapper-' + chartId;
 
-        var canvasContainer = document.createElement('div');
-        canvasContainer.className = 'bpid-chart-canvas-container';
-        canvasContainer.style.height = (config.height || 400) + 'px';
+        var chartContainer = document.createElement('div');
+        chartContainer.className = 'bpid-chart-d3plus-container';
+        chartContainer.id = 'bpid-d3plus-' + chartId;
+        chartContainer.style.height = (config.height || 400) + 'px';
+        chartContainer.style.width = '100%';
 
-        var canvas = document.createElement('canvas');
-        canvas.id = 'bpid-canvas-' + chartId;
-        canvasContainer.appendChild(canvas);
-        wrapper.appendChild(canvasContainer);
+        wrapper.appendChild(chartContainer);
         container.appendChild(wrapper);
 
         try {
-            var chartJsConfig = buildChartConfig(config, chartData);
-            var instance = new Chart(canvas.getContext('2d'), chartJsConfig);
+            var instance = buildD3PlusChart('#' + chartContainer.id, config, chartData);
+            instance.render();
 
-            createToolbar(wrapper, instance, chartData, config);
+            createToolbar(wrapper, chartData, config);
 
             this.charts.push({
                 id: chartId, container: container, instance: instance,
@@ -624,6 +817,28 @@
         } catch (e) {
             console.error('[BPID Suite] Render error (' + config.type + '):', e);
             container.innerHTML = '<div class="bpid-chart-no-data" style="color:#c00;">Error al renderizar: ' + escapeHtml(e.message) + '</div>';
+        }
+    };
+
+    /* ========================================
+       Global preview builder (for admin AJAX)
+       ======================================== */
+    window.bpidBuildPreviewChart = function (containerEl, config, data) {
+        if (typeof d3plus === 'undefined' || !data || !data.length) return;
+
+        containerEl.innerHTML = '';
+        var chartDiv = document.createElement('div');
+        chartDiv.id = 'bpid-preview-d3plus-' + Date.now();
+        chartDiv.style.height = (config.height || 350) + 'px';
+        chartDiv.style.width = '100%';
+        containerEl.appendChild(chartDiv);
+
+        try {
+            var instance = buildD3PlusChart('#' + chartDiv.id, config, data);
+            instance.render();
+        } catch (e) {
+            console.error('[BPID Suite] Preview error:', e);
+            containerEl.innerHTML = '<p style="color:#c00;text-align:center;padding:20px;">Error: ' + escapeHtml(e.message) + '</p>';
         }
     };
 
