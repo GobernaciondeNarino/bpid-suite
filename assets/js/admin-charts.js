@@ -436,16 +436,6 @@
         var btn = qs('#btn-update-preview');
         if (!btn) return;
 
-        // Ensure Chart.js is available for preview rendering
-        if (typeof Chart === 'undefined') {
-            var script = document.createElement('script');
-            script.src = 'https://cdn.jsdelivr.net/npm/chart.js';
-            script.onload = function() {
-                btn.disabled = false;
-            };
-            document.head.appendChild(script);
-        }
-
         btn.addEventListener('click', function() {
             var form = qs('#post');
             if (!form) return;
@@ -821,8 +811,7 @@
     // 9. Preview Chart Builder (exposed globally for AJAX preview)
     // -------------------------------------------------------------------------
 
-    // bpidBuildPreviewChart is now provided by frontend.js (loaded as dependency)
-    // No duplicate preview builder needed here.
+    // bpidBuildPreviewChart is provided by frontend.js (d3plus rendering engine)
 
     // -------------------------------------------------------------------------
     // Initialization

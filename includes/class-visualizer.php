@@ -9,7 +9,7 @@ if (!defined('ABSPATH')) {
  * BPID Suite Visualizer v2.0
  *
  * Manages the 'bpid_chart' Custom Post Type for chart configurations
- * and renders Chart.js-based visualizations via shortcode.
+ * and renders d3plus-based visualizations via shortcode.
  *
  * @package BPID_Suite
  * @since   2.0.0
@@ -298,6 +298,9 @@ final class BPID_Suite_Visualizer {
         $color_palette = sanitize_text_field(wp_unslash($_POST['chart_color_palette'] ?? ''));
         update_post_meta($post_id, '_chart_color_palette', $color_palette);
 
+        $tooltip_text = sanitize_text_field(wp_unslash($_POST['chart_tooltip_text'] ?? ''));
+        update_post_meta($post_id, '_chart_tooltip_text', $tooltip_text);
+
         // Booleans
         $bool_fields = [
             'chart_show_legend', 'chart_show_timeline',
@@ -485,6 +488,7 @@ final class BPID_Suite_Visualizer {
             'query_limit'      => absint(get_post_meta($post_id, '_chart_query_limit', true) ?: 1000),
             'query_orderby'    => get_post_meta($post_id, '_chart_query_orderby', true) ?: '',
             'query_order'      => get_post_meta($post_id, '_chart_query_order', true) ?: 'ASC',
+            'tooltip_text'     => get_post_meta($post_id, '_chart_tooltip_text', true) ?: '',
         ];
     }
 
