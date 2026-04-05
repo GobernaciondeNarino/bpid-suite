@@ -391,42 +391,19 @@ final class BPID_Suite_Visualizer {
             return '';
         }
 
-        // Enqueue Chart.js
+        // Enqueue d3plus (includes d3.js)
         wp_enqueue_script(
-            'bpid-chartjs',
-            'https://cdn.jsdelivr.net/npm/chart.js',
+            'bpid-d3plus',
+            'https://cdn.jsdelivr.net/npm/@d3plus/core',
             [],
             null,
             true
         );
 
-        // Heatmap requires chartjs-chart-matrix plugin
-        if ($config['type'] === 'heatmap') {
-            wp_enqueue_script(
-                'bpid-chartjs-matrix',
-                'https://cdn.jsdelivr.net/npm/chartjs-chart-matrix@2',
-                ['bpid-chartjs'],
-                null,
-                true
-            );
-        }
-
-        // D3plus for treemap, plot, heatmap, and legacy types
-        $d3plus_types = ['treemap', 'plot', 'heatmap', 'tree', 'pack', 'network', 'scatter', 'box_whisker', 'matrix', 'bump'];
-        if (in_array($config['type'], $d3plus_types, true)) {
-            wp_enqueue_script(
-                'bpid-d3plus',
-                'https://cdn.jsdelivr.net/npm/d3plus@2/build/d3plus.full.min.js',
-                [],
-                null,
-                true
-            );
-        }
-
         wp_enqueue_script(
             'bpid-suite-frontend-charts',
             BPID_SUITE_URL . 'assets/js/frontend.js',
-            ['bpid-chartjs'],
+            ['bpid-d3plus'],
             BPID_SUITE_VERSION,
             true
         );
@@ -969,7 +946,7 @@ final class BPID_Suite_Visualizer {
         // Inline JS to initialize the preview chart immediately
         $html .= '<script>'
             . '(function(){'
-            . 'if(typeof Chart==="undefined"){document.getElementById("bpid-chart-' . esc_js($chart_id) . '").innerHTML="<p style=\\"color:#c00;text-align:center;padding:20px\\">Chart.js no está disponible. Guarde y use el shortcode.</p>";return;}'
+            . 'if(typeof d3plus==="undefined"){document.getElementById("bpid-chart-' . esc_js($chart_id) . '").innerHTML="<p style=\\"color:#c00;text-align:center;padding:20px\\">d3plus no disponible. Guarde y use el shortcode.</p>";return;}'
             . 'var c=document.getElementById("bpid-chart-' . esc_js($chart_id) . '");'
             . 'var configEl=document.getElementById("bpid-chart-config-' . esc_js($chart_id) . '");'
             . 'var dataEl=document.getElementById("bpid-chart-data-' . esc_js($chart_id) . '");'
@@ -978,11 +955,8 @@ final class BPID_Suite_Visualizer {
             . 'var cfg=JSON.parse(configEl.textContent);'
             . 'var dat=JSON.parse(dataEl.textContent);'
             . 'c.innerHTML="";'
-            . 'var wrap=document.createElement("div");'
-            . 'wrap.style.height="' . esc_js((string) $height) . 'px";'
-            . 'var cvs=document.createElement("canvas");'
-            . 'wrap.appendChild(cvs);c.appendChild(wrap);'
-            . 'if(typeof bpidBuildPreviewChart==="function"){bpidBuildPreviewChart(cvs,cfg,dat);}'
+            . 'c.style.height="' . esc_js((string) $height) . 'px";'
+            . 'if(typeof bpidBuildPreviewChart==="function"){bpidBuildPreviewChart(c,cfg,dat);}'
             . 'else{c.innerHTML="<p style=\\"color:#666;text-align:center;padding:20px\\">Datos: "+dat.length+" registros. Guarde y visualice con el shortcode.</p>";}'
             . '}catch(e){c.innerHTML="<p style=\\"color:#c00\\">Error: "+e.message+"</p>";}'
             . '})();'

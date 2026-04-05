@@ -821,78 +821,8 @@
     // 9. Preview Chart Builder (exposed globally for AJAX preview)
     // -------------------------------------------------------------------------
 
-    function mapChartType(internal) {
-        var map = {
-            bar: 'bar', bar_horizontal: 'bar', bar_stacked: 'bar',
-            bar_grouped: 'bar', line: 'line', area: 'line',
-            area_stacked: 'line', pie: 'pie', donut: 'doughnut', radar: 'radar'
-        };
-        return map[internal] || 'bar';
-    }
-
-    function hexToRgba(hex, alpha) {
-        if (!hex || hex.length < 7) return 'rgba(0,0,0,' + alpha + ')';
-        var r = parseInt(hex.slice(1, 3), 16);
-        var g = parseInt(hex.slice(3, 5), 16);
-        var b = parseInt(hex.slice(5, 7), 16);
-        return 'rgba(' + r + ',' + g + ',' + b + ',' + alpha + ')';
-    }
-
-    window.bpidBuildPreviewChart = function(canvas, config, data) {
-        if (typeof Chart === 'undefined' || !data || !data.length) return;
-
-        var chartJsType = mapChartType(config.type);
-        var yColumns = config.y_columns || [];
-        var yColors = config.y_colors || [];
-        var palette = config.color_palette || DEFAULT_COLORS;
-        var isArea = config.type === 'area' || config.type === 'area_stacked';
-        var isStacked = config.type === 'bar_stacked' || config.type === 'area_stacked';
-        var isHoriz = config.type === 'bar_horizontal';
-
-        var labels = data.map(function(row) { return row[config.axis_x] || ''; });
-
-        var datasets = yColumns.map(function(col, i) {
-            var color = yColors[i] || palette[i % palette.length] || '#3eba6a';
-            return {
-                label: col,
-                data: data.map(function(row) { return parseFloat(row[col]) || 0; }),
-                backgroundColor: isArea ? hexToRgba(color, 0.3) : color,
-                borderColor: color,
-                borderWidth: chartJsType === 'line' ? 2 : 0,
-                fill: isArea,
-                tension: 0.3
-            };
-        });
-
-        // Single series per-bar colors
-        if (datasets.length === 1 && (chartJsType === 'bar' || chartJsType === 'pie' || chartJsType === 'doughnut')) {
-            datasets[0].backgroundColor = labels.map(function(_, i) {
-                return palette[i % palette.length] || yColors[0] || '#3eba6a';
-            });
-            datasets[0].borderColor = datasets[0].backgroundColor;
-        }
-
-        var opts = {
-            responsive: true,
-            maintainAspectRatio: false,
-            indexAxis: isHoriz ? 'y' : 'x',
-            plugins: { legend: { display: !!config.show_legend } },
-            scales: {}
-        };
-
-        if (chartJsType !== 'pie' && chartJsType !== 'doughnut' && chartJsType !== 'radar') {
-            opts.scales = {
-                x: { grid: { display: false }, stacked: isStacked },
-                y: { grid: { color: 'rgba(0,0,0,0.06)' }, stacked: isStacked }
-            };
-        }
-
-        new Chart(canvas.getContext('2d'), {
-            type: chartJsType,
-            data: { labels: labels, datasets: datasets },
-            options: opts
-        });
-    };
+    // bpidBuildPreviewChart is now provided by frontend.js (loaded as dependency)
+    // No duplicate preview builder needed here.
 
     // -------------------------------------------------------------------------
     // Initialization
