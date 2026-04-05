@@ -104,11 +104,19 @@
     position: relative;
     width: 100%;
     overflow: hidden;
+    min-height: 200px;
 }
 
 .bpid-chart-d3plus-container svg {
+    display: block;
     width: 100% !important;
     max-width: 100%;
+    height: auto;
+}
+
+/* Ensure d3plus viz fills container */
+.bpid-chart-d3plus-container .d3plus-viz {
+    width: 100% !important;
 }
 
 /* ----------------------------------------

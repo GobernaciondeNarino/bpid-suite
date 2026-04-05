@@ -1,8 +1,8 @@
 /**
- * BPID Suite — Frontend Chart Manager v5.0.0
+ * BPID Suite — Frontend Chart Manager v1.7.0
  * Gobernacion de Narino
  *
- * Rendering engine: d3plus.js (includes d3.js).
+ * Rendering engine: d3plus v3 (@d3plus/core)
  * CDN: https://cdn.jsdelivr.net/npm/@d3plus/core
  *
  * Supported types (13):
@@ -38,6 +38,12 @@
             if (value == null || isNaN(value)) return '0';
             return Number(value).toLocaleString('es-CO');
         },
+        fullFormat: function (value) {
+            if (value == null || isNaN(value)) return '0';
+            return new Intl.NumberFormat('es-CO', {
+                style: 'decimal', minimumFractionDigits: 0, maximumFractionDigits: 0
+            }).format(value);
+        },
         byFormat: function (format) {
             var self = this;
             switch (format) {
@@ -66,7 +72,6 @@
             .replace(/\-\-+/g, '-').replace(/^-+|-+$/g, '');
     }
 
-    /** Get unique values preserving order */
     function uniqueValues(arr) {
         var seen = {};
         var result = [];
@@ -79,8 +84,16 @@
         return result;
     }
 
+    /**
+     * Safely get a d3plus class by name.
+     */
+    function getD3PlusClass(name) {
+        if (typeof d3plus !== 'undefined' && d3plus[name]) return d3plus[name];
+        return null;
+    }
+
     /* ========================================
-       Data Transformation for d3plus
+       Data Transformation
        ======================================== */
     function meltData(data, axisX, yColumns) {
         var melted = [];
@@ -108,7 +121,7 @@
     }
 
     /* ========================================
-       Shared Color Functions (DRY)
+       Shared Color Functions
        ======================================== */
     function makeMultiColorFn(yColumns, config, palette) {
         return function (d) {
@@ -126,7 +139,7 @@
     }
 
     /* ========================================
-       Shared Tooltip Builder (DRY)
+       Shared Tooltip Builder
        ======================================== */
     function buildTooltipConfig(config, opts) {
         var fmt = NumberFormatter.byFormat(config.number_format || 'es-CO');
@@ -168,26 +181,24 @@
     }
 
     /* ========================================
-       Shared Axis Config Builder (DRY)
-       Removes colored bar next to axes
+       Shared Axis Config (removes colored bar)
        ======================================== */
     function buildAxisConfig(config, isHoriz) {
+        var fmt = NumberFormatter.byFormat(config.number_format || 'es-CO');
+
         var xCfg = {
             barConfig: { stroke: 'transparent', 'stroke-width': 0 },
             tickFormat: function (d) { return String(d); }
         };
         var yCfg = {
-            barConfig: { stroke: 'transparent', 'stroke-width': 0 }
+            barConfig: { stroke: 'transparent', 'stroke-width': 0 },
+            tickFormat: function (d) { return fmt(d); }
         };
-
-        var fmt = NumberFormatter.byFormat(config.number_format || 'es-CO');
-        yCfg.tickFormat = function (d) { return fmt(d); };
 
         if (config.title_x) xCfg.title = config.title_x;
         if (config.title_y) yCfg.title = config.title_y;
 
         if (isHoriz) {
-            // Swap: X axis shows values, Y axis shows categories
             var xTickFmt = yCfg.tickFormat;
             xCfg.tickFormat = xTickFmt;
             yCfg.tickFormat = function (d) { return String(d); };
@@ -197,10 +208,27 @@
     }
 
     /* ========================================
+       Base config shared by all charts
+       ======================================== */
+    function baseConfig(container, config) {
+        return {
+            select: container,
+            detectResize: true,
+            detectResizeDelay: 400,
+            detectVisible: true,
+            detectVisibleInterval: 500,
+            locale: 'es-ES'
+        };
+    }
+
+    /* ========================================
        d3plus Chart Builders
        ======================================== */
 
     function buildBarChart(container, config, data, palette) {
+        var Cls = getD3PlusClass('BarChart');
+        if (!Cls) throw new Error('d3plus.BarChart no disponible');
+
         var axisX = config.axis_x;
         var yColumns = config.y_columns || [];
         var isMulti = yColumns.length > 1;
@@ -222,8 +250,9 @@
         }
 
         var axes = buildAxisConfig(config, isHoriz);
+        var base = baseConfig(container, config);
 
-        var cfg = {
+        var cfg = Object.assign(base, {
             data: chartData,
             groupBy: groupBy,
             x: isHoriz ? yKey : xKey,
@@ -240,37 +269,38 @@
             },
             xConfig: axes.xConfig,
             yConfig: axes.yConfig,
-            legend: !!config.show_legend,
-            select: container
-        };
+            legend: !!config.show_legend
+        });
 
-        return new d3plus.BarChart().config(cfg);
+        return new Cls().config(cfg);
     }
 
     function buildLineChart(container, config, data, palette) {
+        var Cls = getD3PlusClass('LinePlot');
+        if (!Cls) throw new Error('d3plus.LinePlot no disponible');
+
         var axisX = config.axis_x;
         var yColumns = config.y_columns || [];
         var isMulti = yColumns.length > 1;
 
-        var chartData, groupBy, xKey, yKey;
+        var chartData, xKey, yKey;
 
         if (isMulti) {
             chartData = meltData(data, axisX, yColumns);
-            groupBy = '_measure';
             xKey = axisX;
             yKey = '_value';
         } else {
             chartData = prepareData(data, axisX, yColumns);
-            groupBy = function () { return yColumns[0]; };
             xKey = axisX;
             yKey = yColumns[0];
         }
 
         var axes = buildAxisConfig(config, false);
+        var base = baseConfig(container, config);
 
-        var cfg = {
+        var cfg = Object.assign(base, {
             data: chartData,
-            groupBy: isMulti ? groupBy : function () { return yColumns[0]; },
+            groupBy: isMulti ? '_measure' : function () { return yColumns[0]; },
             x: xKey,
             y: yKey,
             discrete: 'x',
@@ -291,18 +321,21 @@
             },
             xConfig: axes.xConfig,
             yConfig: axes.yConfig,
-            legend: !!config.show_legend,
-            select: container
-        };
+            legend: !!config.show_legend
+        });
 
-        return new d3plus.LinePlot().config(cfg);
+        return new Cls().config(cfg);
     }
 
     function buildAreaChart(container, config, data, palette) {
+        var isStacked = config.type === 'area_stacked';
+        var ClsName = isStacked ? 'StackedArea' : 'AreaPlot';
+        var Cls = getD3PlusClass(ClsName);
+        if (!Cls) throw new Error('d3plus.' + ClsName + ' no disponible');
+
         var axisX = config.axis_x;
         var yColumns = config.y_columns || [];
         var isMulti = yColumns.length > 1;
-        var isStacked = config.type === 'area_stacked';
 
         var chartData, xKey, yKey;
 
@@ -317,14 +350,14 @@
         }
 
         var axes = buildAxisConfig(config, false);
+        var base = baseConfig(container, config);
 
-        var cfg = {
+        var cfg = Object.assign(base, {
             data: chartData,
             groupBy: isMulti ? '_measure' : function () { return yColumns[0]; },
             x: xKey,
             y: yKey,
             discrete: 'x',
-            stacked: isStacked,
             tooltipConfig: buildTooltipConfig(config, {
                 isMulti: isMulti, axisX: axisX, yColumns: yColumns
             }),
@@ -341,61 +374,66 @@
             },
             xConfig: axes.xConfig,
             yConfig: axes.yConfig,
-            legend: !!config.show_legend,
-            select: container
-        };
+            legend: !!config.show_legend
+        });
 
-        if (isStacked) {
-            return new d3plus.StackedArea().config(cfg);
-        }
-        return new d3plus.AreaPlot().config(cfg);
+        return new Cls().config(cfg);
     }
 
     function buildPieChart(container, config, data, palette) {
+        var Cls = getD3PlusClass('Pie');
+        if (!Cls) throw new Error('d3plus.Pie no disponible');
+
         var axisX = config.axis_x;
         var yCol = (config.y_columns && config.y_columns[0]) || '';
         var chartData = prepareData(data, axisX, [yCol]);
         var colorFn = makeSingleColorFn(axisX, chartData, palette);
+        var base = baseConfig(container, config);
 
-        var cfg = {
+        var cfg = Object.assign(base, {
             data: chartData,
             groupBy: axisX,
-            size: yCol,
+            value: yCol,
             tooltipConfig: buildTooltipConfig(config, {
                 isMulti: false, axisX: axisX, yColumns: [yCol],
                 titleFn: function (d) { return d[axisX] || ''; }
             }),
             shapeConfig: { fill: colorFn },
-            legend: !!config.show_legend,
-            select: container
-        };
+            legend: !!config.show_legend
+        });
 
-        return new d3plus.Pie().config(cfg);
+        return new Cls().config(cfg);
     }
 
     function buildDonutChart(container, config, data, palette) {
+        var Cls = getD3PlusClass('Donut');
+        if (!Cls) throw new Error('d3plus.Donut no disponible');
+
         var axisX = config.axis_x;
         var yCol = (config.y_columns && config.y_columns[0]) || '';
         var chartData = prepareData(data, axisX, [yCol]);
         var colorFn = makeSingleColorFn(axisX, chartData, palette);
+        var base = baseConfig(container, config);
 
-        var cfg = {
+        var cfg = Object.assign(base, {
             data: chartData,
             groupBy: axisX,
-            size: yCol,
+            value: yCol,
             tooltipConfig: buildTooltipConfig(config, {
                 isMulti: false, axisX: axisX, yColumns: [yCol],
                 titleFn: function (d) { return d[axisX] || ''; }
             }),
             shapeConfig: { fill: colorFn },
-            legend: !!config.show_legend,
-            select: container
-        };
+            legend: !!config.show_legend
+        });
 
-        return new d3plus.Donut().config(cfg);
+        return new Cls().config(cfg);
     }
 
     function buildTreemap(container, config, data, palette) {
+        var Cls = getD3PlusClass('Treemap');
+        if (!Cls) throw new Error('d3plus.Treemap no disponible');
+
         var axisX = config.axis_x;
         var yCol = (config.y_columns && config.y_columns[0]) || '';
 
@@ -403,66 +441,92 @@
             return d[yCol] > 0;
         });
         var colorFn = makeSingleColorFn(axisX, chartData, palette);
+        var base = baseConfig(container, config);
 
-        var cfg = {
+        var cfg = Object.assign(base, {
             data: chartData,
             groupBy: axisX,
-            size: yCol,
+            sum: yCol,
             tooltipConfig: buildTooltipConfig(config, {
                 isMulti: false, axisX: axisX, yColumns: [yCol],
                 titleFn: function (d) { return d[axisX] || ''; }
             }),
             shapeConfig: { fill: colorFn },
-            legend: !!config.show_legend,
-            select: container
-        };
+            legend: !!config.show_legend
+        });
 
-        return new d3plus.Treemap().config(cfg);
+        return new Cls().config(cfg);
     }
 
     function buildRadarChart(container, config, data, palette) {
+        var Cls = getD3PlusClass('Radar');
+        if (!Cls) throw new Error('d3plus.Radar no disponible');
+
         var axisX = config.axis_x;
         var yColumns = config.y_columns || [];
         var isMulti = yColumns.length > 1;
 
-        var chartData, xKey, yKey;
+        var chartData;
 
         if (isMulti) {
             chartData = meltData(data, axisX, yColumns);
-            xKey = axisX;
-            yKey = '_value';
         } else {
-            chartData = prepareData(data, axisX, yColumns);
-            xKey = axisX;
-            yKey = yColumns[0];
+            // Single series: melt to create metric/value format
+            chartData = data.map(function (row) {
+                return {
+                    _group: yColumns[0],
+                    _metric: row[axisX] != null ? String(row[axisX]) : '',
+                    _value: parseFloat(row[yColumns[0]]) || 0
+                };
+            });
         }
 
-        var cfg = {
-            data: chartData,
-            groupBy: isMulti ? '_measure' : function () { return yColumns[0]; },
-            x: xKey,
-            y: yKey,
-            discrete: 'x',
-            tooltipConfig: buildTooltipConfig(config, {
-                isMulti: isMulti, axisX: axisX, yColumns: yColumns
-            }),
-            shapeConfig: {
-                fill: function (d) {
-                    if (isMulti) {
+        var base = baseConfig(container, config);
+
+        if (isMulti) {
+            // Multi-series: _measure = group, axisX = metric, _value = value
+            var cfg = Object.assign(base, {
+                data: chartData,
+                groupBy: '_measure',
+                metric: axisX,
+                value: '_value',
+                tooltipConfig: buildTooltipConfig(config, {
+                    isMulti: true, axisX: axisX, yColumns: yColumns
+                }),
+                shapeConfig: {
+                    fill: function (d) {
                         var idx = yColumns.indexOf(d._measure);
                         return (config.y_colors && config.y_colors[idx]) || palette[idx % palette.length];
                     }
-                    return (config.y_colors && config.y_colors[0]) || palette[0];
-                }
-            },
-            legend: !!config.show_legend,
-            select: container
-        };
-
-        return new d3plus.Radar().config(cfg);
+                },
+                legend: !!config.show_legend
+            });
+            return new Cls().config(cfg);
+        } else {
+            var cfg2 = Object.assign(base, {
+                data: chartData,
+                groupBy: '_group',
+                metric: '_metric',
+                value: '_value',
+                tooltipConfig: buildTooltipConfig(config, {
+                    isMulti: false, axisX: '_metric', yColumns: ['_value'],
+                    titleFn: function (d) { return d._metric || ''; }
+                }),
+                shapeConfig: {
+                    fill: function () {
+                        return (config.y_colors && config.y_colors[0]) || palette[0];
+                    }
+                },
+                legend: !!config.show_legend
+            });
+            return new Cls().config(cfg2);
+        }
     }
 
     function buildHeatmap(container, config, data, palette) {
+        var Cls = getD3PlusClass('Matrix');
+        if (!Cls) throw new Error('d3plus.Matrix no disponible');
+
         var axisX = config.axis_x;
         var yColumns = config.y_columns || [];
         var yCol = yColumns[0] || '';
@@ -487,7 +551,9 @@
             return obj;
         });
 
-        var cfg = {
+        var base = baseConfig(container, config);
+
+        var cfg = Object.assign(base, {
             data: chartData,
             groupBy: [axisX, groupCol],
             column: axisX,
@@ -507,9 +573,8 @@
                 },
                 tbody: []
             },
-            legend: false,
-            select: container
-        };
+            legend: false
+        });
 
         if (config.title_x) {
             cfg.columnConfig = {
@@ -524,10 +589,13 @@
             };
         }
 
-        return new d3plus.Matrix().config(cfg);
+        return new Cls().config(cfg);
     }
 
     function buildPlotChart(container, config, data, palette) {
+        var Cls = getD3PlusClass('Plot');
+        if (!Cls) throw new Error('d3plus.Plot no disponible');
+
         var axisX = config.axis_x;
         var yColumns = config.y_columns || [];
         var isMulti = yColumns.length > 1;
@@ -547,33 +615,16 @@
         }
 
         var axes = buildAxisConfig(config, false);
-        var fmt = NumberFormatter.byFormat(config.number_format || 'es-CO');
-        var customText = config.tooltip_text || '';
+        var base = baseConfig(container, config);
 
-        var cfg = {
+        var cfg = Object.assign(base, {
             data: chartData,
             groupBy: isMulti ? groupBy : axisX,
             x: xKey,
             y: yKey,
             size: function () { return 4; },
             tooltipConfig: buildTooltipConfig(config, {
-                isMulti: isMulti, axisX: axisX, yColumns: yColumns,
-                bodyFn: function (d, fmtFn) {
-                    var lines = [];
-                    if (isMulti) {
-                        lines.push('<strong>' + escapeHtml(axisX) + ':</strong> ' + escapeHtml(String(d[axisX] || '')));
-                        lines.push('<strong>' + escapeHtml(String(d._measure || '')) + ':</strong> ' + fmtFn(d._value));
-                    } else {
-                        lines.push('<strong>' + escapeHtml(axisX) + ':</strong> ' + escapeHtml(String(d[axisX] || '')));
-                        for (var i = 0; i < yColumns.length; i++) {
-                            lines.push('<strong>' + escapeHtml(yColumns[i]) + ':</strong> ' + fmtFn(d[yColumns[i]]));
-                        }
-                    }
-                    if (customText) {
-                        lines.push('<em class="bpid-tooltip-custom">' + escapeHtml(customText) + '</em>');
-                    }
-                    return lines.join('<br>');
-                }
+                isMulti: isMulti, axisX: axisX, yColumns: yColumns
             }),
             shapeConfig: {
                 Circle: {
@@ -591,11 +642,10 @@
             },
             xConfig: axes.xConfig,
             yConfig: axes.yConfig,
-            legend: !!config.show_legend,
-            select: container
-        };
+            legend: !!config.show_legend
+        });
 
-        return new d3plus.Plot().config(cfg);
+        return new Cls().config(cfg);
     }
 
     /* ========================================
@@ -800,7 +850,6 @@
     function ChartManager() {
         this.charts = [];
         this.observer = null;
-        this.resizeTimer = null;
         this.init();
     }
 
@@ -827,18 +876,6 @@
         } else {
             containers.forEach(function (c) { self.loadChart(c); });
         }
-
-        // Responsive: re-render charts on window resize
-        window.addEventListener('resize', function () {
-            clearTimeout(self.resizeTimer);
-            self.resizeTimer = setTimeout(function () {
-                self.charts.forEach(function (chart) {
-                    if (chart.instance && typeof chart.instance.render === 'function') {
-                        chart.instance.render();
-                    }
-                });
-            }, 300);
-        });
     };
 
     ChartManager.prototype.loadChart = function (container) {
