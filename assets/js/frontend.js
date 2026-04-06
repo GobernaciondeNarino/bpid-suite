@@ -653,42 +653,52 @@
        ======================================== */
     function buildD3PlusChart(container, config, data) {
         var palette = config.color_palette || DEFAULT_PALETTE;
+        var chart;
 
         switch (config.type) {
             case 'bar':
             case 'bar_horizontal':
             case 'bar_stacked':
             case 'bar_grouped':
-                return buildBarChart(container, config, data, palette);
-
+                chart = buildBarChart(container, config, data, palette);
+                break;
             case 'line':
-                return buildLineChart(container, config, data, palette);
-
+                chart = buildLineChart(container, config, data, palette);
+                break;
             case 'area':
             case 'area_stacked':
-                return buildAreaChart(container, config, data, palette);
-
+                chart = buildAreaChart(container, config, data, palette);
+                break;
             case 'pie':
-                return buildPieChart(container, config, data, palette);
-
+                chart = buildPieChart(container, config, data, palette);
+                break;
             case 'donut':
-                return buildDonutChart(container, config, data, palette);
-
+                chart = buildDonutChart(container, config, data, palette);
+                break;
             case 'treemap':
-                return buildTreemap(container, config, data, palette);
-
+                chart = buildTreemap(container, config, data, palette);
+                break;
             case 'radar':
-                return buildRadarChart(container, config, data, palette);
-
+                chart = buildRadarChart(container, config, data, palette);
+                break;
             case 'heatmap':
-                return buildHeatmap(container, config, data, palette);
-
+                chart = buildHeatmap(container, config, data, palette);
+                break;
             case 'plot':
-                return buildPlotChart(container, config, data, palette);
-
+                chart = buildPlotChart(container, config, data, palette);
+                break;
             default:
-                return buildBarChart(container, config, data, palette);
+                chart = buildBarChart(container, config, data, palette);
+                break;
         }
+
+        // Apply common settings to all charts
+        chart.config({
+            legendPosition: 'bottom',
+            locale: 'es_ES'
+        });
+
+        return chart;
     }
 
     /* ========================================
@@ -735,7 +745,7 @@
             ));
         }
 
-        wrapper.insertBefore(container, wrapper.firstChild);
+        wrapper.appendChild(container);
     }
 
     function makeToolbarBtn(action, label, iconSvg, onClick) {
@@ -927,6 +937,9 @@
         wrapper.className = 'bpid-chart-wrapper';
         wrapper.id = 'bpid-chart-wrapper-' + chartId;
 
+        // Toolbar goes ABOVE the chart
+        createToolbar(wrapper, chartData, config);
+
         var chartContainer = document.createElement('div');
         chartContainer.className = 'bpid-chart-d3plus-container';
         chartContainer.id = 'bpid-d3plus-' + chartId;
@@ -939,8 +952,6 @@
         try {
             var instance = buildD3PlusChart('#' + chartContainer.id, config, chartData);
             instance.render();
-
-            createToolbar(wrapper, chartData, config);
 
             this.charts.push({
                 id: chartId, container: container, instance: instance,
