@@ -1,5 +1,5 @@
 /**
- * BPID Suite — Frontend Chart Manager v1.7.0
+ * BPID Suite — Frontend Chart Manager v1.7.1
  * Gobernacion de Narino
  *
  * Rendering engine: d3plus v3 (@d3plus/core)
@@ -146,6 +146,7 @@
         var customText = config.tooltip_text || '';
 
         return {
+            background: '#ffffff',
             title: function (d) {
                 if (opts.titleFn) return opts.titleFn(d);
                 if (opts.isMulti) return d._measure || '';
@@ -563,6 +564,7 @@
                 color: [palette[0] || '#1a5276']
             },
             tooltipConfig: {
+                background: '#ffffff',
                 title: function (d) { return d[axisX] + ' / ' + d[groupCol]; },
                 body: function (d) {
                     var lines = ['<strong>Valor:</strong> ' + fmt(d._value)];
@@ -949,18 +951,48 @@
         wrapper.appendChild(chartContainer);
         container.appendChild(wrapper);
 
-        try {
-            var instance = buildD3PlusChart('#' + chartContainer.id, config, chartData);
-            instance.render();
+        var self = this;
 
-            this.charts.push({
-                id: chartId, container: container, instance: instance,
-                data: chartData, config: config
-            });
-        } catch (e) {
-            console.error('[BPID Suite] Render error (' + config.type + '):', e);
-            container.innerHTML = '<div class="bpid-chart-no-data" style="color:#c00;">Error al renderizar: ' + escapeHtml(e.message) + '</div>';
-        }
+        // Delay render to next frame so the DOM has computed layout dimensions.
+        // d3plus reads container width at render time; if the element hasn't been
+        // laid out yet, it interprets "100%" as 100px.
+        requestAnimationFrame(function () {
+            try {
+                var actualWidth = chartContainer.offsetWidth || container.offsetWidth || 600;
+                var actualHeight = config.height || 400;
+
+                var instance = buildD3PlusChart('#' + chartContainer.id, config, chartData);
+
+                // Pass explicit pixel dimensions so d3plus never guesses
+                instance.config({
+                    width: actualWidth,
+                    height: actualHeight
+                });
+
+                instance.render();
+
+                self.charts.push({
+                    id: chartId, container: container, instance: instance,
+                    data: chartData, config: config
+                });
+
+                // Re-render on window resize for responsive behavior
+                var resizeTimer;
+                window.addEventListener('resize', function () {
+                    clearTimeout(resizeTimer);
+                    resizeTimer = setTimeout(function () {
+                        var newWidth = chartContainer.offsetWidth || container.offsetWidth || 600;
+                        if (newWidth > 0 && newWidth !== actualWidth) {
+                            actualWidth = newWidth;
+                            instance.config({ width: newWidth }).render();
+                        }
+                    }, 300);
+                });
+            } catch (e) {
+                console.error('[BPID Suite] Render error (' + config.type + '):', e);
+                container.innerHTML = '<div class="bpid-chart-no-data" style="color:#c00;">Error al renderizar: ' + escapeHtml(e.message) + '</div>';
+            }
+        });
     };
 
     /* ========================================
@@ -976,13 +1008,20 @@
         chartDiv.style.width = '100%';
         containerEl.appendChild(chartDiv);
 
-        try {
-            var instance = buildD3PlusChart('#' + chartDiv.id, config, data);
-            instance.render();
-        } catch (e) {
-            console.error('[BPID Suite] Preview error:', e);
-            containerEl.innerHTML = '<p style="color:#c00;text-align:center;padding:20px;">Error: ' + escapeHtml(e.message) + '</p>';
-        }
+        requestAnimationFrame(function () {
+            try {
+                var actualWidth = chartDiv.offsetWidth || containerEl.offsetWidth || 600;
+                var instance = buildD3PlusChart('#' + chartDiv.id, config, data);
+                instance.config({
+                    width: actualWidth,
+                    height: config.height || 350
+                });
+                instance.render();
+            } catch (e) {
+                console.error('[BPID Suite] Preview error:', e);
+                containerEl.innerHTML = '<p style="color:#c00;text-align:center;padding:20px;">Error: ' + escapeHtml(e.message) + '</p>';
+            }
+        });
     };
 
     /* ========================================

@@ -126,6 +126,7 @@
     box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15) !important;
     border: 1px solid rgba(0, 0, 0, 0.08) !important;
     max-width: 320px !important;
+    background: #fff !important;
 }
 
 .d3plus-tooltip .d3plus-tooltip-title {
@@ -133,6 +134,7 @@
     font-weight: 700 !important;
     padding: 10px 14px 6px !important;
     color: #1d2327 !important;
+    background: #fff !important;
     border-bottom: 1px solid #eee !important;
 }
 
@@ -141,6 +143,18 @@
     font-size: 13px !important;
     line-height: 1.6 !important;
     color: #444 !important;
+    background: #fff !important;
+}
+
+/* Override any d3plus inline background colors on tooltip elements */
+.d3plus-tooltip * {
+    background-color: transparent !important;
+}
+
+.d3plus-tooltip,
+.d3plus-tooltip .d3plus-tooltip-title,
+.d3plus-tooltip .d3plus-tooltip-body {
+    background-color: #fff !important;
 }
 
 .d3plus-tooltip .d3plus-tooltip-body strong {
