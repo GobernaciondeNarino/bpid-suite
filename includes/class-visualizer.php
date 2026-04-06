@@ -37,6 +37,9 @@ final class BPID_Suite_Visualizer {
     /** @var string[] Allowed number formats */
     private const NUMBER_FORMATS = ['es-CO', 'en-US', 'de-DE', 'compact', 'raw'];
 
+    /** @var string[] Allowed value scales */
+    private const VALUE_SCALES = ['full', 'thousands', 'millions', 'billions'];
+
     public static function get_instance(): self {
         if (null === self::$instance) {
             self::$instance = new self();
@@ -295,6 +298,12 @@ final class BPID_Suite_Visualizer {
         }
         update_post_meta($post_id, '_chart_number_format', $number_format);
 
+        $value_scale = sanitize_text_field(wp_unslash($_POST['chart_value_scale'] ?? 'full'));
+        if (!in_array($value_scale, self::VALUE_SCALES, true)) {
+            $value_scale = 'full';
+        }
+        update_post_meta($post_id, '_chart_value_scale', $value_scale);
+
         $color_palette = sanitize_text_field(wp_unslash($_POST['chart_color_palette'] ?? ''));
         update_post_meta($post_id, '_chart_color_palette', $color_palette);
 
@@ -467,6 +476,7 @@ final class BPID_Suite_Visualizer {
             'title_y'       => get_post_meta($post_id, '_chart_title_y', true) ?: '',
             'title_x'       => get_post_meta($post_id, '_chart_title_x', true) ?: '',
             'number_format'  => get_post_meta($post_id, '_chart_number_format', true) ?: 'es-CO',
+            'value_scale'    => get_post_meta($post_id, '_chart_value_scale', true) ?: 'full',
             'color_palette'  => array_values($palette),
             'show_legend'    => (bool) get_post_meta($post_id, '_chart_show_legend', true),
             'show_timeline'  => (bool) get_post_meta($post_id, '_chart_show_timeline', true),

@@ -54,6 +54,37 @@
                 case 'raw':      return function (v) { return String(v); };
                 default:         return function (v) { return self.number(v); };
             }
+        },
+        /**
+         * Returns a formatter that scales values for axis display.
+         * @param {string} scale - 'full', 'thousands', 'millions', 'billions'
+         * @param {string} numFormat - locale format key
+         */
+        byScale: function (scale, numFormat) {
+            var self = this;
+            var localeFmt = this.byFormat(numFormat);
+            switch (scale) {
+                case 'thousands':
+                    return function (v) {
+                        if (v == null || isNaN(v)) return '0';
+                        var num = Number(v);
+                        return (num / 1e3).toLocaleString('es-CO', { maximumFractionDigits: 1 }) + 'K';
+                    };
+                case 'millions':
+                    return function (v) {
+                        if (v == null || isNaN(v)) return '0';
+                        var num = Number(v);
+                        return (num / 1e6).toLocaleString('es-CO', { maximumFractionDigits: 2 }) + 'MM';
+                    };
+                case 'billions':
+                    return function (v) {
+                        if (v == null || isNaN(v)) return '0';
+                        var num = Number(v);
+                        return (num / 1e9).toLocaleString('es-CO', { maximumFractionDigits: 2 }) + 'MMII';
+                    };
+                default: // 'full'
+                    return localeFmt;
+            }
         }
     };
 
@@ -185,7 +216,8 @@
        Shared Axis Config (removes colored bar)
        ======================================== */
     function buildAxisConfig(config, isHoriz) {
-        var fmt = NumberFormatter.byFormat(config.number_format || 'es-CO');
+        var scale = config.value_scale || 'full';
+        var axisFmt = NumberFormatter.byScale(scale, config.number_format || 'es-CO');
 
         var xCfg = {
             barConfig: { stroke: 'transparent', fill: 'transparent', 'stroke-width': 0 },
@@ -193,7 +225,7 @@
         };
         var yCfg = {
             barConfig: { stroke: 'transparent', fill: 'transparent', 'stroke-width': 0 },
-            tickFormat: function (d) { return fmt(d); }
+            tickFormat: function (d) { return axisFmt(d); }
         };
 
         if (config.title_x) xCfg.title = config.title_x;

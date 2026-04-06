@@ -47,6 +47,7 @@ $chart_query_limit      = get_post_meta( $post->ID, '_chart_query_limit', true )
 $chart_query_orderby    = get_post_meta( $post->ID, '_chart_query_orderby', true );
 $chart_query_order      = get_post_meta( $post->ID, '_chart_query_order', true ) ?: 'ASC';
 $chart_tooltip_text     = get_post_meta( $post->ID, '_chart_tooltip_text', true );
+$chart_value_scale      = get_post_meta( $post->ID, '_chart_value_scale', true ) ?: 'full';
 
 if ( ! is_array( $chart_adv_filters ) ) {
 	$chart_adv_filters = array();
@@ -139,6 +140,14 @@ $number_formats = array(
 	'de-DE'   => 'Europeo (de-DE)',
 	'compact' => 'Abreviado (compact)',
 	'raw'     => 'Sin formato (raw)',
+);
+
+// Value scale options for axis display.
+$value_scales = array(
+	'full'     => 'Completos (1.234.567)',
+	'thousands' => 'En Miles — K (1.234K)',
+	'millions'  => 'En Millones — MM (1,23MM)',
+	'billions'  => 'En Miles de Millones — MMII (1,23MMII)',
 );
 ?>
 
@@ -436,6 +445,19 @@ $number_formats = array(
 							</option>
 						<?php endforeach; ?>
 					</select>
+				</div>
+
+				<!-- Value Scale -->
+				<div class="bpid-chart-form-group">
+					<label for="chart_value_scale"><?php esc_html_e( 'Escala de Valores (Ejes)', 'bpid-suite' ); ?></label>
+					<select name="chart_value_scale" id="chart_value_scale" class="bpid-chart-select">
+						<?php foreach ( $value_scales as $vs_key => $vs_label ) : ?>
+							<option value="<?php echo esc_attr( $vs_key ); ?>" <?php selected( $chart_value_scale, $vs_key ); ?>>
+								<?php echo esc_html( $vs_label ); ?>
+							</option>
+						<?php endforeach; ?>
+					</select>
+					<p class="bpid-chart-field-desc"><?php esc_html_e( 'Controla cómo se muestran los números grandes en los ejes del gráfico.', 'bpid-suite' ); ?></p>
 				</div>
 
 				<!-- Y Axis Title -->
