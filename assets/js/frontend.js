@@ -1,5 +1,5 @@
 /**
- * BPID Suite — Frontend Chart Manager v1.7.1
+ * BPID Suite — Frontend Chart Manager v1.8.0
  * Gobernacion de Narino
  *
  * Rendering engine: d3plus v3 (@d3plus/core)
@@ -188,11 +188,11 @@
         var fmt = NumberFormatter.byFormat(config.number_format || 'es-CO');
 
         var xCfg = {
-            barConfig: { stroke: 'transparent', 'stroke-width': 0 },
+            barConfig: { stroke: 'transparent', fill: 'transparent', 'stroke-width': 0 },
             tickFormat: function (d) { return String(d); }
         };
         var yCfg = {
-            barConfig: { stroke: 'transparent', 'stroke-width': 0 },
+            barConfig: { stroke: 'transparent', fill: 'transparent', 'stroke-width': 0 },
             tickFormat: function (d) { return fmt(d); }
         };
 
@@ -581,13 +581,13 @@
         if (config.title_x) {
             cfg.columnConfig = {
                 title: config.title_x,
-                barConfig: { stroke: 'transparent', 'stroke-width': 0 }
+                barConfig: { stroke: 'transparent', fill: 'transparent', 'stroke-width': 0 }
             };
         }
         if (config.title_y) {
             cfg.rowConfig = {
                 title: config.title_y,
-                barConfig: { stroke: 'transparent', 'stroke-width': 0 }
+                barConfig: { stroke: 'transparent', fill: 'transparent', 'stroke-width': 0 }
             };
         }
 
@@ -619,26 +619,22 @@
         var axes = buildAxisConfig(config, false);
         var base = baseConfig(container, config);
 
+        var colorFn = isMulti
+            ? makeMultiColorFn(yColumns, config, palette)
+            : makeSingleColorFn(axisX, chartData, palette);
+
         var cfg = Object.assign(base, {
             data: chartData,
             groupBy: isMulti ? groupBy : axisX,
             x: xKey,
             y: yKey,
-            size: function () { return 4; },
+            shape: 'Circle',
             tooltipConfig: buildTooltipConfig(config, {
                 isMulti: isMulti, axisX: axisX, yColumns: yColumns
             }),
             shapeConfig: {
+                fill: colorFn,
                 Circle: {
-                    fill: function (d) {
-                        if (isMulti) {
-                            var idx = yColumns.indexOf(d._measure);
-                            return (config.y_colors && config.y_colors[idx]) || palette[idx % palette.length];
-                        }
-                        var categories = uniqueValues(chartData.map(function (r) { return r[axisX]; }));
-                        var ci = categories.indexOf(d[axisX]);
-                        return palette[ci % palette.length];
-                    },
                     r: 5
                 }
             },
@@ -755,7 +751,18 @@
         btn.className = 'sct-btn';
         btn.setAttribute('data-action', action);
         btn.title = label;
-        btn.innerHTML = iconSvg + ' ' + label;
+
+        // Create icon element with explicit dimensions to prevent theme overrides
+        var iconSpan = document.createElement('span');
+        iconSpan.className = 'sct-btn-icon';
+        iconSpan.innerHTML = iconSvg;
+
+        var labelSpan = document.createElement('span');
+        labelSpan.className = 'sct-btn-label';
+        labelSpan.textContent = label;
+
+        btn.appendChild(iconSpan);
+        btn.appendChild(labelSpan);
         btn.addEventListener('click', onClick);
         return btn;
     }
@@ -771,7 +778,9 @@
         modal.className = 'bpid-chart-data-modal';
         modal.innerHTML = '<div class="bpid-chart-data-modal-content">' +
             '<div class="bpid-chart-data-modal-header"><h3>Detalle</h3>' +
-            '<button class="bpid-chart-data-modal-close">&times;</button></div>' +
+            '<button class="bpid-chart-data-modal-close" title="Cerrar">' +
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+            '</button></div>' +
             '<div class="bpid-chart-data-modal-body" style="padding:20px;">' +
             '<p><strong>Titulo:</strong> ' + escapeHtml(config.title || '') + '</p>' +
             '<p><strong>Tipo:</strong> ' + escapeHtml(config.type || '') + '</p>' +
@@ -788,12 +797,11 @@
 
     function toggleDataTable(wrapper, tableId, chartData, config) {
         var existing = document.getElementById(tableId);
-        if (existing) { existing.hidden = !existing.hidden; return; }
-        var table = document.createElement('table');
-        table.id = tableId;
-        table.className = 'bpid-chart-inline-data-table';
+        if (existing) { existing.remove(); return; }
+
         var fmt = NumberFormatter.byFormat(config.number_format);
         var headers = [config.axis_x].concat(config.y_columns || []);
+
         var html = '<thead><tr>';
         headers.forEach(function (h) { html += '<th>' + escapeHtml(h) + '</th>'; });
         html += '</tr></thead><tbody>';
@@ -807,8 +815,28 @@
             html += '</tr>';
         });
         html += '</tbody>';
-        table.innerHTML = html;
-        wrapper.appendChild(table);
+
+        var modal = document.createElement('div');
+        modal.id = tableId;
+        modal.className = 'bpid-chart-data-modal';
+        modal.innerHTML = '<div class="bpid-chart-data-modal-content">' +
+            '<div class="bpid-chart-data-modal-header"><h3>Datos</h3>' +
+            '<button class="bpid-chart-data-modal-close" title="Cerrar">' +
+            '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+            '</button></div>' +
+            '<div class="bpid-chart-data-modal-body">' +
+            '<table class="bpid-chart-data-table">' + html + '</table>' +
+            '</div></div>';
+
+        document.body.appendChild(modal);
+        requestAnimationFrame(function () { modal.classList.add('is-open'); });
+
+        var close = function () {
+            modal.classList.remove('is-open');
+            setTimeout(function () { modal.remove(); }, 200);
+        };
+        modal.querySelector('.bpid-chart-data-modal-close').addEventListener('click', close);
+        modal.addEventListener('click', function (e) { if (e.target === modal) close(); });
     }
 
     function exportChartImage(wrapper, config) {
