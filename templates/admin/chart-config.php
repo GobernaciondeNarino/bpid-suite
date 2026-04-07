@@ -189,74 +189,127 @@ $value_scales = array(
 	</div>
 
 	<!-- ================================================================= -->
-	<!-- Section B — Data Source (Card)                                      -->
+	<!-- Section B — Data Source (Card) with mode toggle                     -->
 	<!-- ================================================================= -->
+	<?php
+	$chart_data_mode = get_post_meta( $post->ID, '_chart_data_mode', true ) ?: 'manual';
+	$chart_view      = get_post_meta( $post->ID, '_chart_view', true ) ?: '';
+	?>
 	<div class="bpid-chart-card" id="data-source-section">
 		<div class="bpid-chart-card-header">
 			<span class="dashicons dashicons-database"></span>
 			<?php esc_html_e( 'Fuente de Datos', 'bpid-suite' ); ?>
 		</div>
 		<div class="bpid-chart-card-body">
-			<div class="bpid-chart-form-grid">
-				<!-- Data Table -->
-				<div class="bpid-chart-form-group">
-					<label for="chart_data_table"><?php esc_html_e( 'Tabla de datos', 'bpid-suite' ); ?></label>
-					<select name="chart_data_table" id="chart_data_table" class="bpid-chart-select">
-						<?php if ( $chart_data_table ) : ?>
-							<option value="<?php echo esc_attr( $chart_data_table ); ?>" selected>
-								<?php echo esc_html( $chart_data_table ); ?>
-							</option>
-						<?php else : ?>
-							<option value=""><?php esc_html_e( '— Cargando tablas... —', 'bpid-suite' ); ?></option>
-						<?php endif; ?>
-					</select>
-					<span class="bpid-chart-help"><?php esc_html_e( 'Tablas disponibles cargadas por AJAX.', 'bpid-suite' ); ?></span>
-				</div>
 
-				<!-- X Axis Column -->
-				<div class="bpid-chart-form-group">
-					<label for="chart_axis_x"><?php esc_html_e( 'Columna Eje X', 'bpid-suite' ); ?></label>
-					<select name="chart_axis_x" id="chart_axis_x" class="bpid-chart-select">
-						<?php if ( $chart_axis_x ) : ?>
-							<option value="<?php echo esc_attr( $chart_axis_x ); ?>" selected>
-								<?php echo esc_html( $chart_axis_x ); ?>
-							</option>
-						<?php else : ?>
-							<option value=""><?php esc_html_e( '— Seleccione tabla primero —', 'bpid-suite' ); ?></option>
-						<?php endif; ?>
-					</select>
-					<div class="bpid-type-legend">
-						<span><span class="bpid-type-swatch" style="background:#e8f5e9;border-color:#4caf50;"></span> # Número</span>
-						<span><span class="bpid-type-swatch" style="background:#e3f2fd;border-color:#2196f3;"></span> Abc Texto</span>
-						<span><span class="bpid-type-swatch" style="background:#fff3e0;border-color:#ff9800;"></span> 📅 Fecha</span>
+			<!-- Data Mode Tabs -->
+			<div class="bpid-data-mode-tabs">
+				<input type="hidden" name="chart_data_mode" id="chart_data_mode" value="<?php echo esc_attr( $chart_data_mode ); ?>" />
+				<button type="button" class="bpid-data-mode-tab<?php echo $chart_data_mode === 'manual' ? ' active' : ''; ?>" data-mode="manual">
+					<span class="dashicons dashicons-editor-table"></span>
+					<?php esc_html_e( 'Tabla Manual', 'bpid-suite' ); ?>
+				</button>
+				<button type="button" class="bpid-data-mode-tab<?php echo $chart_data_mode === 'view' ? ' active' : ''; ?>" data-mode="view">
+					<span class="dashicons dashicons-visibility"></span>
+					<?php esc_html_e( 'Vistas de Datos', 'bpid-suite' ); ?>
+				</button>
+			</div>
+
+			<!-- ── Manual Mode Panel ── -->
+			<div id="bpid-mode-manual" class="bpid-data-mode-panel" style="<?php echo $chart_data_mode === 'manual' ? '' : 'display:none;'; ?>">
+				<div class="bpid-chart-form-grid">
+					<!-- Data Table -->
+					<div class="bpid-chart-form-group">
+						<label for="chart_data_table"><?php esc_html_e( 'Tabla de datos', 'bpid-suite' ); ?></label>
+						<select name="chart_data_table" id="chart_data_table" class="bpid-chart-select">
+							<?php if ( $chart_data_table ) : ?>
+								<option value="<?php echo esc_attr( $chart_data_table ); ?>" selected>
+									<?php echo esc_html( $chart_data_table ); ?>
+								</option>
+							<?php else : ?>
+								<option value=""><?php esc_html_e( '— Cargando tablas... —', 'bpid-suite' ); ?></option>
+							<?php endif; ?>
+						</select>
+					</div>
+
+					<!-- X Axis Column -->
+					<div class="bpid-chart-form-group">
+						<label for="chart_axis_x"><?php esc_html_e( 'Columna Eje X', 'bpid-suite' ); ?></label>
+						<select name="chart_axis_x" id="chart_axis_x" class="bpid-chart-select">
+							<?php if ( $chart_axis_x ) : ?>
+								<option value="<?php echo esc_attr( $chart_axis_x ); ?>" selected>
+									<?php echo esc_html( $chart_axis_x ); ?>
+								</option>
+							<?php else : ?>
+								<option value=""><?php esc_html_e( '— Seleccione tabla primero —', 'bpid-suite' ); ?></option>
+							<?php endif; ?>
+						</select>
+						<div class="bpid-type-legend">
+							<span><span class="bpid-type-swatch" style="background:#e8f5e9;border-color:#4caf50;"></span> # Número</span>
+							<span><span class="bpid-type-swatch" style="background:#e3f2fd;border-color:#2196f3;"></span> Abc Texto</span>
+							<span><span class="bpid-type-swatch" style="background:#fff3e0;border-color:#ff9800;"></span> 📅 Fecha</span>
+						</div>
+					</div>
+
+					<!-- Aggregation Function -->
+					<div class="bpid-chart-form-group">
+						<label for="chart_agg_function"><?php esc_html_e( 'Funci&oacute;n de Agregaci&oacute;n', 'bpid-suite' ); ?></label>
+						<select name="chart_agg_function" id="chart_agg_function" class="bpid-chart-select">
+							<?php foreach ( $agg_functions as $agg_key => $agg_label ) : ?>
+								<option value="<?php echo esc_attr( $agg_key ); ?>" <?php selected( $chart_agg, $agg_key ); ?>>
+									<?php echo esc_html( $agg_label ); ?>
+								</option>
+							<?php endforeach; ?>
+						</select>
 					</div>
 				</div>
 
-				<!-- Aggregation Function -->
-				<div class="bpid-chart-form-group">
-					<label for="chart_agg_function"><?php esc_html_e( 'Funci&oacute;n de Agregaci&oacute;n', 'bpid-suite' ); ?></label>
-					<select name="chart_agg_function" id="chart_agg_function" class="bpid-chart-select">
-						<?php foreach ( $agg_functions as $agg_key => $agg_label ) : ?>
-							<option value="<?php echo esc_attr( $agg_key ); ?>" <?php selected( $chart_agg, $agg_key ); ?>>
-								<?php echo esc_html( $agg_label ); ?>
-							</option>
-						<?php endforeach; ?>
-					</select>
+				<!-- Y Axis Columns -->
+				<div class="bpid-chart-y-section">
+					<label class="bpid-chart-y-label"><?php esc_html_e( 'Variables Eje Y', 'bpid-suite' ); ?></label>
+					<div id="y-axis-rows" class="bpid-chart-y-rows">
+						<!-- Y-axis rows populated by JavaScript -->
+					</div>
+					<div id="y-axis-warning" style="display:none;"></div>
+					<button type="button" class="button button-secondary bpid-add-y-btn" id="add-y-axis">
+						<span class="dashicons dashicons-plus-alt2" style="margin-top:4px;"></span>
+						<?php esc_html_e( 'Agregar Variable Y', 'bpid-suite' ); ?>
+					</button>
 				</div>
 			</div>
 
-			<!-- Y Axis Columns -->
-			<div class="bpid-chart-y-section">
-				<label class="bpid-chart-y-label"><?php esc_html_e( 'Variables Eje Y', 'bpid-suite' ); ?></label>
-				<div id="y-axis-rows" class="bpid-chart-y-rows">
-					<!-- Y-axis rows populated by JavaScript -->
+			<!-- ── View Mode Panel ── -->
+			<div id="bpid-mode-view" class="bpid-data-mode-panel" style="<?php echo $chart_data_mode === 'view' ? '' : 'display:none;'; ?>">
+				<div class="bpid-chart-form-group">
+					<label for="chart_view"><?php esc_html_e( 'Vista predefinida', 'bpid-suite' ); ?></label>
+					<select name="chart_view" id="chart_view" class="bpid-chart-select">
+						<option value=""><?php esc_html_e( '— Cargando vistas... —', 'bpid-suite' ); ?></option>
+					</select>
+					<p id="bpid-view-desc" class="bpid-chart-field-desc" style="margin-top:6px;"></p>
 				</div>
-				<div id="y-axis-warning" style="display:none;"></div>
-				<button type="button" class="button button-secondary bpid-add-y-btn" id="add-y-axis">
-					<span class="dashicons dashicons-plus-alt2" style="margin-top:4px;"></span>
-					<?php esc_html_e( 'Agregar Variable Y', 'bpid-suite' ); ?>
-				</button>
+
+				<div class="bpid-chart-form-grid bpid-chart-form-grid--2col" style="margin-top:16px;">
+					<div class="bpid-chart-form-group">
+						<label for="chart_query_limit_view"><?php esc_html_e( 'L&iacute;mite', 'bpid-suite' ); ?></label>
+						<input
+							type="number"
+							name="chart_query_limit"
+							id="chart_query_limit_view"
+							value="<?php echo esc_attr( $chart_query_limit ); ?>"
+							min="1" max="50000"
+							class="bpid-chart-input-sm"
+						/>
+					</div>
+					<div class="bpid-chart-form-group">
+						<label for="chart_query_order_view"><?php esc_html_e( 'Orden', 'bpid-suite' ); ?></label>
+						<select name="chart_query_order" id="chart_query_order_view" class="bpid-chart-select">
+							<option value="DESC" <?php selected( $chart_query_order, 'DESC' ); ?>><?php esc_html_e( 'Mayor a menor', 'bpid-suite' ); ?></option>
+							<option value="ASC" <?php selected( $chart_query_order, 'ASC' ); ?>><?php esc_html_e( 'Menor a mayor', 'bpid-suite' ); ?></option>
+						</select>
+					</div>
+				</div>
 			</div>
+
 		</div>
 	</div>
 
@@ -297,7 +350,7 @@ $value_scales = array(
 	<!-- ================================================================= -->
 	<!-- Section C — Filters (Card)                                         -->
 	<!-- ================================================================= -->
-	<div class="bpid-chart-card">
+	<div class="bpid-chart-card" id="filters-section">
 		<div class="bpid-chart-card-header">
 			<span class="dashicons dashicons-filter"></span>
 			<?php esc_html_e( 'Filtros de Datos', 'bpid-suite' ); ?>
@@ -632,4 +685,6 @@ $value_scales = array(
 	var bpidChartSavedYColors  = <?php echo wp_json_encode( $chart_y_colors ); ?>;
 	var bpidChartSavedAxisX    = <?php echo wp_json_encode( $chart_axis_x ); ?>;
 	var bpidChartSavedTable    = <?php echo wp_json_encode( $chart_data_table ); ?>;
+	var bpidChartSavedDataMode = <?php echo wp_json_encode( $chart_data_mode ); ?>;
+	var bpidChartSavedView     = <?php echo wp_json_encode( $chart_view ); ?>;
 </script>

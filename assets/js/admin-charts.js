@@ -814,6 +814,222 @@
     // bpidBuildPreviewChart is provided by frontend.js (d3plus rendering engine)
 
     // -------------------------------------------------------------------------
+    // 10. Data Mode Tabs (Manual / View)
+    // -------------------------------------------------------------------------
+
+    var viewsCache = null;
+
+    function initDataModeTabs() {
+        var tabs = qsa('.bpid-data-mode-tab');
+        var modeInput = qs('#chart_data_mode');
+        if (!tabs.length || !modeInput) return;
+
+        tabs.forEach(function(tab) {
+            tab.addEventListener('click', function() {
+                var mode = tab.getAttribute('data-mode');
+                modeInput.value = mode;
+
+                tabs.forEach(function(t) { t.classList.remove('active'); });
+                tab.classList.add('active');
+
+                var manualPanel = qs('#bpid-mode-manual');
+                var viewPanel = qs('#bpid-mode-view');
+                if (manualPanel) manualPanel.style.display = mode === 'manual' ? '' : 'none';
+                if (viewPanel) viewPanel.style.display = mode === 'view' ? '' : 'none';
+
+                // Disable hidden inputs to prevent form submission conflicts
+                if (manualPanel) qsa('input, select', manualPanel).forEach(function(el) { el.disabled = mode !== 'manual'; });
+                if (viewPanel) qsa('input, select', viewPanel).forEach(function(el) { el.disabled = mode !== 'view'; });
+
+                // Also show/hide group-by and advanced filters sections for view mode
+                var groupSection = qs('#group-by-section');
+                var filterSection = qs('#filters-section');
+                if (groupSection) groupSection.style.display = mode === 'manual' ? '' : 'none';
+                if (filterSection) filterSection.style.display = mode === 'manual' ? '' : 'none';
+            });
+        });
+
+        // Apply initial state
+        var currentMode = modeInput.value || 'manual';
+        var manualPanel = qs('#bpid-mode-manual');
+        var viewPanel = qs('#bpid-mode-view');
+
+        // Disable hidden panel inputs
+        if (manualPanel && currentMode === 'view') {
+            qsa('input, select', manualPanel).forEach(function(el) { el.disabled = true; });
+        }
+        if (viewPanel && currentMode === 'manual') {
+            qsa('input, select', viewPanel).forEach(function(el) { el.disabled = true; });
+        }
+
+        var groupSection = qs('#group-by-section');
+        var filterSection = qs('#filters-section');
+        if (currentMode === 'view') {
+            if (groupSection) groupSection.style.display = 'none';
+            if (filterSection) filterSection.style.display = 'none';
+        }
+    }
+
+    function loadViews() {
+        var viewSelect = qs('#chart_view');
+        if (!viewSelect) return;
+
+        ajaxPost('bpid_get_views', null, function(err, res) {
+            if (err || !res || !res.success) return;
+
+            viewsCache = res.data || {};
+            viewSelect.innerHTML = '<option value="">\u2014 Seleccionar vista \u2014</option>';
+
+            // Group views by category
+            var groups = { simple: [], series: [] };
+            Object.keys(viewsCache).forEach(function(key) {
+                var v = viewsCache[key];
+                var group = v.group || 'simple';
+                if (!groups[group]) groups[group] = [];
+                groups[group].push({ key: key, label: v.label });
+            });
+
+            // Simple views
+            if (groups.simple.length) {
+                var optgroup1 = document.createElement('optgroup');
+                optgroup1.label = 'Vistas simples';
+                groups.simple.forEach(function(item) {
+                    var opt = document.createElement('option');
+                    opt.value = item.key;
+                    opt.textContent = item.label;
+                    optgroup1.appendChild(opt);
+                });
+                viewSelect.appendChild(optgroup1);
+            }
+
+            // Series views
+            if (groups.series.length) {
+                var optgroup2 = document.createElement('optgroup');
+                optgroup2.label = 'Vistas con series (Apiladas/Agrupadas)';
+                groups.series.forEach(function(item) {
+                    var opt = document.createElement('option');
+                    opt.value = item.key;
+                    opt.textContent = item.label;
+                    optgroup2.appendChild(opt);
+                });
+                viewSelect.appendChild(optgroup2);
+            }
+
+            // Restore saved view
+            var savedView = (typeof bpidChartSavedView !== 'undefined' && bpidChartSavedView) ? bpidChartSavedView : '';
+            if (savedView) {
+                viewSelect.value = savedView;
+                updateViewDescription(savedView);
+            }
+        });
+
+        viewSelect.addEventListener('change', function() {
+            updateViewDescription(viewSelect.value);
+        });
+    }
+
+    function updateViewDescription(viewKey) {
+        var descEl = qs('#bpid-view-desc');
+        if (!descEl || !viewsCache) return;
+
+        if (viewKey && viewsCache[viewKey]) {
+            var v = viewsCache[viewKey];
+            var text = v.desc || '';
+            if (v.series) {
+                text += ' Las vistas con series son ideales para gráficos de Barras Apiladas o Agrupadas.';
+            }
+            descEl.textContent = text;
+        } else {
+            descEl.textContent = '';
+        }
+    }
+
+    // -------------------------------------------------------------------------
+    // 11. Data Preview Widget
+    // -------------------------------------------------------------------------
+
+    function initDataPreview() {
+        var btn = qs('#btn-data-preview');
+        if (!btn) return;
+
+        btn.addEventListener('click', function() {
+            var contentEl = qs('#bpid-data-preview-content');
+            if (!contentEl) return;
+
+            contentEl.innerHTML = '<p style="text-align:center;padding:12px;color:#999;">Cargando...</p>';
+
+            // Collect form data
+            var form = qs('#post');
+            if (!form) return;
+
+            var formData = new FormData(form);
+            formData.append('action', 'bpid_view_preview');
+            formData.append('_ajax_nonce', bpidCharts.nonce);
+
+            var xhr = new XMLHttpRequest();
+            xhr.open('POST', bpidCharts.ajaxUrl, true);
+            xhr.onreadystatechange = function() {
+                if (xhr.readyState === 4 && xhr.status === 200) {
+                    try {
+                        var json = JSON.parse(xhr.responseText);
+                        if (json.success && json.data) {
+                            renderDataPreview(contentEl, json.data);
+                        } else {
+                            contentEl.innerHTML = '<p style="text-align:center;padding:12px;color:#c00;">Sin datos para la configuración actual.</p>';
+                        }
+                    } catch (e) {
+                        contentEl.innerHTML = '<p style="text-align:center;padding:12px;color:#c00;">Error al cargar datos.</p>';
+                    }
+                }
+            };
+            xhr.send(formData);
+        });
+    }
+
+    function renderDataPreview(container, data) {
+        var total = data.total || 0;
+        var rows = data.rows || [];
+        var columns = data.columns || [];
+
+        if (total === 0 || !columns.length) {
+            container.innerHTML = '<p style="text-align:center;padding:12px;color:#999;">Sin datos disponibles.</p>';
+            return;
+        }
+
+        var html = '<div style="text-align:center;padding:8px 0;">';
+        html += '<div style="font-size:28px;font-weight:700;color:#348afb;">' + total + '</div>';
+        html += '<div style="font-size:11px;text-transform:uppercase;letter-spacing:0.05em;color:#666;">REGISTROS ENCONTRADOS</div>';
+        html += '</div>';
+
+        html += '<table class="bpid-data-preview-table">';
+        html += '<thead><tr>';
+        columns.forEach(function(col) {
+            html += '<th>' + col + '</th>';
+        });
+        html += '</tr></thead><tbody>';
+
+        rows.forEach(function(row) {
+            html += '<tr>';
+            columns.forEach(function(col) {
+                var val = row[col];
+                if (val != null && !isNaN(val) && val !== '' && typeof val !== 'boolean') {
+                    val = Number(val).toLocaleString('es-CO', { maximumFractionDigits: 2 });
+                }
+                html += '<td>' + (val != null ? val : '') + '</td>';
+            });
+            html += '</tr>';
+        });
+
+        html += '</tbody></table>';
+
+        if (total > rows.length) {
+            html += '<p style="text-align:center;padding:6px;font-size:11px;color:#999;">Mostrando ' + rows.length + ' de ' + total + ' registros</p>';
+        }
+
+        container.innerHTML = html;
+    }
+
+    // -------------------------------------------------------------------------
     // Initialization
     // -------------------------------------------------------------------------
 
@@ -823,7 +1039,10 @@
         // 1. Chart type grid
         initChartTypeGrid();
 
-        // 2. AJAX data source
+        // 2. Data mode tabs
+        initDataModeTabs();
+
+        // 3. AJAX data source (manual mode)
         loadTables();
 
         var tableSelect = qs('#chart_data_table');
@@ -833,27 +1052,33 @@
             });
         }
 
-        // 3. Y-Axis controls
+        // 4. Load views (view mode)
+        loadViews();
+
+        // 5. Y-Axis controls
         initYAxisControls();
 
-        // 4. Color palette
+        // 6. Color palette
         initColorPalette();
 
-        // 5. Chart preview
+        // 7. Chart preview
         initChartPreview();
 
-        // 6. Custom query toggle & generator
+        // 8. Custom query toggle & generator
         initCustomQueryToggle();
         initQueryGenerator();
 
-        // 7.5 Advanced filters
+        // 9. Advanced filters
         initAdvFilters();
 
-        // 7.6 Group By vigencia toggle
+        // 9.5 Group By vigencia toggle
         initVigenciaToggle();
 
-        // 7. Copy shortcode
+        // 10. Copy shortcode
         initCopyShortcode();
+
+        // 11. Data preview widget
+        initDataPreview();
     });
 
 })();
