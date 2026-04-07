@@ -6,7 +6,7 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * BPID Suite Visualizer v2.0
+ * BPID Suite Visualizer v3.0
  *
  * Manages the 'bpid_chart' Custom Post Type for chart configurations
  * and renders d3plus-based visualizations via shortcode.
@@ -40,6 +40,186 @@ final class BPID_Suite_Visualizer {
     /** @var string[] Allowed value scales */
     private const VALUE_SCALES = ['full', 'thousands', 'millions', 'billions'];
 
+    /** @var string[] Allowed data modes */
+    private const DATA_MODES = ['manual', 'view'];
+
+    /**
+     * Predefined data views for chart-ready relational queries.
+     * Each view defines a SQL template, output columns, and metadata.
+     *
+     * @return array<string, array>
+     */
+    private function get_predefined_views(): array {
+        $db = BPID_Suite_Database::get_instance();
+        $t  = $db->get_table_name();
+        $tm = $db->get_table_municipios();
+        $to = $db->get_table_odss();
+        $tmt = $db->get_table_metas();
+
+        return [
+            // ── Vistas simples ──
+            'proyectos' => [
+                'label'   => 'Proyectos',
+                'group'   => 'simple',
+                'desc'    => 'Nombre del proyecto y su valor total.',
+                'sql'     => "SELECT c.nombre_proyecto AS label, SUM(c.valor_proyecto) AS value, COUNT(DISTINCT c.numero_contrato) AS count FROM `$t` AS c GROUP BY c.numero_proyecto, c.nombre_proyecto",
+                'columns' => ['label' => 'text', 'value' => 'number', 'count' => 'number'],
+                'axis_x'  => 'label',
+                'y_cols'  => ['value'],
+            ],
+            'contratos' => [
+                'label'   => 'Contratos',
+                'group'   => 'simple',
+                'desc'    => 'Contratos con su valor.',
+                'sql'     => "SELECT c.numero_contrato AS label, c.valor_contrato AS value, c.avance_fisico AS avance FROM `$t` AS c",
+                'columns' => ['label' => 'text', 'value' => 'number', 'avance' => 'number'],
+                'axis_x'  => 'label',
+                'y_cols'  => ['value'],
+            ],
+            'valor_dependencia' => [
+                'label'   => 'Valor por Dependencia',
+                'group'   => 'simple',
+                'desc'    => 'Valor total de proyectos por dependencia.',
+                'sql'     => "SELECT c.dependencia AS label, SUM(c.valor_proyecto) AS value, COUNT(*) AS count FROM `$t` AS c WHERE c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY c.dependencia",
+                'columns' => ['label' => 'text', 'value' => 'number', 'count' => 'number'],
+                'axis_x'  => 'label',
+                'y_cols'  => ['value'],
+            ],
+            'valor_entidad' => [
+                'label'   => 'Valor por Entidad Ejecutora',
+                'group'   => 'simple',
+                'desc'    => 'Valor total de proyectos por entidad ejecutora.',
+                'sql'     => "SELECT c.entidad_ejecutora AS label, SUM(c.valor_proyecto) AS value, COUNT(*) AS count FROM `$t` AS c WHERE c.entidad_ejecutora IS NOT NULL AND c.entidad_ejecutora != '' GROUP BY c.entidad_ejecutora",
+                'columns' => ['label' => 'text', 'value' => 'number', 'count' => 'number'],
+                'axis_x'  => 'label',
+                'y_cols'  => ['value'],
+            ],
+            'inversion_municipio' => [
+                'label'   => 'Inversión por Municipio',
+                'group'   => 'simple',
+                'desc'    => 'Valor total de contratos por municipio.',
+                'sql'     => "SELECT m.municipio AS label, SUM(c.valor_contrato) AS value, COUNT(*) AS count FROM `$t` AS c JOIN `$tm` AS m ON c.id = m.contrato_id WHERE m.municipio IS NOT NULL AND m.municipio != '' GROUP BY m.municipio",
+                'columns' => ['label' => 'text', 'value' => 'number', 'count' => 'number'],
+                'axis_x'  => 'label',
+                'y_cols'  => ['value'],
+            ],
+            'poblacion_municipio' => [
+                'label'   => 'Población Beneficiada por Municipio',
+                'group'   => 'simple',
+                'desc'    => 'Total de beneficiarios por municipio.',
+                'sql'     => "SELECT m.municipio AS label, SUM(m.beneficiarios) AS value, COUNT(*) AS count FROM `$t` AS c JOIN `$tm` AS m ON c.id = m.contrato_id WHERE m.municipio IS NOT NULL AND m.municipio != '' GROUP BY m.municipio",
+                'columns' => ['label' => 'text', 'value' => 'number', 'count' => 'number'],
+                'axis_x'  => 'label',
+                'y_cols'  => ['value'],
+            ],
+            'contratos_dependencia' => [
+                'label'   => 'Contratos por Dependencia',
+                'group'   => 'simple',
+                'desc'    => 'Cantidad de contratos por dependencia.',
+                'sql'     => "SELECT c.dependencia AS label, COUNT(*) AS value, SUM(c.valor_contrato) AS total_valor FROM `$t` AS c WHERE c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY c.dependencia",
+                'columns' => ['label' => 'text', 'value' => 'number', 'total_valor' => 'number'],
+                'axis_x'  => 'label',
+                'y_cols'  => ['value'],
+            ],
+            'avance_dependencia' => [
+                'label'   => 'Avance Físico Promedio por Dependencia',
+                'group'   => 'simple',
+                'desc'    => 'Promedio de avance físico por dependencia.',
+                'sql'     => "SELECT c.dependencia AS label, AVG(c.avance_fisico) AS value, COUNT(*) AS count FROM `$t` AS c WHERE c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY c.dependencia",
+                'columns' => ['label' => 'text', 'value' => 'number', 'count' => 'number'],
+                'axis_x'  => 'label',
+                'y_cols'  => ['value'],
+            ],
+            'metas_dependencia' => [
+                'label'   => 'Metas por Dependencia',
+                'group'   => 'simple',
+                'desc'    => 'Cantidad de metas por dependencia.',
+                'sql'     => "SELECT c.dependencia AS label, COUNT(DISTINCT mt.meta_texto) AS value FROM `$t` AS c JOIN `$tmt` AS mt ON c.id = mt.contrato_id WHERE c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY c.dependencia",
+                'columns' => ['label' => 'text', 'value' => 'number'],
+                'axis_x'  => 'label',
+                'y_cols'  => ['value'],
+            ],
+            'top_proyectos_valor' => [
+                'label'   => 'Top Proyectos por Valor',
+                'group'   => 'simple',
+                'desc'    => 'Proyectos ordenados por mayor valor.',
+                'sql'     => "SELECT c.nombre_proyecto AS label, SUM(c.valor_proyecto) AS value, COUNT(DISTINCT c.numero_contrato) AS count FROM `$t` AS c GROUP BY c.numero_proyecto, c.nombre_proyecto ORDER BY value DESC",
+                'columns' => ['label' => 'text', 'value' => 'number', 'count' => 'number'],
+                'axis_x'  => 'label',
+                'y_cols'  => ['value'],
+            ],
+            'municipios_por_proyecto' => [
+                'label'   => 'Municipios por Proyecto (Top)',
+                'group'   => 'simple',
+                'desc'    => 'Cantidad de municipios vinculados a cada proyecto.',
+                'sql'     => "SELECT c.nombre_proyecto AS label, COUNT(DISTINCT m.municipio) AS value FROM `$t` AS c JOIN `$tm` AS m ON c.id = m.contrato_id GROUP BY c.numero_proyecto, c.nombre_proyecto ORDER BY value DESC",
+                'columns' => ['label' => 'text', 'value' => 'number'],
+                'axis_x'  => 'label',
+                'y_cols'  => ['value'],
+            ],
+
+            // ── Vistas con series (Apiladas/Agrupadas) ──
+            'valor_dep_entidad' => [
+                'label'   => 'Valor: Dependencia x Entidad (Apiladas)',
+                'group'   => 'series',
+                'desc'    => 'Valor de proyectos cruzado por dependencia y entidad ejecutora. Ideal para Barras Apiladas.',
+                'sql'     => "SELECT c.dependencia AS label, c.entidad_ejecutora AS series, SUM(c.valor_proyecto) AS value FROM `$t` AS c WHERE c.dependencia IS NOT NULL AND c.dependencia != '' AND c.entidad_ejecutora IS NOT NULL AND c.entidad_ejecutora != '' GROUP BY c.dependencia, c.entidad_ejecutora",
+                'columns' => ['label' => 'text', 'series' => 'text', 'value' => 'number'],
+                'axis_x'  => 'label',
+                'y_cols'  => ['value'],
+                'series_col' => 'series',
+            ],
+            'contratos_dep_entidad' => [
+                'label'   => 'Contratos: Dependencia x Entidad (Agrupadas)',
+                'group'   => 'series',
+                'desc'    => 'Cantidad de contratos por dependencia y entidad. Ideal para Barras Agrupadas.',
+                'sql'     => "SELECT c.dependencia AS label, c.entidad_ejecutora AS series, COUNT(*) AS value FROM `$t` AS c WHERE c.dependencia IS NOT NULL AND c.dependencia != '' AND c.entidad_ejecutora IS NOT NULL AND c.entidad_ejecutora != '' GROUP BY c.dependencia, c.entidad_ejecutora",
+                'columns' => ['label' => 'text', 'series' => 'text', 'value' => 'number'],
+                'axis_x'  => 'label',
+                'y_cols'  => ['value'],
+                'series_col' => 'series',
+            ],
+            'inversion_mun_dep' => [
+                'label'   => 'Inversión: Municipio x Dependencia (Apiladas)',
+                'group'   => 'series',
+                'desc'    => 'Inversión por municipio desglosada por dependencia. Ideal para Barras Apiladas.',
+                'sql'     => "SELECT m.municipio AS label, c.dependencia AS series, SUM(c.valor_contrato) AS value FROM `$t` AS c JOIN `$tm` AS m ON c.id = m.contrato_id WHERE m.municipio IS NOT NULL AND m.municipio != '' AND c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY m.municipio, c.dependencia",
+                'columns' => ['label' => 'text', 'series' => 'text', 'value' => 'number'],
+                'axis_x'  => 'label',
+                'y_cols'  => ['value'],
+                'series_col' => 'series',
+            ],
+            'avance_dep_ops' => [
+                'label'   => 'Avance: Dependencia x Tipo OPS (Agrupadas)',
+                'group'   => 'series',
+                'desc'    => 'Avance físico promedio por dependencia separado por tipo OPS. Ideal para Barras Agrupadas.',
+                'sql'     => "SELECT c.dependencia AS label, CASE WHEN c.es_ops = 1 THEN 'OPS' ELSE 'No OPS' END AS series, AVG(c.avance_fisico) AS value FROM `$t` AS c WHERE c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY c.dependencia, c.es_ops",
+                'columns' => ['label' => 'text', 'series' => 'text', 'value' => 'number'],
+                'axis_x'  => 'label',
+                'y_cols'  => ['value'],
+                'series_col' => 'series',
+            ],
+            'proy_vs_cont_dep' => [
+                'label'   => 'Proyectos vs Contratos por Dependencia (Agrupadas)',
+                'group'   => 'series',
+                'desc'    => 'Comparar cantidad de proyectos y contratos por dependencia.',
+                'sql'     => "SELECT c.dependencia AS label, COUNT(DISTINCT c.numero_proyecto) AS proyectos, COUNT(DISTINCT c.numero_contrato) AS contratos FROM `$t` AS c WHERE c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY c.dependencia",
+                'columns' => ['label' => 'text', 'proyectos' => 'number', 'contratos' => 'number'],
+                'axis_x'  => 'label',
+                'y_cols'  => ['proyectos', 'contratos'],
+            ],
+            'metas_vs_cont_dep' => [
+                'label'   => 'Metas vs Contratos por Dependencia (Agrupadas)',
+                'group'   => 'series',
+                'desc'    => 'Comparar metas y contratos por dependencia.',
+                'sql'     => "SELECT c.dependencia AS label, COUNT(DISTINCT mt.meta_texto) AS metas, COUNT(DISTINCT c.numero_contrato) AS contratos FROM `$t` AS c LEFT JOIN `$tmt` AS mt ON c.id = mt.contrato_id WHERE c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY c.dependencia",
+                'columns' => ['label' => 'text', 'metas' => 'number', 'contratos' => 'number'],
+                'axis_x'  => 'label',
+                'y_cols'  => ['metas', 'contratos'],
+            ],
+        ];
+    }
+
     public static function get_instance(): self {
         if (null === self::$instance) {
             self::$instance = new self();
@@ -59,6 +239,8 @@ final class BPID_Suite_Visualizer {
         add_action('wp_ajax_bpid_get_filter_values', [$this, 'ajax_get_filter_values']);
         add_action('wp_ajax_bpid_chart_preview', [$this, 'ajax_chart_preview']);
         add_action('wp_ajax_bpid_chart_data', [$this, 'ajax_chart_data']);
+        add_action('wp_ajax_bpid_get_views', [$this, 'ajax_get_views']);
+        add_action('wp_ajax_bpid_view_preview', [$this, 'ajax_view_preview']);
     }
 
     private function __clone() {}
@@ -139,7 +321,17 @@ final class BPID_Suite_Visualizer {
             'high'
         );
 
-        // Preview
+        // Data preview (sidebar, below shortcode)
+        add_meta_box(
+            'bpid_chart_data_preview',
+            __('Vista Previa de Datos', 'bpid-suite'),
+            [$this, 'render_data_preview_box'],
+            'bpid_chart',
+            'side',
+            'default'
+        );
+
+        // Chart preview
         add_meta_box(
             'bpid_chart_preview',
             __('Vista Previa', 'bpid-suite'),
@@ -166,6 +358,23 @@ final class BPID_Suite_Visualizer {
             <p class="bpid-shortcode-help">
                 <?php esc_html_e('Copia y pega este shortcode en cualquier página o entrada.', 'bpid-suite'); ?>
             </p>
+        </div>
+        <?php
+    }
+
+    public function render_data_preview_box(\WP_Post $post): void {
+        ?>
+        <div id="bpid-data-preview-widget">
+            <div id="bpid-data-preview-content">
+                <p class="bpid-preview-placeholder" style="text-align:center;color:#999;padding:12px;">
+                    <?php esc_html_e('Configure los datos y haga clic en "Actualizar Vista Previa" para ver los registros.', 'bpid-suite'); ?>
+                </p>
+            </div>
+            <div style="margin-top:12px;">
+                <button type="button" id="btn-data-preview" class="button" style="width:100%;">
+                    <?php esc_html_e('Actualizar Vista Previa', 'bpid-suite'); ?>
+                </button>
+            </div>
         </div>
         <?php
     }
@@ -217,6 +426,22 @@ final class BPID_Suite_Visualizer {
         $chart_type = sanitize_text_field(wp_unslash($_POST['chart_type'] ?? ''));
         if (in_array($chart_type, self::CHART_TYPES, true)) {
             update_post_meta($post_id, '_chart_type', $chart_type);
+        }
+
+        // Data mode: manual or view
+        $data_mode = sanitize_text_field(wp_unslash($_POST['chart_data_mode'] ?? 'manual'));
+        if (!in_array($data_mode, self::DATA_MODES, true)) {
+            $data_mode = 'manual';
+        }
+        update_post_meta($post_id, '_chart_data_mode', $data_mode);
+
+        // View key
+        $view_key = sanitize_text_field(wp_unslash($_POST['chart_view'] ?? ''));
+        $valid_views = array_keys($this->get_predefined_views());
+        if (!empty($view_key) && in_array($view_key, $valid_views, true)) {
+            update_post_meta($post_id, '_chart_view', $view_key);
+        } else {
+            update_post_meta($post_id, '_chart_view', '');
         }
 
         // Data table
@@ -403,6 +628,24 @@ final class BPID_Suite_Visualizer {
             return '';
         }
 
+        // For view mode with series data, dynamically resolve y_columns from actual data keys
+        if (($config['data_mode'] ?? 'manual') === 'view' && !empty($data[0])) {
+            $data_keys = array_keys($data[0]);
+            $axis_x = $config['axis_x'];
+            $dynamic_y = array_filter($data_keys, function ($k) use ($axis_x) {
+                return $k !== $axis_x;
+            });
+            if (!empty($dynamic_y)) {
+                $config['y_columns']     = array_values($dynamic_y);
+                $config['y_columns_raw'] = array_values($dynamic_y);
+                // Ensure enough colors
+                $need = count($config['y_columns']);
+                while (count($config['y_colors']) < $need) {
+                    $config['y_colors'][] = self::DEFAULT_PALETTE[count($config['y_colors']) % count(self::DEFAULT_PALETTE)];
+                }
+            }
+        }
+
         // Enqueue d3plus (includes d3.js)
         wp_enqueue_script(
             'bpid-d3plus',
@@ -445,6 +688,9 @@ final class BPID_Suite_Visualizer {
        ========================================================================= */
 
     private function build_config(int $post_id): array {
+        $data_mode = get_post_meta($post_id, '_chart_data_mode', true) ?: 'manual';
+        $view_key  = get_post_meta($post_id, '_chart_view', true) ?: '';
+
         $y_columns = get_post_meta($post_id, '_chart_y_columns', true);
         $y_colors  = get_post_meta($post_id, '_chart_y_colors', true);
 
@@ -455,7 +701,65 @@ final class BPID_Suite_Visualizer {
             })
             : self::DEFAULT_PALETTE;
 
-        // Resolve virtual column names to clean aliases for frontend display
+        // If using view mode, derive axis_x and y_columns from view definition
+        if ($data_mode === 'view' && !empty($view_key)) {
+            $views = $this->get_predefined_views();
+            if (isset($views[$view_key])) {
+                $view = $views[$view_key];
+                $axis_x_display = $view['axis_x'];
+                $axis_x_raw     = $view['axis_x'];
+                $y_cols_display = $view['y_cols'];
+                $y_cols_raw     = $view['y_cols'];
+
+                // Ensure y_colors has enough entries
+                if (!is_array($y_colors) || count($y_colors) < count($y_cols_raw)) {
+                    $y_colors = [];
+                    foreach ($y_cols_raw as $i => $col) {
+                        $y_colors[] = self::DEFAULT_PALETTE[$i % count(self::DEFAULT_PALETTE)];
+                    }
+                }
+
+                return [
+                    'type'          => get_post_meta($post_id, '_chart_type', true) ?: 'bar',
+                    'data_mode'     => 'view',
+                    'view'          => $view_key,
+                    'table'         => '',
+                    'axis_x'        => $axis_x_display,
+                    'axis_x_raw'    => $axis_x_raw,
+                    'y_columns'     => $y_cols_display,
+                    'y_columns_raw' => $y_cols_raw,
+                    'y_colors'      => $y_colors,
+                    'agg_function'  => 'SUM',
+                    'height'        => absint(get_post_meta($post_id, '_chart_height', true) ?: 400),
+                    'title'         => get_the_title($post_id),
+                    'title_y'       => get_post_meta($post_id, '_chart_title_y', true) ?: '',
+                    'title_x'       => get_post_meta($post_id, '_chart_title_x', true) ?: '',
+                    'number_format'  => get_post_meta($post_id, '_chart_number_format', true) ?: 'es-CO',
+                    'value_scale'    => get_post_meta($post_id, '_chart_value_scale', true) ?: 'full',
+                    'color_palette'  => array_values($palette),
+                    'show_legend'    => (bool) get_post_meta($post_id, '_chart_show_legend', true),
+                    'show_timeline'  => (bool) get_post_meta($post_id, '_chart_show_timeline', true),
+                    'toolbar'        => [
+                        'show'     => (bool) get_post_meta($post_id, '_chart_toolbar_show', true),
+                        'info'     => (bool) get_post_meta($post_id, '_chart_toolbar_info', true),
+                        'share'    => (bool) get_post_meta($post_id, '_chart_toolbar_share', true),
+                        'data'     => (bool) get_post_meta($post_id, '_chart_toolbar_data', true),
+                        'save_img' => (bool) get_post_meta($post_id, '_chart_toolbar_save_img', true),
+                        'csv'      => (bool) get_post_meta($post_id, '_chart_toolbar_csv', true),
+                    ],
+                    'filters'          => ['year' => 0, 'month' => 0],
+                    'group_by'         => '',
+                    'group_by_vigencia' => false,
+                    'adv_filters'      => [],
+                    'query_limit'      => absint(get_post_meta($post_id, '_chart_query_limit', true) ?: 1000),
+                    'query_orderby'    => get_post_meta($post_id, '_chart_query_orderby', true) ?: '',
+                    'query_order'      => get_post_meta($post_id, '_chart_query_order', true) ?: 'DESC',
+                    'tooltip_text'     => get_post_meta($post_id, '_chart_tooltip_text', true) ?: '',
+                ];
+            }
+        }
+
+        // Manual mode — resolve virtual column names to clean aliases for frontend display
         $axis_x_raw = get_post_meta($post_id, '_chart_axis_x', true);
         $axis_x_display = $this->resolve_virtual_column_alias($axis_x_raw);
 
@@ -464,6 +768,8 @@ final class BPID_Suite_Visualizer {
 
         return [
             'type'          => get_post_meta($post_id, '_chart_type', true) ?: 'bar',
+            'data_mode'     => 'manual',
+            'view'          => '',
             'table'         => get_post_meta($post_id, '_chart_data_table', true),
             'axis_x'        => $axis_x_display,
             'axis_x_raw'    => $axis_x_raw,
@@ -508,6 +814,11 @@ final class BPID_Suite_Visualizer {
 
     public function get_chart_data(int $post_id): array {
         $config = $this->build_config($post_id);
+
+        // View mode — execute the predefined view SQL
+        if (($config['data_mode'] ?? 'manual') === 'view' && !empty($config['view'])) {
+            return $this->execute_view_query($config['view'], $config);
+        }
 
         // Custom query takes precedence
         $custom_query = get_post_meta($post_id, '_chart_custom_query', true);
@@ -932,6 +1243,22 @@ final class BPID_Suite_Visualizer {
             return;
         }
 
+        // For view mode with series data, dynamically resolve y_columns
+        if (($config['data_mode'] ?? 'manual') === 'view' && !empty($data[0])) {
+            $data_keys = array_keys($data[0]);
+            $axis_x = $config['axis_x'];
+            $dynamic_y = array_filter($data_keys, function ($k) use ($axis_x) {
+                return $k !== $axis_x;
+            });
+            if (!empty($dynamic_y)) {
+                $config['y_columns']     = array_values($dynamic_y);
+                $config['y_columns_raw'] = array_values($dynamic_y);
+                while (count($config['y_colors']) < count($config['y_columns'])) {
+                    $config['y_colors'][] = self::DEFAULT_PALETTE[count($config['y_colors']) % count(self::DEFAULT_PALETTE)];
+                }
+            }
+        }
+
         $chart_id     = 'preview-' . $post_id;
         $chart_type   = $config['type'];
         $chart_data   = $data;
@@ -1069,6 +1396,152 @@ final class BPID_Suite_Visualizer {
             '⟶ municipio_beneficiarios'  => 'beneficiarios_municipio',
         ];
         return $map[$col] ?? $col;
+    }
+
+    /**
+     * Execute a predefined view query with limit and order.
+     */
+    private function execute_view_query(string $view_key, array $config): array {
+        $views = $this->get_predefined_views();
+        if (!isset($views[$view_key])) {
+            return [];
+        }
+
+        $view = $views[$view_key];
+        $sql  = $view['sql'];
+
+        $limit = max(1, min(50000, $config['query_limit'] ?? 1000));
+        $order = in_array($config['query_order'] ?? 'DESC', ['ASC', 'DESC'], true) ? ($config['query_order'] ?? 'DESC') : 'DESC';
+
+        // If the view SQL doesn't already have ORDER BY, add one
+        if (!preg_match('/ORDER\s+BY/i', $sql)) {
+            // Order by first numeric column (value) by default
+            $y_cols = $view['y_cols'] ?? ['value'];
+            $order_col = $y_cols[0] ?? 'value';
+            $sql .= " ORDER BY `$order_col` $order";
+        } else {
+            // Replace ASC/DESC in existing ORDER BY
+            $sql = preg_replace('/(ORDER\s+BY\s+.+?)\s+(ASC|DESC)/i', "$1 $order", $sql);
+        }
+
+        $sql .= " LIMIT $limit";
+
+        global $wpdb;
+        // phpcs:ignore WordPress.DB.PreparedSQL.NotPrepared -- SQL comes from internal view definitions
+        $results = $wpdb->get_results($sql, ARRAY_A);
+
+        // For series views, pivot the data so each series becomes a Y column
+        if (!empty($view['series_col']) && is_array($results) && count($results) > 0) {
+            $results = $this->pivot_series_data($results, $view);
+        }
+
+        return is_array($results) ? $results : [];
+    }
+
+    /**
+     * Pivot series data: convert rows with (label, series, value) into
+     * rows with (label, series1_value, series2_value, ...) for multi-Y charts.
+     */
+    private function pivot_series_data(array $rows, array $view): array {
+        $series_col = $view['series_col'];
+        $label_col  = $view['axis_x'];
+        $value_col  = 'value';
+
+        // Collect unique series values
+        $series_values = [];
+        foreach ($rows as $row) {
+            $sv = $row[$series_col] ?? '';
+            if ($sv !== '' && !in_array($sv, $series_values, true)) {
+                $series_values[] = $sv;
+            }
+        }
+
+        // Group by label
+        $grouped = [];
+        foreach ($rows as $row) {
+            $label = $row[$label_col] ?? '';
+            if (!isset($grouped[$label])) {
+                $grouped[$label] = [$label_col => $label];
+            }
+            $sv = $row[$series_col] ?? '';
+            if ($sv !== '') {
+                $grouped[$label][$sv] = (float) ($row[$value_col] ?? 0);
+            }
+        }
+
+        // Ensure all series columns exist in all rows
+        $result = [];
+        foreach ($grouped as $row) {
+            foreach ($series_values as $sv) {
+                if (!isset($row[$sv])) {
+                    $row[$sv] = 0;
+                }
+            }
+            $result[] = $row;
+        }
+
+        return $result;
+    }
+
+    /* =========================================================================
+       AJAX: Views
+       ========================================================================= */
+
+    public function ajax_get_views(): void {
+        check_ajax_referer('bpid_charts_nonce');
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized', 403);
+        }
+
+        $views = $this->get_predefined_views();
+        $output = [];
+        foreach ($views as $key => $view) {
+            $output[$key] = [
+                'label'   => $view['label'],
+                'group'   => $view['group'],
+                'desc'    => $view['desc'],
+                'columns' => $view['columns'],
+                'axis_x'  => $view['axis_x'],
+                'y_cols'  => $view['y_cols'],
+                'series'  => !empty($view['series_col']),
+            ];
+        }
+
+        wp_send_json_success($output);
+    }
+
+    public function ajax_view_preview(): void {
+        check_ajax_referer('bpid_charts_nonce');
+        if (!current_user_can('manage_options')) {
+            wp_send_json_error('Unauthorized', 403);
+        }
+
+        $post_id = absint($_POST['post_ID'] ?? 0);
+        if ($post_id < 1) {
+            wp_send_json_error('Invalid post ID');
+        }
+
+        // Save current form data first
+        $post = get_post($post_id);
+        if ($post && 'bpid_chart' === $post->post_type) {
+            $this->save_meta_box($post_id, $post);
+        }
+
+        $config = $this->build_config($post_id);
+        $data   = $this->get_chart_data($post_id);
+
+        $total = count($data);
+        $preview_rows = array_slice($data, 0, 5);
+
+        wp_send_json_success([
+            'total'   => $total,
+            'rows'    => $preview_rows,
+            'columns' => !empty($data[0]) ? array_keys($data[0]) : [],
+            'config'  => [
+                'axis_x'    => $config['axis_x'] ?? '',
+                'y_columns' => $config['y_columns'] ?? [],
+            ],
+        ]);
     }
 
     private function is_safe_query(string $query): bool {
