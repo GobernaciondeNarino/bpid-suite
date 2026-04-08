@@ -1,5 +1,5 @@
 /**
- * BPID Suite — Frontend Chart Manager v3.0.0
+ * BPID Suite — Frontend Chart Manager v3.1.0
  * Gobernacion de Narino
  *
  * Rendering engine: d3plus v3 (@d3plus/core)
