@@ -6,7 +6,7 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * BPID Suite Visualizer v3.0
+ * BPID Suite Visualizer v3.1
  *
  * Manages the 'bpid_chart' Custom Post Type for chart configurations
  * and renders d3plus-based visualizations via shortcode.
@@ -50,11 +50,14 @@ final class BPID_Suite_Visualizer {
      * @return array<string, array>
      */
     private function get_predefined_views(): array {
-        $db = BPID_Suite_Database::get_instance();
-        $t  = $db->get_table_name();
-        $tm = $db->get_table_municipios();
-        $to = $db->get_table_odss();
+        $db  = BPID_Suite_Database::get_instance();
+        $t   = $db->get_table_name();
+        $tm  = $db->get_table_municipios();
+        $to  = $db->get_table_odss();
         $tmt = $db->get_table_metas();
+
+        // Column names use descriptive Spanish labels so tooltips and axes
+        // display meaningful text to the end user (not generic "value"/"label").
 
         return [
             // ── Vistas simples ──
@@ -62,100 +65,100 @@ final class BPID_Suite_Visualizer {
                 'label'   => 'Proyectos',
                 'group'   => 'simple',
                 'desc'    => 'Nombre del proyecto y su valor total.',
-                'sql'     => "SELECT c.nombre_proyecto AS label, SUM(c.valor_proyecto) AS value, COUNT(DISTINCT c.numero_contrato) AS count FROM `$t` AS c GROUP BY c.numero_proyecto, c.nombre_proyecto",
-                'columns' => ['label' => 'text', 'value' => 'number', 'count' => 'number'],
-                'axis_x'  => 'label',
-                'y_cols'  => ['value'],
+                'sql'     => "SELECT c.nombre_proyecto AS Proyecto, SUM(c.valor_proyecto) AS `Valor Proyecto`, COUNT(DISTINCT c.numero_contrato) AS Contratos FROM `$t` AS c GROUP BY c.numero_proyecto, c.nombre_proyecto",
+                'columns' => ['Proyecto' => 'text', 'Valor Proyecto' => 'number', 'Contratos' => 'number'],
+                'axis_x'  => 'Proyecto',
+                'y_cols'  => ['Valor Proyecto'],
             ],
             'contratos' => [
                 'label'   => 'Contratos',
                 'group'   => 'simple',
-                'desc'    => 'Contratos con su valor.',
-                'sql'     => "SELECT c.numero_contrato AS label, c.valor_contrato AS value, c.avance_fisico AS avance FROM `$t` AS c",
-                'columns' => ['label' => 'text', 'value' => 'number', 'avance' => 'number'],
-                'axis_x'  => 'label',
-                'y_cols'  => ['value'],
+                'desc'    => 'Contratos con su valor y avance físico.',
+                'sql'     => "SELECT c.numero_contrato AS Contrato, c.valor_contrato AS `Valor Contrato`, c.avance_fisico AS `Avance Fisico` FROM `$t` AS c",
+                'columns' => ['Contrato' => 'text', 'Valor Contrato' => 'number', 'Avance Fisico' => 'number'],
+                'axis_x'  => 'Contrato',
+                'y_cols'  => ['Valor Contrato'],
             ],
             'valor_dependencia' => [
                 'label'   => 'Valor por Dependencia',
                 'group'   => 'simple',
                 'desc'    => 'Valor total de proyectos por dependencia.',
-                'sql'     => "SELECT c.dependencia AS label, SUM(c.valor_proyecto) AS value, COUNT(*) AS count FROM `$t` AS c WHERE c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY c.dependencia",
-                'columns' => ['label' => 'text', 'value' => 'number', 'count' => 'number'],
-                'axis_x'  => 'label',
-                'y_cols'  => ['value'],
+                'sql'     => "SELECT c.dependencia AS Dependencia, SUM(c.valor_proyecto) AS `Valor Total`, COUNT(*) AS Contratos FROM `$t` AS c WHERE c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY c.dependencia",
+                'columns' => ['Dependencia' => 'text', 'Valor Total' => 'number', 'Contratos' => 'number'],
+                'axis_x'  => 'Dependencia',
+                'y_cols'  => ['Valor Total'],
             ],
             'valor_entidad' => [
                 'label'   => 'Valor por Entidad Ejecutora',
                 'group'   => 'simple',
                 'desc'    => 'Valor total de proyectos por entidad ejecutora.',
-                'sql'     => "SELECT c.entidad_ejecutora AS label, SUM(c.valor_proyecto) AS value, COUNT(*) AS count FROM `$t` AS c WHERE c.entidad_ejecutora IS NOT NULL AND c.entidad_ejecutora != '' GROUP BY c.entidad_ejecutora",
-                'columns' => ['label' => 'text', 'value' => 'number', 'count' => 'number'],
-                'axis_x'  => 'label',
-                'y_cols'  => ['value'],
+                'sql'     => "SELECT c.entidad_ejecutora AS `Entidad Ejecutora`, SUM(c.valor_proyecto) AS `Valor Total`, COUNT(*) AS Contratos FROM `$t` AS c WHERE c.entidad_ejecutora IS NOT NULL AND c.entidad_ejecutora != '' GROUP BY c.entidad_ejecutora",
+                'columns' => ['Entidad Ejecutora' => 'text', 'Valor Total' => 'number', 'Contratos' => 'number'],
+                'axis_x'  => 'Entidad Ejecutora',
+                'y_cols'  => ['Valor Total'],
             ],
-            'inversion_municipio' => [
-                'label'   => 'Inversión por Municipio',
+            'ops_resumen' => [
+                'label'   => 'Distribución OPS vs No OPS',
                 'group'   => 'simple',
-                'desc'    => 'Valor total de contratos por municipio.',
-                'sql'     => "SELECT m.municipio AS label, SUM(c.valor_contrato) AS value, COUNT(*) AS count FROM `$t` AS c JOIN `$tm` AS m ON c.id = m.contrato_id WHERE m.municipio IS NOT NULL AND m.municipio != '' GROUP BY m.municipio",
-                'columns' => ['label' => 'text', 'value' => 'number', 'count' => 'number'],
-                'axis_x'  => 'label',
-                'y_cols'  => ['value'],
-            ],
-            'poblacion_municipio' => [
-                'label'   => 'Población Beneficiada por Municipio',
-                'group'   => 'simple',
-                'desc'    => 'Total de beneficiarios por municipio.',
-                'sql'     => "SELECT m.municipio AS label, SUM(m.beneficiarios) AS value, COUNT(*) AS count FROM `$t` AS c JOIN `$tm` AS m ON c.id = m.contrato_id WHERE m.municipio IS NOT NULL AND m.municipio != '' GROUP BY m.municipio",
-                'columns' => ['label' => 'text', 'value' => 'number', 'count' => 'number'],
-                'axis_x'  => 'label',
-                'y_cols'  => ['value'],
+                'desc'    => 'Cantidad y valor de contratos OPS frente a contratos regulares.',
+                'sql'     => "SELECT CASE WHEN c.es_ops = 1 THEN 'OPS' ELSE 'No OPS' END AS `Tipo Contrato`, COUNT(*) AS `Total Contratos`, SUM(c.valor_contrato) AS `Valor Total` FROM `$t` AS c GROUP BY c.es_ops",
+                'columns' => ['Tipo Contrato' => 'text', 'Total Contratos' => 'number', 'Valor Total' => 'number'],
+                'axis_x'  => 'Tipo Contrato',
+                'y_cols'  => ['Total Contratos'],
             ],
             'contratos_dependencia' => [
                 'label'   => 'Contratos por Dependencia',
                 'group'   => 'simple',
                 'desc'    => 'Cantidad de contratos por dependencia.',
-                'sql'     => "SELECT c.dependencia AS label, COUNT(*) AS value, SUM(c.valor_contrato) AS total_valor FROM `$t` AS c WHERE c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY c.dependencia",
-                'columns' => ['label' => 'text', 'value' => 'number', 'total_valor' => 'number'],
-                'axis_x'  => 'label',
-                'y_cols'  => ['value'],
+                'sql'     => "SELECT c.dependencia AS Dependencia, COUNT(*) AS `Total Contratos`, SUM(c.valor_contrato) AS `Valor Total` FROM `$t` AS c WHERE c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY c.dependencia",
+                'columns' => ['Dependencia' => 'text', 'Total Contratos' => 'number', 'Valor Total' => 'number'],
+                'axis_x'  => 'Dependencia',
+                'y_cols'  => ['Total Contratos'],
             ],
             'avance_dependencia' => [
                 'label'   => 'Avance Físico Promedio por Dependencia',
                 'group'   => 'simple',
                 'desc'    => 'Promedio de avance físico por dependencia.',
-                'sql'     => "SELECT c.dependencia AS label, AVG(c.avance_fisico) AS value, COUNT(*) AS count FROM `$t` AS c WHERE c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY c.dependencia",
-                'columns' => ['label' => 'text', 'value' => 'number', 'count' => 'number'],
-                'axis_x'  => 'label',
-                'y_cols'  => ['value'],
+                'sql'     => "SELECT c.dependencia AS Dependencia, AVG(c.avance_fisico) AS `Avance Promedio`, COUNT(*) AS Contratos FROM `$t` AS c WHERE c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY c.dependencia",
+                'columns' => ['Dependencia' => 'text', 'Avance Promedio' => 'number', 'Contratos' => 'number'],
+                'axis_x'  => 'Dependencia',
+                'y_cols'  => ['Avance Promedio'],
             ],
             'metas_dependencia' => [
                 'label'   => 'Metas por Dependencia',
                 'group'   => 'simple',
                 'desc'    => 'Cantidad de metas por dependencia.',
-                'sql'     => "SELECT c.dependencia AS label, COUNT(DISTINCT mt.meta_texto) AS value FROM `$t` AS c JOIN `$tmt` AS mt ON c.id = mt.contrato_id WHERE c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY c.dependencia",
-                'columns' => ['label' => 'text', 'value' => 'number'],
-                'axis_x'  => 'label',
-                'y_cols'  => ['value'],
+                'sql'     => "SELECT c.dependencia AS Dependencia, COUNT(DISTINCT mt.meta_texto) AS `Total Metas` FROM `$t` AS c JOIN `$tmt` AS mt ON c.id = mt.contrato_id WHERE c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY c.dependencia",
+                'columns' => ['Dependencia' => 'text', 'Total Metas' => 'number'],
+                'axis_x'  => 'Dependencia',
+                'y_cols'  => ['Total Metas'],
             ],
             'top_proyectos_valor' => [
                 'label'   => 'Top Proyectos por Valor',
                 'group'   => 'simple',
                 'desc'    => 'Proyectos ordenados por mayor valor.',
-                'sql'     => "SELECT c.nombre_proyecto AS label, SUM(c.valor_proyecto) AS value, COUNT(DISTINCT c.numero_contrato) AS count FROM `$t` AS c GROUP BY c.numero_proyecto, c.nombre_proyecto ORDER BY value DESC",
-                'columns' => ['label' => 'text', 'value' => 'number', 'count' => 'number'],
-                'axis_x'  => 'label',
-                'y_cols'  => ['value'],
+                'sql'     => "SELECT c.nombre_proyecto AS Proyecto, SUM(c.valor_proyecto) AS `Valor Total`, COUNT(DISTINCT c.numero_contrato) AS Contratos FROM `$t` AS c GROUP BY c.numero_proyecto, c.nombre_proyecto ORDER BY `Valor Total` DESC",
+                'columns' => ['Proyecto' => 'text', 'Valor Total' => 'number', 'Contratos' => 'number'],
+                'axis_x'  => 'Proyecto',
+                'y_cols'  => ['Valor Total'],
             ],
-            'municipios_por_proyecto' => [
-                'label'   => 'Municipios por Proyecto (Top)',
+            'ods_proyectos' => [
+                'label'   => 'ODS por Cantidad de Proyectos',
                 'group'   => 'simple',
-                'desc'    => 'Cantidad de municipios vinculados a cada proyecto.',
-                'sql'     => "SELECT c.nombre_proyecto AS label, COUNT(DISTINCT m.municipio) AS value FROM `$t` AS c JOIN `$tm` AS m ON c.id = m.contrato_id GROUP BY c.numero_proyecto, c.nombre_proyecto ORDER BY value DESC",
-                'columns' => ['label' => 'text', 'value' => 'number'],
-                'axis_x'  => 'label',
-                'y_cols'  => ['value'],
+                'desc'    => 'Objetivos de Desarrollo Sostenible y cantidad de proyectos vinculados.',
+                'sql'     => "SELECT o.ods AS ODS, COUNT(DISTINCT c.numero_proyecto) AS Proyectos FROM `$t` AS c JOIN `$to` AS o ON c.id = o.contrato_id WHERE o.ods IS NOT NULL AND o.ods != '' GROUP BY o.ods ORDER BY Proyectos DESC",
+                'columns' => ['ODS' => 'text', 'Proyectos' => 'number'],
+                'axis_x'  => 'ODS',
+                'y_cols'  => ['Proyectos'],
+            ],
+            'valor_contrato_entidad' => [
+                'label'   => 'Valor de Contratos por Entidad',
+                'group'   => 'simple',
+                'desc'    => 'Valor total de contratos agrupado por entidad ejecutora.',
+                'sql'     => "SELECT c.entidad_ejecutora AS `Entidad Ejecutora`, SUM(c.valor_contrato) AS `Valor Contratos`, COUNT(*) AS Contratos FROM `$t` AS c WHERE c.entidad_ejecutora IS NOT NULL AND c.entidad_ejecutora != '' GROUP BY c.entidad_ejecutora ORDER BY `Valor Contratos` DESC",
+                'columns' => ['Entidad Ejecutora' => 'text', 'Valor Contratos' => 'number', 'Contratos' => 'number'],
+                'axis_x'  => 'Entidad Ejecutora',
+                'y_cols'  => ['Valor Contratos'],
             ],
 
             // ── Vistas con series (Apiladas/Agrupadas) ──
@@ -163,9 +166,9 @@ final class BPID_Suite_Visualizer {
                 'label'   => 'Valor: Dependencia x Entidad (Apiladas)',
                 'group'   => 'series',
                 'desc'    => 'Valor de proyectos cruzado por dependencia y entidad ejecutora. Ideal para Barras Apiladas.',
-                'sql'     => "SELECT c.dependencia AS label, c.entidad_ejecutora AS series, SUM(c.valor_proyecto) AS value FROM `$t` AS c WHERE c.dependencia IS NOT NULL AND c.dependencia != '' AND c.entidad_ejecutora IS NOT NULL AND c.entidad_ejecutora != '' GROUP BY c.dependencia, c.entidad_ejecutora",
-                'columns' => ['label' => 'text', 'series' => 'text', 'value' => 'number'],
-                'axis_x'  => 'label',
+                'sql'     => "SELECT c.dependencia AS Dependencia, c.entidad_ejecutora AS series, SUM(c.valor_proyecto) AS value FROM `$t` AS c WHERE c.dependencia IS NOT NULL AND c.dependencia != '' AND c.entidad_ejecutora IS NOT NULL AND c.entidad_ejecutora != '' GROUP BY c.dependencia, c.entidad_ejecutora",
+                'columns' => ['Dependencia' => 'text', 'series' => 'text', 'value' => 'number'],
+                'axis_x'  => 'Dependencia',
                 'y_cols'  => ['value'],
                 'series_col' => 'series',
             ],
@@ -173,19 +176,19 @@ final class BPID_Suite_Visualizer {
                 'label'   => 'Contratos: Dependencia x Entidad (Agrupadas)',
                 'group'   => 'series',
                 'desc'    => 'Cantidad de contratos por dependencia y entidad. Ideal para Barras Agrupadas.',
-                'sql'     => "SELECT c.dependencia AS label, c.entidad_ejecutora AS series, COUNT(*) AS value FROM `$t` AS c WHERE c.dependencia IS NOT NULL AND c.dependencia != '' AND c.entidad_ejecutora IS NOT NULL AND c.entidad_ejecutora != '' GROUP BY c.dependencia, c.entidad_ejecutora",
-                'columns' => ['label' => 'text', 'series' => 'text', 'value' => 'number'],
-                'axis_x'  => 'label',
+                'sql'     => "SELECT c.dependencia AS Dependencia, c.entidad_ejecutora AS series, COUNT(*) AS value FROM `$t` AS c WHERE c.dependencia IS NOT NULL AND c.dependencia != '' AND c.entidad_ejecutora IS NOT NULL AND c.entidad_ejecutora != '' GROUP BY c.dependencia, c.entidad_ejecutora",
+                'columns' => ['Dependencia' => 'text', 'series' => 'text', 'value' => 'number'],
+                'axis_x'  => 'Dependencia',
                 'y_cols'  => ['value'],
                 'series_col' => 'series',
             ],
-            'inversion_mun_dep' => [
-                'label'   => 'Inversión: Municipio x Dependencia (Apiladas)',
+            'ods_dep' => [
+                'label'   => 'ODS: Dependencia x ODS (Apiladas)',
                 'group'   => 'series',
-                'desc'    => 'Inversión por municipio desglosada por dependencia. Ideal para Barras Apiladas.',
-                'sql'     => "SELECT m.municipio AS label, c.dependencia AS series, SUM(c.valor_contrato) AS value FROM `$t` AS c JOIN `$tm` AS m ON c.id = m.contrato_id WHERE m.municipio IS NOT NULL AND m.municipio != '' AND c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY m.municipio, c.dependencia",
-                'columns' => ['label' => 'text', 'series' => 'text', 'value' => 'number'],
-                'axis_x'  => 'label',
+                'desc'    => 'Distribución de ODS por dependencia. Ideal para Barras Apiladas.',
+                'sql'     => "SELECT c.dependencia AS Dependencia, o.ods AS series, COUNT(DISTINCT c.numero_proyecto) AS value FROM `$t` AS c JOIN `$to` AS o ON c.id = o.contrato_id WHERE c.dependencia IS NOT NULL AND c.dependencia != '' AND o.ods IS NOT NULL AND o.ods != '' GROUP BY c.dependencia, o.ods",
+                'columns' => ['Dependencia' => 'text', 'series' => 'text', 'value' => 'number'],
+                'axis_x'  => 'Dependencia',
                 'y_cols'  => ['value'],
                 'series_col' => 'series',
             ],
@@ -193,9 +196,9 @@ final class BPID_Suite_Visualizer {
                 'label'   => 'Avance: Dependencia x Tipo OPS (Agrupadas)',
                 'group'   => 'series',
                 'desc'    => 'Avance físico promedio por dependencia separado por tipo OPS. Ideal para Barras Agrupadas.',
-                'sql'     => "SELECT c.dependencia AS label, CASE WHEN c.es_ops = 1 THEN 'OPS' ELSE 'No OPS' END AS series, AVG(c.avance_fisico) AS value FROM `$t` AS c WHERE c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY c.dependencia, c.es_ops",
-                'columns' => ['label' => 'text', 'series' => 'text', 'value' => 'number'],
-                'axis_x'  => 'label',
+                'sql'     => "SELECT c.dependencia AS Dependencia, CASE WHEN c.es_ops = 1 THEN 'OPS' ELSE 'No OPS' END AS series, AVG(c.avance_fisico) AS value FROM `$t` AS c WHERE c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY c.dependencia, c.es_ops",
+                'columns' => ['Dependencia' => 'text', 'series' => 'text', 'value' => 'number'],
+                'axis_x'  => 'Dependencia',
                 'y_cols'  => ['value'],
                 'series_col' => 'series',
             ],
@@ -203,19 +206,19 @@ final class BPID_Suite_Visualizer {
                 'label'   => 'Proyectos vs Contratos por Dependencia (Agrupadas)',
                 'group'   => 'series',
                 'desc'    => 'Comparar cantidad de proyectos y contratos por dependencia.',
-                'sql'     => "SELECT c.dependencia AS label, COUNT(DISTINCT c.numero_proyecto) AS proyectos, COUNT(DISTINCT c.numero_contrato) AS contratos FROM `$t` AS c WHERE c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY c.dependencia",
-                'columns' => ['label' => 'text', 'proyectos' => 'number', 'contratos' => 'number'],
-                'axis_x'  => 'label',
-                'y_cols'  => ['proyectos', 'contratos'],
+                'sql'     => "SELECT c.dependencia AS Dependencia, COUNT(DISTINCT c.numero_proyecto) AS Proyectos, COUNT(DISTINCT c.numero_contrato) AS Contratos FROM `$t` AS c WHERE c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY c.dependencia",
+                'columns' => ['Dependencia' => 'text', 'Proyectos' => 'number', 'Contratos' => 'number'],
+                'axis_x'  => 'Dependencia',
+                'y_cols'  => ['Proyectos', 'Contratos'],
             ],
             'metas_vs_cont_dep' => [
                 'label'   => 'Metas vs Contratos por Dependencia (Agrupadas)',
                 'group'   => 'series',
                 'desc'    => 'Comparar metas y contratos por dependencia.',
-                'sql'     => "SELECT c.dependencia AS label, COUNT(DISTINCT mt.meta_texto) AS metas, COUNT(DISTINCT c.numero_contrato) AS contratos FROM `$t` AS c LEFT JOIN `$tmt` AS mt ON c.id = mt.contrato_id WHERE c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY c.dependencia",
-                'columns' => ['label' => 'text', 'metas' => 'number', 'contratos' => 'number'],
-                'axis_x'  => 'label',
-                'y_cols'  => ['metas', 'contratos'],
+                'sql'     => "SELECT c.dependencia AS Dependencia, COUNT(DISTINCT mt.meta_texto) AS Metas, COUNT(DISTINCT c.numero_contrato) AS Contratos FROM `$t` AS c LEFT JOIN `$tmt` AS mt ON c.id = mt.contrato_id WHERE c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY c.dependencia",
+                'columns' => ['Dependencia' => 'text', 'Metas' => 'number', 'Contratos' => 'number'],
+                'axis_x'  => 'Dependencia',
+                'y_cols'  => ['Metas', 'Contratos'],
             ],
         ];
     }
@@ -1445,7 +1448,7 @@ final class BPID_Suite_Visualizer {
     private function pivot_series_data(array $rows, array $view): array {
         $series_col = $view['series_col'];
         $label_col  = $view['axis_x'];
-        $value_col  = 'value';
+        $value_col  = $view['y_cols'][0] ?? 'value';
 
         // Collect unique series values
         $series_values = [];
