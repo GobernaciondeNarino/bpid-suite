@@ -81,6 +81,25 @@
     var modalBody = document.getElementById('bpid-grid-modal-body');
     var ocultarOps = modal ? modal.dataset.ocultarOps === '1' : false;
 
+    // Belt-and-braces: strip any inline display:none so the .show class can flex it.
+    if (modal) modal.style.removeProperty('display');
+
+    // Delegated click on any element with .bpid-grid-card-open (image button or "Ver detalles")
+    document.addEventListener('click', function(e) {
+        var trigger = e.target.closest && e.target.closest('.bpid-grid-card-open');
+        if (!trigger) return;
+        e.preventDefault();
+        var idx = parseInt(trigger.getAttribute('data-index'), 10);
+        if (isNaN(idx)) {
+            var parentCard = trigger.closest('.bpid-grid-card');
+            if (parentCard) idx = parseInt(parentCard.getAttribute('data-index'), 10);
+        }
+        if (!isNaN(idx)) {
+            try { window.bpidGridOpenModal(idx); }
+            catch (err) { console.error('[BPID Post] open modal failed:', err); cerrarModal(); }
+        }
+    });
+
     // Accordion config from grid config.
     var showMetas     = gridConfig.accordionShowMetas !== false && gridConfig.accordionShowMetas !== 0;
     var showOds       = gridConfig.accordionShowOds !== false && gridConfig.accordionShowOds !== 0;
@@ -92,25 +111,31 @@
         if (!p || !modal || !modalBody) return;
 
         var totalVal = 0, sumAvance = 0, contratosHtml = '';
+        try {
+            (p.contratosProyecto || []).forEach(function(c) {
+                var val = parseFloat(c.valorContrato)    || 0;
+                var av  = parseFloat(c.procentajeAvanceFisico) || 0;
+                totalVal  += val;
+                sumAvance += val * av;
 
-        (p.contratosProyecto || []).forEach(function(c) {
-            var val = parseFloat(c.valorContrato)    || 0;
-            var av  = parseFloat(c.procentajeAvanceFisico) || 0;
-            totalVal  += val;
-            sumAvance += val * av;
+                var esOps = (c.esOpsEjecContractual || '').toLowerCase().trim();
+                if (!ocultarOps || (esOps !== 'si' && esOps !== 'si\u0301')) {
+                    contratosHtml += renderContrato(c, val, av);
+                }
+            });
 
-            var esOps = (c.esOpsEjecContractual || '').toLowerCase().trim();
-            if (!ocultarOps || (esOps !== 'si' && esOps !== 'si\u0301')) {
-                contratosHtml += renderContrato(c, val, av);
-            }
-        });
+            var avFisico     = totalVal > 0 ? (sumAvance / totalVal).toFixed(1) : '0.0';
+            var pVal         = parseFloat(p.valorProyecto) || 0;
+            var avFinanciero = pVal > 0 ? Math.min((totalVal / pVal) * 100, 100).toFixed(1) : '0.0';
 
-        var avFisico     = totalVal > 0 ? (sumAvance / totalVal).toFixed(1) : '0.0';
-        var pVal         = parseFloat(p.valorProyecto) || 0;
-        var avFinanciero = pVal > 0 ? Math.min((totalVal / pVal) * 100, 100).toFixed(1) : '0.0';
-
-        modalBody.innerHTML = buildModalHtml(p, pVal, totalVal, avFisico, avFinanciero, contratosHtml);
+            modalBody.innerHTML = buildModalHtml(p, pVal, totalVal, avFisico, avFinanciero, contratosHtml);
+        } catch (err) {
+            console.error('[BPID Post] build modal failed:', err);
+            modalBody.innerHTML = '<p>Ocurrio un error al cargar los detalles del proyecto.</p>';
+        }
+        modal.style.removeProperty('display');
         modal.classList.add('show');
+        modal.setAttribute('aria-hidden', 'false');
         document.body.style.overflow = 'hidden';
     };
 
@@ -131,8 +156,9 @@
     function cerrarModal() {
         if (modal) {
             modal.classList.remove('show');
-            document.body.style.overflow = 'auto';
+            modal.setAttribute('aria-hidden', 'true');
         }
+        document.body.style.overflow = '';
     }
 
     // ── Render helpers ──

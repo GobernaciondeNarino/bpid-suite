@@ -5,6 +5,14 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
 ---
 
+## [3.2.1] - 2026-05-12
+
+### Correcciones críticas
+- **Modal del Post Card no abría**: el contenedor traía `style="display:none;"` inline, que vence cualquier regla CSS — al hacer click en "Ver detalles" el JS ponía `body.overflow=hidden` pero el modal seguía oculto, por lo que la página se "bloqueaba" sin mostrar el popup. Se elimina el estilo inline, se gestiona la visibilidad con la clase `.show` y `aria-hidden`, y se restaura el scroll del `body` al cerrar.
+- **Click en la imagen no abría el modal**: ahora la imagen del card es un `<button class="bpid-grid-card-image bpid-grid-card-open">` y la apertura del modal usa delegación de eventos (`document.addEventListener('click', …)`) tanto para la imagen como para el botón "Ver detalles". Cualquier excepción se captura y cierra el modal en lugar de dejar la página inservible.
+
+---
+
 ## [3.2.0] - 2026-05-12
 
 ### Cambios principales
