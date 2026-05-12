@@ -678,6 +678,30 @@
     background: #f0f0f0;
 }
 
+button.bpid-grid-card-image {
+    display: block;
+    padding: 0;
+    border: none;
+    margin: 0;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    color: inherit;
+}
+
+button.bpid-grid-card-image:focus-visible {
+    outline: 2px solid var(--bpid-color-primario, #348afb);
+    outline-offset: -2px;
+}
+
+button.bpid-grid-card-image img {
+    transition: transform 0.3s ease;
+}
+
+button.bpid-grid-card-image:hover img {
+    transform: scale(1.04);
+}
+
 .bpid-grid-card-image img {
     width: 100%;
     height: 100%;

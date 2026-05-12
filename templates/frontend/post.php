@@ -428,7 +428,12 @@ function bpid_get_project_field( array $proyecto, string $field_key, array $fiel
 					data-odss="<?php echo esc_attr( implode( '|', $ods_names ) ); ?>"
 					data-search="<?php echo esc_attr( $search_text ); ?>"
 				>
-					<div class="bpid-grid-card-image">
+					<button
+						type="button"
+						class="bpid-grid-card-image bpid-grid-card-open"
+						data-index="<?php echo esc_attr( (string) $index ); ?>"
+						aria-label="<?php echo esc_attr( sprintf( __( 'Ver detalles de %s', 'bpid-suite' ), $card_title ?: __( 'el proyecto', 'bpid-suite' ) ) ); ?>"
+					>
 						<?php if ( $card_image ) : ?>
 							<img
 								src="<?php echo esc_url( $card_image ); ?>"
@@ -445,7 +450,7 @@ function bpid_get_project_field( array $proyecto, string $field_key, array $fiel
 						<?php if ( $first_municipio ) : ?>
 							<span class="bpid-grid-card-badge"><?php echo esc_html( $first_municipio ); ?></span>
 						<?php endif; ?>
-					</div>
+					</button>
 
 					<div class="bpid-grid-card-body">
 						<h3 class="bpid-grid-card-title" style="font-size:<?php echo esc_attr( $title_font_size ); ?>px;color:<?php echo esc_attr( $title_color ); ?>;">
@@ -485,8 +490,8 @@ function bpid_get_project_field( array $proyecto, string $field_key, array $fiel
 						</span>
 						<button
 							type="button"
-							class="bpid-grid-card-details-btn"
-							onclick="bpidGridOpenModal(<?php echo esc_attr( (string) $index ); ?>)"
+							class="bpid-grid-card-details-btn bpid-grid-card-open"
+							data-index="<?php echo esc_attr( (string) $index ); ?>"
 						>
 							<?php esc_html_e( 'Ver detalles', 'bpid-suite' ); ?> &rarr;
 						</button>
@@ -500,7 +505,7 @@ function bpid_get_project_field( array $proyecto, string $field_key, array $fiel
 		<p><?php esc_html_e( 'No se encontraron proyectos que coincidan con los criterios de búsqueda.', 'bpid-suite' ); ?></p>
 	</div>
 
-	<div id="bpid-grid-modal" class="bpid-grid-modal" style="display:none;" data-ocultar-ops="<?php echo esc_attr( $ocultar_ops ? '1' : '0' ); ?>" role="dialog" aria-modal="true">
+	<div id="bpid-grid-modal" class="bpid-grid-modal" data-ocultar-ops="<?php echo esc_attr( $ocultar_ops ? '1' : '0' ); ?>" role="dialog" aria-modal="true" aria-hidden="true">
 		<div class="bpid-modal-content">
 			<button type="button" class="bpid-modal-close" aria-label="<?php esc_attr_e( 'Cerrar', 'bpid-suite' ); ?>">&times;</button>
 			<div id="bpid-grid-modal-body" class="bpid-modal-body"></div>
