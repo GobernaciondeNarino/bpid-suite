@@ -1421,58 +1421,55 @@ button.bpid-grid-card-image:hover img {
     border-radius: 20px;
 }
 
-/* Modal accordion content toggle via .active class */
-.bpid-modal-accordion-content {
-    display: none;
-}
-
-.bpid-modal-accordion-content.active {
-    display: block;
-}
-
 /* ----------------------------------------
    Modal — Accordion Components
    ---------------------------------------- */
-.bpid-modal-accordion {
-    border: 1px solid var(--bpid-color-border);
-    border-radius: 6px;
-    overflow: hidden;
-}
-
 .bpid-modal-accordion-item {
-    border-bottom: 1px solid var(--bpid-color-border);
+    border: 1px solid var(--bpid-color-border, #e2e8f0);
+    border-radius: 8px;
+    overflow: hidden;
+    margin-bottom: 10px;
+    background: #fff;
 }
 
 .bpid-modal-accordion-item:last-child {
-    border-bottom: none;
+    margin-bottom: 0;
 }
 
-.bpid-modal-accordion-header {
+.bpid-modal-accordion-header,
+.bpid-modal-accordion-toggle {
     width: 100%;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 16px;
-    background: #f9fafb;
+    padding: 12px 16px;
+    background: #f8fafc;
     border: none;
     cursor: pointer;
     font-size: 14px;
     font-weight: 600;
-    color: var(--bpid-color-text);
+    color: var(--bpid-color-text, #0f172a);
     text-align: left;
     transition: background var(--bpid-transition);
+    font-family: inherit;
 }
 
-.bpid-modal-accordion-header:hover {
-    background: #f0f1f3;
+.bpid-modal-accordion-header:hover,
+.bpid-modal-accordion-toggle:hover {
+    background: #eef2f6;
+}
+
+.bpid-modal-accordion-toggle:focus-visible {
+    outline: 2px solid var(--bpid-color-primario, #348afb);
+    outline-offset: -2px;
 }
 
 .bpid-modal-accordion-icon {
     width: 20px;
     height: 20px;
     flex-shrink: 0;
-    transition: transform var(--bpid-transition);
-    color: var(--bpid-color-text-muted);
+    transition: transform 0.2s ease;
+    color: var(--bpid-color-text-muted, #64748b);
 }
 
 .bpid-modal-accordion-item.is-open .bpid-modal-accordion-icon {
@@ -1481,10 +1478,12 @@ button.bpid-grid-card-image:hover img {
 
 .bpid-modal-accordion-body {
     display: none;
-    padding: 16px;
+    padding: 14px 16px;
     font-size: 14px;
-    line-height: 1.6;
-    color: var(--bpid-color-text);
+    line-height: 1.55;
+    color: var(--bpid-color-text, #0f172a);
+    background: #fff;
+    border-top: 1px solid var(--bpid-color-border, #e2e8f0);
 }
 
 .bpid-modal-accordion-item.is-open .bpid-modal-accordion-body {

@@ -5,6 +5,15 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
 ---
 
+## [3.2.2] - 2026-05-12
+
+### Correcciones del modal
+- **Acordeones no abrían**: convivían dos modelos de visibilidad — `.bpid-modal-accordion-content.active { display:block }` que el JS togglea y `.bpid-modal-accordion-item.is-open .bpid-modal-accordion-body { display:block }` que la CSS espera. Al hacer click el contenedor exterior se mostraba pero el `body` interno seguía `display:none`, por lo que no aparecía contenido. Se unifica en un único modelo: el header ahora es `<button>` y se togglea `.is-open` en el item. Se eliminan las reglas CSS obsoletas y se reorganizan los acordeones con bordes, sombreado de header y rotación animada del icono.
+- **Sin handlers inline**: se elimina el `onclick="…"` inline (que algunos CSP estrictos podían bloquear). Toda la apertura de modales y acordeones pasa por un único listener delegado en `document`.
+- **Barras de progreso rotas**: el JS escribía `.bpid-modal-progress-fill` pero la CSS estilaba `.bpid-modal-progress-bar-fill`. Se corrigen los nombres, se separa el label del relleno y se añaden buckets de color (rojo/ámbar/verde) según porcentaje.
+
+---
+
 ## [3.2.1] - 2026-05-12
 
 ### Correcciones críticas
