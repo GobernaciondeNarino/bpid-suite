@@ -5,6 +5,15 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
 ---
 
+## [3.2.3] - 2026-05-12
+
+### Correcciones
+- **Campos de los contratos sin valor**: en el admin los campos del acordeón se eligen por su nombre de columna en BD (`nombre_proyecto`, `metas`, `valor_contrato`, …) pero la API devuelve claves camelCase (`nombreProyecto`, `metasProyecto`, `valorContrato`, …). El JS hacía `c[fieldKey]` directo y por eso aparecían solo las etiquetas, sin datos. Ahora el shortcode emite el `field_map` al JS y un nuevo `resolveField()` busca primero en el contrato, traduce DB→API y, si el campo es del proyecto (caso típico de "nombre_proyecto"), cae al proyecto padre.
+- **Formato de valores**: `formatFieldValue()` formatea moneda (COP), porcentajes (`avance_fisico`) y arrays (metas, ODS, municipios → lista). Si la etiqueta del admin queda vacía, ahora se muestra una versión humanizada del nombre del campo en lugar del slug en `snake_case`.
+- **Barra de avance del contrato**: se alinea con flexbox para que ocupe el espacio del header del contrato sin desbordar.
+
+---
+
 ## [3.2.2] - 2026-05-12
 
 ### Correcciones del modal

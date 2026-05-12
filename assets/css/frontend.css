@@ -1370,10 +1370,37 @@ button.bpid-grid-card-image:hover img {
 .bpid-modal-contrato-avance {
     display: flex;
     align-items: center;
-    gap: 8px;
-    margin-top: 8px;
+    gap: 12px;
+    margin-top: 10px;
     font-size: 13px;
     color: var(--bpid-color-text-muted);
+}
+
+.bpid-modal-contrato-avance .bpid-modal-progress-group {
+    flex: 1;
+    margin-bottom: 0;
+}
+
+.bpid-modal-contrato-field {
+    margin: 6px 0;
+    font-size: 13px;
+    color: var(--bpid-color-text, #0f172a);
+    line-height: 1.55;
+}
+
+.bpid-modal-contrato-field strong {
+    color: var(--bpid-color-text-muted, #64748b);
+    font-weight: 600;
+    margin-right: 6px;
+}
+
+.bpid-modal-inline-list {
+    margin: 4px 0 0;
+    padding-left: 18px;
+}
+
+.bpid-modal-inline-list li {
+    margin-bottom: 2px;
 }
 
 .bpid-modal-municipios {

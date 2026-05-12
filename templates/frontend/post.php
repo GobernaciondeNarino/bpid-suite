@@ -528,5 +528,8 @@ function bpid_get_project_field( array $proyecto, string $field_key, array $fiel
 	'accordionContratoFields' => $accordion_contrato_fields,
 	'cardTitleField'         => $card_title_field,
 	'cardDescField'          => $card_desc_field,
+	'fieldMap'               => $field_map,
+	'currencyFields'         => [ 'valor_contrato', 'valor_proyecto', 'valorContrato', 'valorProyecto' ],
+	'percentFields'          => [ 'avance_fisico', 'procentajeAvanceFisico' ],
 ], JSON_HEX_TAG | JSON_HEX_AMP ); ?>
 </script>
