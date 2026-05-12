@@ -58,6 +58,7 @@ final class BPID_Suite_Post {
         add_action('add_meta_boxes', [$this, 'add_meta_box']);
         add_action('save_post', [$this, 'save_meta_box'], 10, 2);
         add_shortcode('bpid_grid_visualizador', [$this, 'shortcode_render']);
+        add_shortcode('bpid_post_card', [$this, 'shortcode_render']);
         add_action('wp_ajax_bpid_post_clear_cache', [$this, 'ajax_clear_cache']);
         add_action('wp_ajax_bpid_suite_export_word', [$this, 'ajax_export_word']);
         add_action('wp_ajax_nopriv_bpid_suite_export_word', [$this, 'ajax_export_word']);
@@ -80,18 +81,18 @@ final class BPID_Suite_Post {
      */
     public function register_post_type(): void {
         $labels = [
-            'name'               => __('BPID Visualizadores', 'bpid-suite'),
-            'singular_name'      => __('Visualizador', 'bpid-suite'),
+            'name'               => __('BPID Post Cards', 'bpid-suite'),
+            'singular_name'      => __('Post Card', 'bpid-suite'),
             'add_new'            => __('Agregar nuevo', 'bpid-suite'),
-            'add_new_item'       => __('Agregar nuevo Visualizador', 'bpid-suite'),
-            'edit_item'          => __('Editar Visualizador', 'bpid-suite'),
-            'new_item'           => __('Nuevo Visualizador', 'bpid-suite'),
-            'view_item'          => __('Ver Visualizador', 'bpid-suite'),
-            'search_items'       => __('Buscar Visualizadores', 'bpid-suite'),
-            'not_found'          => __('No se encontraron visualizadores.', 'bpid-suite'),
-            'not_found_in_trash' => __('No se encontraron visualizadores en la papelera.', 'bpid-suite'),
-            'all_items'          => __('Visualizadores', 'bpid-suite'),
-            'menu_name'          => __('Visualizadores', 'bpid-suite'),
+            'add_new_item'       => __('Agregar nuevo Post Card', 'bpid-suite'),
+            'edit_item'          => __('Editar Post Card', 'bpid-suite'),
+            'new_item'           => __('Nuevo Post Card', 'bpid-suite'),
+            'view_item'          => __('Ver Post Card', 'bpid-suite'),
+            'search_items'       => __('Buscar Post Cards', 'bpid-suite'),
+            'not_found'          => __('No se encontraron Post Cards.', 'bpid-suite'),
+            'not_found_in_trash' => __('No se encontraron Post Cards en la papelera.', 'bpid-suite'),
+            'all_items'          => __('Post Card', 'bpid-suite'),
+            'menu_name'          => __('Post Card', 'bpid-suite'),
         ];
 
         $args = [
@@ -117,7 +118,7 @@ final class BPID_Suite_Post {
     public function add_meta_box(): void {
         add_meta_box(
             'bpid_post_config',
-            __('Configuración del Visualizador', 'bpid-suite'),
+            __('Configuración del Post Card', 'bpid-suite'),
             [$this, 'render_meta_box'],
             'bpid_post',
             'normal',
@@ -679,7 +680,8 @@ final class BPID_Suite_Post {
 
         $html = $this->generar_html_word($dependencia, $proyectos);
 
-        $filename = 'Informe_' . preg_replace('/[^a-zA-Z0-9_-]/', '_', $dependencia) . '_' . gmdate('Y-m-d') . '.doc';
+        $slug = preg_replace('/[^a-zA-Z0-9_-]+/', '_', $dependencia ?: 'General');
+        $filename = 'Informe_' . trim($slug, '_') . '_' . gmdate('Y-m-d') . '.doc';
 
         nocache_headers();
         header('Content-Type: application/msword; charset=UTF-8');
@@ -727,7 +729,8 @@ final class BPID_Suite_Post {
 
         $html = $this->generar_html_excel($dependencia, $proyectos);
 
-        $filename = 'Informe_' . preg_replace('/[^a-zA-Z0-9_-]/', '_', $dependencia) . '_' . gmdate('Y-m-d') . '.xls';
+        $slug = preg_replace('/[^a-zA-Z0-9_-]+/', '_', $dependencia ?: 'General');
+        $filename = 'Informe_' . trim($slug, '_') . '_' . gmdate('Y-m-d') . '.xls';
 
         nocache_headers();
         header('Content-Type: application/vnd.ms-excel; charset=UTF-8');
@@ -769,7 +772,7 @@ final class BPID_Suite_Post {
      * @return string Full HTML document.
      */
     private function generar_html_word(string $dependencia, array $proyectos): string {
-        $dep_escaped = esc_html($dependencia);
+        $dep_escaped = esc_html($dependencia ?: __('Todas las dependencias', 'bpid-suite'));
         $fecha = esc_html(gmdate('d/m/Y'));
 
         $html = '<!DOCTYPE html>
@@ -923,7 +926,7 @@ tr:nth-child(even) td { background-color: #f8f9fa; }
      * @return string Full HTML document.
      */
     private function generar_html_excel(string $dependencia, array $proyectos): string {
-        $dep_escaped = esc_html($dependencia);
+        $dep_escaped = esc_html($dependencia ?: __('Todas las dependencias', 'bpid-suite'));
         $fecha = esc_html(gmdate('d/m/Y'));
 
         $html = '<!DOCTYPE html>

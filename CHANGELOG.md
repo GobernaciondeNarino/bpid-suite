@@ -5,6 +5,23 @@ Formato basado en [Keep a Changelog](https://keepachangelog.com/es-ES/1.0.0/).
 
 ---
 
+## [3.2.0] - 2026-05-12
+
+### Cambios principales
+- **Renombrado del módulo**: "Visualizadores" pasa a llamarse **Post Card** en todo el panel administrativo (etiquetas del CPT, metabox de configuración y acción rápida del dashboard).
+- **Nuevo shortcode**: `[bpid_post_card id="…"]` (el shortcode legado `[bpid_grid_visualizador]` se mantiene como alias para no romper páginas existentes).
+
+### Correcciones
+- **Modal de proyectos**: Las clases del template y del JS se desincronizaron de la hoja de estilos (`.bpid-grid-modal-content` vs `.bpid-modal-content`), por lo que el modal abría sin estilos y el botón de cerrar no respondía. Se alinearon las clases con la CSS existente y se ajustó el listener de cierre.
+- **Filtros**: Se reorganiza el grupo de filtros en columnas etiquetadas (Municipio, Dependencia, ODS) con tipografía consistente con el panel de Gobernación.
+
+### Mejoras
+- **Buscador**: Estilo destacado con icono de lupa, borde primario, sombra y placeholder más legible.
+- **Exportar Informes de Gestión**: Se elimina el título de la sección y se reemplazan los botones por una barra minimalista con tres acciones de solo icono — **Datos** (Excel), **Imagen** (PNG vía html2canvas bajo demanda) y **Descarga** (Word). Permite exportar sin filtrar por dependencia (genera reporte general).
+- **Modal**: Incluye BPIN, título del proyecto, dependencia, valor, número de contratos, número de municipios, beneficiarios, avance físico y financiero. Acordeones para Metas, ODS, Municipios y Contratos con conteos.
+
+---
+
 ## [1.1.0] - 2026-03-25
 
 ### Correcciones críticas

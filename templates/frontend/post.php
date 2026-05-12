@@ -201,6 +201,10 @@ function bpid_get_project_field( array $proyecto, string $field_key, array $fiel
 
 	<?php if ( $mostrar_buscador ) : ?>
 		<div class="bpid-grid-search">
+			<svg class="bpid-grid-search-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+				<circle cx="11" cy="11" r="8"></circle>
+				<line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+			</svg>
 			<input
 				type="text"
 				id="bpid-grid-search-general"
@@ -258,42 +262,74 @@ function bpid_get_project_field( array $proyecto, string $field_key, array $fiel
 
 	<?php if ( $mostrar_filtros ) : ?>
 		<div class="bpid-grid-filters">
-			<select id="bpid-grid-filter-dependencia" class="bpid-grid-filter-select">
-				<option value=""><?php esc_html_e( 'Todas las dependencias', 'bpid-suite' ); ?></option>
-				<?php foreach ( $dependencias_unicas as $dep ) : ?>
-					<option value="<?php echo esc_attr( $dep ); ?>"><?php echo esc_html( $dep ); ?></option>
-				<?php endforeach; ?>
-			</select>
+			<div class="bpid-grid-filter-group">
+				<label for="bpid-grid-filter-municipio"><?php esc_html_e( 'Municipio:', 'bpid-suite' ); ?></label>
+				<select id="bpid-grid-filter-municipio" class="bpid-grid-filter-select">
+					<option value=""><?php esc_html_e( 'Todos', 'bpid-suite' ); ?></option>
+					<?php foreach ( $municipios_unicos as $mun ) : ?>
+						<option value="<?php echo esc_attr( $mun ); ?>"><?php echo esc_html( $mun ); ?></option>
+					<?php endforeach; ?>
+				</select>
+			</div>
 
-			<select id="bpid-grid-filter-municipio" class="bpid-grid-filter-select">
-				<option value=""><?php esc_html_e( 'Todos los municipios', 'bpid-suite' ); ?></option>
-				<?php foreach ( $municipios_unicos as $mun ) : ?>
-					<option value="<?php echo esc_attr( $mun ); ?>"><?php echo esc_html( $mun ); ?></option>
-				<?php endforeach; ?>
-			</select>
+			<div class="bpid-grid-filter-group">
+				<label for="bpid-grid-filter-dependencia"><?php esc_html_e( 'Dependencia:', 'bpid-suite' ); ?></label>
+				<select id="bpid-grid-filter-dependencia" class="bpid-grid-filter-select">
+					<option value=""><?php esc_html_e( 'Todas', 'bpid-suite' ); ?></option>
+					<?php foreach ( $dependencias_unicas as $dep ) : ?>
+						<option value="<?php echo esc_attr( $dep ); ?>"><?php echo esc_html( $dep ); ?></option>
+					<?php endforeach; ?>
+				</select>
+			</div>
 
-			<select id="bpid-grid-filter-ods" class="bpid-grid-filter-select">
-				<option value=""><?php esc_html_e( 'Todos los ODS', 'bpid-suite' ); ?></option>
-				<?php foreach ( $ods_unicos as $ods ) : ?>
-					<option value="<?php echo esc_attr( $ods ); ?>"><?php echo esc_html( $ods ); ?></option>
-				<?php endforeach; ?>
-			</select>
+			<div class="bpid-grid-filter-group">
+				<label for="bpid-grid-filter-ods"><?php esc_html_e( 'ODS:', 'bpid-suite' ); ?></label>
+				<select id="bpid-grid-filter-ods" class="bpid-grid-filter-select">
+					<option value=""><?php esc_html_e( 'Todos', 'bpid-suite' ); ?></option>
+					<?php foreach ( $ods_unicos as $ods ) : ?>
+						<option value="<?php echo esc_attr( $ods ); ?>"><?php echo esc_html( $ods ); ?></option>
+					<?php endforeach; ?>
+				</select>
+			</div>
 
-			<button type="button" id="bpid-grid-clear-filters" class="bpid-grid-btn bpid-grid-btn--clear">
-				<?php esc_html_e( 'Limpiar Filtros', 'bpid-suite' ); ?>
+			<button type="button" id="bpid-grid-clear-filters" class="bpid-grid-btn bpid-grid-btn--clear" title="<?php esc_attr_e( 'Limpiar filtros', 'bpid-suite' ); ?>">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<line x1="18" y1="6" x2="6" y2="18"></line>
+					<line x1="6" y1="6" x2="18" y2="18"></line>
+				</svg>
+				<span><?php esc_html_e( 'Limpiar', 'bpid-suite' ); ?></span>
 			</button>
 		</div>
 	<?php endif; ?>
 
 	<?php if ( is_array( $proyectos ) && count( $proyectos ) > 0 ) : ?>
-	<div class="bpid-grid-controls">
-		<h3><?php esc_html_e( 'Exportar Informes de Gestión', 'bpid-suite' ); ?></h3>
+	<div class="bpid-grid-controls" role="toolbar" aria-label="<?php esc_attr_e( 'Exportar informes', 'bpid-suite' ); ?>">
 		<div class="bpid-grid-export-btns">
-			<button type="button" class="bpid-grid-btn bpid-grid-btn--word" id="bpid-grid-export-word">
-				<?php esc_html_e( 'Exportar a Word', 'bpid-suite' ); ?>
+			<button type="button" class="bpid-grid-export-icon" id="bpid-grid-export-excel" title="<?php esc_attr_e( 'Exportar datos a Excel', 'bpid-suite' ); ?>" aria-label="<?php esc_attr_e( 'Exportar datos a Excel', 'bpid-suite' ); ?>">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+					<line x1="3" y1="9" x2="21" y2="9"></line>
+					<line x1="3" y1="15" x2="21" y2="15"></line>
+					<line x1="9" y1="3" x2="9" y2="21"></line>
+					<line x1="15" y1="3" x2="15" y2="21"></line>
+				</svg>
+				<span><?php esc_html_e( 'Datos', 'bpid-suite' ); ?></span>
 			</button>
-			<button type="button" class="bpid-grid-btn bpid-grid-btn--excel" id="bpid-grid-export-excel">
-				<?php esc_html_e( 'Exportar a Excel', 'bpid-suite' ); ?>
+			<button type="button" class="bpid-grid-export-icon" id="bpid-grid-export-image" title="<?php esc_attr_e( 'Exportar como imagen', 'bpid-suite' ); ?>" aria-label="<?php esc_attr_e( 'Exportar como imagen', 'bpid-suite' ); ?>">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+					<circle cx="8.5" cy="8.5" r="1.5"></circle>
+					<polyline points="21 15 16 10 5 21"></polyline>
+				</svg>
+				<span><?php esc_html_e( 'Imagen', 'bpid-suite' ); ?></span>
+			</button>
+			<button type="button" class="bpid-grid-export-icon" id="bpid-grid-export-word" title="<?php esc_attr_e( 'Descargar informe Word', 'bpid-suite' ); ?>" aria-label="<?php esc_attr_e( 'Descargar informe Word', 'bpid-suite' ); ?>">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+					<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+					<polyline points="7 10 12 15 17 10"></polyline>
+					<line x1="12" y1="15" x2="12" y2="3"></line>
+				</svg>
+				<span><?php esc_html_e( 'Descarga', 'bpid-suite' ); ?></span>
 			</button>
 		</div>
 		<div id="bpid-grid-export-status" class="bpid-grid-export-status" style="display:none;"></div>
@@ -464,11 +500,10 @@ function bpid_get_project_field( array $proyecto, string $field_key, array $fiel
 		<p><?php esc_html_e( 'No se encontraron proyectos que coincidan con los criterios de búsqueda.', 'bpid-suite' ); ?></p>
 	</div>
 
-	<div id="bpid-grid-modal" class="bpid-grid-modal" style="display:none;" data-ocultar-ops="<?php echo esc_attr( $ocultar_ops ? '1' : '0' ); ?>">
-		<div class="bpid-grid-modal-overlay"></div>
-		<div class="bpid-grid-modal-content">
-			<span class="bpid-grid-modal-close" role="button" tabindex="0" aria-label="<?php esc_attr_e( 'Cerrar', 'bpid-suite' ); ?>">&times;</span>
-			<div id="bpid-grid-modal-body" class="bpid-grid-modal-body"></div>
+	<div id="bpid-grid-modal" class="bpid-grid-modal" style="display:none;" data-ocultar-ops="<?php echo esc_attr( $ocultar_ops ? '1' : '0' ); ?>" role="dialog" aria-modal="true">
+		<div class="bpid-modal-content">
+			<button type="button" class="bpid-modal-close" aria-label="<?php esc_attr_e( 'Cerrar', 'bpid-suite' ); ?>">&times;</button>
+			<div id="bpid-grid-modal-body" class="bpid-modal-body"></div>
 		</div>
 	</div>
 
