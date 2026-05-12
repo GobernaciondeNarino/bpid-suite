@@ -84,19 +84,34 @@
     // Belt-and-braces: strip any inline display:none so the .show class can flex it.
     if (modal) modal.style.removeProperty('display');
 
-    // Delegated click on any element with .bpid-grid-card-open (image button or "Ver detalles")
+    // Delegated clicks: card openers + modal accordions.
     document.addEventListener('click', function(e) {
-        var trigger = e.target.closest && e.target.closest('.bpid-grid-card-open');
-        if (!trigger) return;
-        e.preventDefault();
-        var idx = parseInt(trigger.getAttribute('data-index'), 10);
-        if (isNaN(idx)) {
-            var parentCard = trigger.closest('.bpid-grid-card');
-            if (parentCard) idx = parseInt(parentCard.getAttribute('data-index'), 10);
+        if (!e.target.closest) return;
+
+        var opener = e.target.closest('.bpid-grid-card-open');
+        if (opener) {
+            e.preventDefault();
+            var idx = parseInt(opener.getAttribute('data-index'), 10);
+            if (isNaN(idx)) {
+                var card = opener.closest('.bpid-grid-card');
+                if (card) idx = parseInt(card.getAttribute('data-index'), 10);
+            }
+            if (!isNaN(idx)) {
+                try { window.bpidGridOpenModal(idx); }
+                catch (err) { console.error('[BPID Post] open modal failed:', err); cerrarModal(); }
+            }
+            return;
         }
-        if (!isNaN(idx)) {
-            try { window.bpidGridOpenModal(idx); }
-            catch (err) { console.error('[BPID Post] open modal failed:', err); cerrarModal(); }
+
+        var toggle = e.target.closest('.bpid-modal-accordion-toggle');
+        if (toggle) {
+            e.preventDefault();
+            var item = toggle.closest('.bpid-modal-accordion-item');
+            if (item) {
+                item.classList.toggle('is-open');
+                toggle.setAttribute('aria-expanded', item.classList.contains('is-open') ? 'true' : 'false');
+            }
+            return;
         }
     });
 
@@ -168,14 +183,25 @@
 
     function barra(porcentaje) {
         var p = Math.min(Math.max(parseFloat(porcentaje) || 0, 0), 100);
-        return '<div class="bpid-modal-progress-bar"><div class="bpid-modal-progress-fill" style="width:' + p + '%">' + p + '%</div></div>';
+        var bucket = p < 30 ? 'progress-low' : (p < 70 ? 'progress-mid' : 'progress-high');
+        return '<div class="bpid-modal-progress-group">' +
+            '<div class="bpid-modal-progress-label">' +
+                '<span class="label-value">' + p.toFixed(1) + '%</span>' +
+            '</div>' +
+            '<div class="bpid-modal-progress-bar">' +
+                '<div class="bpid-modal-progress-bar-fill ' + bucket + '" style="width:' + p + '%"></div>' +
+            '</div>' +
+        '</div>';
     }
 
     function accordion(title, content) {
         return '<div class="bpid-modal-accordion-item">' +
-            '<div class="bpid-modal-accordion-header" onclick="this.nextElementSibling.classList.toggle(\'active\')">' +
-            '<span>' + title + '</span><span>&#9660;</span></div>' +
-            '<div class="bpid-modal-accordion-content"><div class="bpid-modal-accordion-body">' + content + '</div></div></div>';
+            '<button type="button" class="bpid-modal-accordion-header bpid-modal-accordion-toggle">' +
+                '<span class="bpid-modal-accordion-title">' + title + '</span>' +
+                '<svg class="bpid-modal-accordion-icon" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>' +
+            '</button>' +
+            '<div class="bpid-modal-accordion-body">' + content + '</div>' +
+        '</div>';
     }
 
     function escHtml(str) {
