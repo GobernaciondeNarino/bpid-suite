@@ -115,7 +115,7 @@
     };
 
     // Close modal
-    var closeBtn = document.querySelector('.bpid-grid-modal-close');
+    var closeBtn = modal ? modal.querySelector('.bpid-modal-close, .bpid-grid-modal-close') : null;
     if (closeBtn) {
         closeBtn.addEventListener('click', cerrarModal);
     }
@@ -212,25 +212,57 @@
     }
 
     function buildModalHtml(p, pVal, totalVal, avFisico, avFinanciero, contratosHtml) {
-        // Header
-        var html = '<div class="bpid-modal-header">' +
-            '<h2>' + escHtml(p.nombreProyecto) + '</h2>' +
-            '<span class="bpid-modal-bpin">' + escHtml(p.numeroProyecto) + '</span></div>';
+        var contratos = Array.isArray(p.contratosProyecto) ? p.contratosProyecto : [];
+        var numContratos = contratos.length;
 
-        // Info grid
+        // Unique municipios + total beneficiarios
+        var munSet = {};
+        var beneficiarios = 0;
+        contratos.forEach(function(c) {
+            var muns = c.municipiosEjecContractual || [];
+            if (Array.isArray(muns)) {
+                muns.forEach(function(m) {
+                    var nombre = typeof m === 'object' ? (m.nombre || '') : String(m);
+                    if (nombre) munSet[nombre] = true;
+                    if (typeof m === 'object' && m.poblacion_beneficiada) {
+                        beneficiarios += Number(m.poblacion_beneficiada) || 0;
+                    }
+                });
+            }
+        });
+        var munNames = Object.keys(munSet);
+
+        // Inner header (kept inside body; outer .bpid-modal-close lives in the template).
+        var html = '<div class="bpid-modal-inner-header">' +
+            '<span class="bpid-modal-bpin">BPIN ' + escHtml(p.numeroProyecto || '—') + '</span>' +
+            '<h2 class="bpid-modal-title">' + escHtml(p.nombreProyecto || 'Sin nombre') + '</h2>' +
+        '</div>';
+
+        // Info grid (6 items for richer summary)
         html += '<div class="bpid-modal-info-grid">' +
             '<div class="bpid-modal-info-item"><span class="bpid-modal-info-label">Valor del proyecto</span><span class="bpid-modal-info-value">' + formatCOP(pVal) + '</span></div>' +
-            '<div class="bpid-modal-info-item"><span class="bpid-modal-info-label">Dependencia</span><span class="bpid-modal-info-value">' + escHtml(p.dependenciaProyecto) + '</span></div>' +
+            '<div class="bpid-modal-info-item"><span class="bpid-modal-info-label">Dependencia</span><span class="bpid-modal-info-value">' + escHtml(p.dependenciaProyecto || '—') + '</span></div>' +
+            '<div class="bpid-modal-info-item"><span class="bpid-modal-info-label">Contratos</span><span class="bpid-modal-info-value">' + Number(numContratos).toLocaleString('es-CO') + '</span></div>' +
+            '<div class="bpid-modal-info-item"><span class="bpid-modal-info-label">Municipios</span><span class="bpid-modal-info-value">' + (munNames.length ? Number(munNames.length).toLocaleString('es-CO') : '0') + '</span></div>' +
             '<div class="bpid-modal-info-item"><span class="bpid-modal-info-label">Avance fisico</span>' + barra(avFisico) + '</div>' +
-            '<div class="bpid-modal-info-item"><span class="bpid-modal-info-label">Ejecucion financiera</span>' + barra(avFinanciero) + '</div></div>';
+            '<div class="bpid-modal-info-item"><span class="bpid-modal-info-label">Ejecucion financiera</span>' + barra(avFinanciero) + '</div>' +
+        '</div>';
+
+        // Beneficiarios line if any
+        if (beneficiarios > 0) {
+            html += '<p class="bpid-modal-description"><strong>Beneficiarios:</strong> ' +
+                Number(beneficiarios).toLocaleString('es-CO') + '</p>';
+        }
 
         // Accordions — configurable
         if (showMetas) {
             var metasContent = '<p>Sin metas registradas</p>';
             if (Array.isArray(p.metasProyecto) && p.metasProyecto.length) {
-                metasContent = '<ul>' + p.metasProyecto.map(function(m) { return '<li>' + escHtml(m) + '</li>'; }).join('') + '</ul>';
+                metasContent = '<ul>' + p.metasProyecto.map(function(m) {
+                    return '<li>' + escHtml(typeof m === 'string' ? m : JSON.stringify(m)) + '</li>';
+                }).join('') + '</ul>';
             }
-            html += accordion('Metas del proyecto', metasContent);
+            html += accordion('Metas del proyecto (' + (Array.isArray(p.metasProyecto) ? p.metasProyecto.length : 0) + ')', metasContent);
         }
 
         if (showOds) {
@@ -241,9 +273,15 @@
             html += accordion('ODS relacionados', odsContent);
         }
 
+        if (munNames.length) {
+            var munsListHtml = '<ul class="bpid-modal-mun-list">' + munNames.map(function(n) {
+                return '<li>' + escHtml(n) + '</li>';
+            }).join('') + '</ul>';
+            html += accordion('Municipios (' + munNames.length + ')', munsListHtml);
+        }
+
         if (showContratos) {
             var contContent = contratosHtml || '<p>Sin contratos registrados</p>';
-            var numContratos = (p.contratosProyecto || []).length;
             html += accordion('Contratos (' + numContratos + ')', contContent);
         }
 
@@ -251,21 +289,22 @@
     }
 
     // ── Export ──
+    function setStatus(message, cls) {
+        var status = document.getElementById('bpid-grid-export-status');
+        if (!status) return;
+        status.style.display = 'block';
+        status.textContent = message;
+        status.className = 'bpid-grid-export-status ' + (cls || '');
+        if (cls === 'success' || cls === 'error') {
+            setTimeout(function() { status.style.display = 'none'; }, 5000);
+        }
+    }
+
     function bpidExport(format) {
         var depSelect = document.getElementById('bpid-grid-filter-dependencia');
         var dep = depSelect ? depSelect.value : '';
 
-        if (!dep) {
-            alert('Seleccione una dependencia primero');
-            return;
-        }
-
-        var status = document.getElementById('bpid-grid-export-status');
-        if (status) {
-            status.style.display = 'block';
-            status.textContent = 'Generando documento...';
-            status.className = 'bpid-grid-export-status loading';
-        }
+        setStatus('Generando documento...', 'loading');
 
         var formData = new FormData();
         formData.append('action', format === 'word' ? 'bpid_suite_export_word' : 'bpid_suite_export_excel');
@@ -278,7 +317,7 @@
             body: formData
         })
         .then(function(response) {
-            if (!response.ok) throw new Error('Error HTTP ' + response.status);
+            if (!response.ok) throw new Error('HTTP ' + response.status);
             return response.blob();
         })
         .then(function(blob) {
@@ -286,28 +325,83 @@
             var a = document.createElement('a');
             a.href = url;
             var ext = format === 'word' ? 'doc' : 'xls';
-            a.download = 'Informe_' + dep.replace(/ /g, '_') + '_' + new Date().toISOString().split('T')[0] + '.' + ext;
+            var slug = (dep || 'general').replace(/[^a-zA-Z0-9_-]+/g, '_');
+            a.download = 'Informe_' + slug + '_' + new Date().toISOString().split('T')[0] + '.' + ext;
             document.body.appendChild(a);
             a.click();
             window.URL.revokeObjectURL(url);
             a.remove();
-            if (status) {
-                status.textContent = 'Documento generado exitosamente';
-                status.className = 'bpid-grid-export-status success';
-                setTimeout(function() { status.style.display = 'none'; }, 5000);
-            }
+            setStatus('Documento generado exitosamente', 'success');
         })
         .catch(function(error) {
-            if (status) {
-                status.textContent = 'Error: ' + error.message;
-                status.className = 'bpid-grid-export-status error';
-            }
+            setStatus('Error: ' + error.message, 'error');
         });
     }
 
-    var wordBtn = document.getElementById('bpid-grid-export-word');
+    function loadHtml2Canvas() {
+        return new Promise(function(resolve, reject) {
+            if (typeof window.html2canvas === 'function') {
+                resolve(window.html2canvas);
+                return;
+            }
+            var s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js';
+            s.async = true;
+            s.onload = function() {
+                if (typeof window.html2canvas === 'function') {
+                    resolve(window.html2canvas);
+                } else {
+                    reject(new Error('html2canvas no disponible'));
+                }
+            };
+            s.onerror = function() { reject(new Error('No se pudo cargar la libreria de captura')); };
+            document.head.appendChild(s);
+        });
+    }
+
+    function bpidExportImage() {
+        var grid = document.querySelector('.bpid-grid-container');
+        if (!grid) {
+            setStatus('No se encontro el contenedor para capturar', 'error');
+            return;
+        }
+        setStatus('Generando imagen...', 'loading');
+        loadHtml2Canvas().then(function(h2c) {
+            return h2c(grid, {
+                backgroundColor: window.getComputedStyle(grid).backgroundColor || '#ffffff',
+                scale: window.devicePixelRatio > 1 ? 2 : 1,
+                useCORS: true,
+                logging: false,
+                ignoreElements: function(el) {
+                    return el.classList && el.classList.contains('bpid-grid-export-btns');
+                }
+            });
+        }).then(function(canvas) {
+            canvas.toBlob(function(blob) {
+                if (!blob) {
+                    setStatus('No se pudo generar la imagen', 'error');
+                    return;
+                }
+                var url = window.URL.createObjectURL(blob);
+                var a = document.createElement('a');
+                a.href = url;
+                a.download = 'Informe_' + new Date().toISOString().split('T')[0] + '.png';
+                document.body.appendChild(a);
+                a.click();
+                window.URL.revokeObjectURL(url);
+                a.remove();
+                setStatus('Imagen generada exitosamente', 'success');
+            }, 'image/png');
+        }).catch(function(err) {
+            setStatus('Error: ' + (err && err.message ? err.message : err), 'error');
+        });
+    }
+
+    var wordBtn  = document.getElementById('bpid-grid-export-word');
     var excelBtn = document.getElementById('bpid-grid-export-excel');
-    if (wordBtn) wordBtn.addEventListener('click', function() { bpidExport('word'); });
+    var imgBtn   = document.getElementById('bpid-grid-export-image');
+    if (wordBtn)  wordBtn.addEventListener('click',  function() { bpidExport('word'); });
     if (excelBtn) excelBtn.addEventListener('click', function() { bpidExport('excel'); });
+    if (imgBtn)   imgBtn.addEventListener('click',   bpidExportImage);
 
 })();

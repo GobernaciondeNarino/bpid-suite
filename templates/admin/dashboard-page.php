@@ -164,8 +164,8 @@ global $wpdb;
                         <?php echo esc_html__('Crear Gráfico', 'bpid-suite'); ?>
                     </a>
                     <a href="<?php echo esc_url(admin_url('edit.php?post_type=bpid_post')); ?>" class="bpid-quick-action">
-                        <span class="dashicons dashicons-visibility"></span>
-                        <?php echo esc_html__('Crear Visualización', 'bpid-suite'); ?>
+                        <span class="dashicons dashicons-id-alt"></span>
+                        <?php echo esc_html__('Crear Post Card', 'bpid-suite'); ?>
                     </a>
                     <a href="<?php echo esc_url(admin_url('admin.php?page=bpid-suite-logs')); ?>" class="bpid-quick-action">
                         <span class="dashicons dashicons-media-text"></span>

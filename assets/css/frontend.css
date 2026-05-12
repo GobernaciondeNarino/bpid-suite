@@ -622,17 +622,29 @@
    Post Module — Search Input
    ---------------------------------------- */
 .bpid-grid-search {
-    margin-bottom: 20px;
+    position: relative;
+    max-width: 960px;
+    margin: 0 auto 18px;
+}
+
+.bpid-grid-search-icon {
+    position: absolute;
+    left: 18px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--bpid-color-text-muted, #94a3b8);
+    pointer-events: none;
 }
 
 .bpid-grid-search-input {
     width: 100%;
-    padding: 12px 16px;
-    border: 2px solid var(--bpid-color-border);
-    border-radius: var(--bpid-radius);
-    font-size: 14px;
+    padding: 14px 18px 14px 48px;
+    border: 2px solid var(--bpid-color-primario, #348afb);
+    border-radius: 10px;
+    font-size: 15px;
     color: var(--bpid-color-text);
     background: #fff;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
     transition: border-color var(--bpid-transition), box-shadow var(--bpid-transition);
     box-sizing: border-box;
 }
@@ -640,7 +652,12 @@
 .bpid-grid-search-input:focus {
     outline: none;
     border-color: var(--bpid-color-primario);
-    box-shadow: 0 0 0 3px rgba(52, 138, 251, 0.15);
+    box-shadow: 0 0 0 4px rgba(52, 138, 251, 0.18);
+}
+
+.bpid-grid-search-input::placeholder {
+    color: #94a3b8;
+    font-weight: 400;
 }
 
 .bpid-grid-intro {
@@ -738,14 +755,19 @@
 }
 
 .bpid-grid-btn--clear {
-    padding: 8px 16px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 9px 14px;
     background: transparent;
     color: var(--bpid-color-text-muted);
     border: 1px solid var(--bpid-color-border);
-    border-radius: 6px;
+    border-radius: 4px;
     font-size: 13px;
+    font-weight: 500;
     cursor: pointer;
     transition: all var(--bpid-transition);
+    align-self: flex-end;
 }
 
 .bpid-grid-btn--clear:hover {
@@ -833,26 +855,41 @@
 .bpid-grid-filters {
     display: flex;
     flex-wrap: wrap;
-    gap: 12px;
-    align-items: center;
-    background: var(--bpid-color-surface);
-    border: 1px solid var(--bpid-color-border);
-    border-radius: var(--bpid-radius);
-    padding: 16px 20px;
+    gap: 20px 24px;
+    align-items: flex-end;
+    background: transparent;
+    border: none;
+    padding: 8px 4px 20px;
     margin-bottom: 24px;
-    box-shadow: var(--bpid-shadow-sm);
+    box-shadow: none;
+}
+
+.bpid-grid-filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1 1 200px;
+    min-width: 180px;
+}
+
+.bpid-grid-filter-group label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--bpid-color-text, #1e293b);
+    letter-spacing: 0.01em;
 }
 
 .bpid-grid-filters select,
 .bpid-grid-filters input[type="search"] {
-    padding: 8px 12px;
+    width: 100%;
+    padding: 9px 12px;
     font-size: 14px;
-    border: 1px solid var(--bpid-color-border);
-    border-radius: 6px;
+    border: 1px solid var(--bpid-color-border, #cbd5e1);
+    border-radius: 4px;
     background: #fff;
     color: var(--bpid-color-text);
-    min-width: 160px;
     transition: border-color var(--bpid-transition);
+    box-sizing: border-box;
 }
 
 .bpid-grid-filters select:focus,
@@ -1034,6 +1071,43 @@
     justify-content: center;
     padding: 20px;
     animation: bpid-fade-in 0.2s ease;
+    box-sizing: border-box;
+}
+
+.bpid-modal-inner-header {
+    padding-bottom: 16px;
+    margin-bottom: 20px;
+    border-bottom: 1px solid var(--bpid-color-border, #e2e8f0);
+}
+
+.bpid-modal-inner-header .bpid-modal-title {
+    margin: 6px 0 0;
+    font-size: 22px;
+    line-height: 1.3;
+    color: var(--bpid-color-text, #0f172a);
+}
+
+.bpid-modal-content {
+    position: relative;
+}
+
+.bpid-modal-content > .bpid-modal-close {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    z-index: 2;
+}
+
+.bpid-modal-mun-list {
+    margin: 0;
+    padding-left: 18px;
+    columns: 2;
+    column-gap: 24px;
+}
+
+.bpid-modal-mun-list li {
+    margin-bottom: 4px;
+    break-inside: avoid;
 }
 
 .bpid-grid-modal.is-open,
@@ -1672,67 +1746,68 @@
 }
 
 /* ----------------------------------------
-   Export Controls
+   Export Controls — Minimalist Icon Buttons
    ---------------------------------------- */
 .bpid-grid-controls {
-    background: #fff;
-    border: 2px solid var(--bpid-color-primario, #348afb);
-    padding: 20px 25px;
-    border-radius: 12px;
-    margin-bottom: 20px;
-}
-
-.bpid-grid-controls h3 {
-    margin: 0 0 15px;
-    color: #334155;
-    font-size: 16px;
+    background: transparent;
+    border: none;
+    padding: 0;
+    margin-bottom: 16px;
 }
 
 .bpid-grid-export-btns {
-    display: flex;
-    gap: 15px;
+    display: inline-flex;
     flex-wrap: wrap;
-}
-
-.bpid-grid-btn--word {
-    background: #2b579a;
-    color: #fff;
-    border: none;
-    padding: 12px 24px;
+    gap: 4px;
+    background: #fff;
+    border: 1px solid var(--bpid-color-border, #e2e8f0);
     border-radius: 8px;
-    font-size: 15px;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.3s;
+    padding: 4px;
+    box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
 }
 
-.bpid-grid-btn--word:hover {
-    background: #1e3a6b;
-    transform: translateY(-2px);
-}
-
-.bpid-grid-btn--excel {
-    background: #217346;
-    color: #fff;
+.bpid-grid-export-icon {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: transparent;
     border: none;
-    padding: 12px 24px;
-    border-radius: 8px;
-    font-size: 15px;
-    font-weight: 600;
+    color: var(--bpid-color-text, #334155);
+    padding: 8px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 6px;
     cursor: pointer;
-    transition: all 0.3s;
+    transition: background 0.15s ease, color 0.15s ease;
+    line-height: 1;
 }
 
-.bpid-grid-btn--excel:hover {
-    background: #185c37;
-    transform: translateY(-2px);
+.bpid-grid-export-icon svg {
+    flex-shrink: 0;
+    stroke: currentColor;
+}
+
+.bpid-grid-export-icon:hover {
+    background: #f1f5f9;
+    color: var(--bpid-color-primario, #348afb);
+}
+
+.bpid-grid-export-icon:focus-visible {
+    outline: 2px solid var(--bpid-color-primario, #348afb);
+    outline-offset: 2px;
+}
+
+.bpid-grid-export-icon[disabled],
+.bpid-grid-export-icon.is-loading {
+    opacity: 0.6;
+    cursor: progress;
 }
 
 .bpid-grid-export-status {
-    margin-top: 12px;
-    padding: 10px 15px;
+    margin-top: 10px;
+    padding: 8px 12px;
     border-radius: 6px;
-    font-size: 14px;
+    font-size: 13px;
 }
 
 .bpid-grid-export-status.loading {

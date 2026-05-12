@@ -347,7 +347,7 @@ $aggregation_options = [
     <div class="bpid-chart-shortcode-bar">
         <span class="dashicons dashicons-shortcode"></span>
         <strong><?php esc_html_e('Shortcode:', 'bpid-suite'); ?></strong>
-        <code id="bpid-postgrid-shortcode">[bpid_grid_visualizador id="<?php echo esc_attr((string) $post->ID); ?>"]</code>
+        <code id="bpid-postgrid-shortcode">[bpid_post_card id="<?php echo esc_attr((string) $post->ID); ?>"]</code>
         <button type="button" class="button button-small bpid-copy-shortcode" data-target="bpid-postgrid-shortcode">
             <?php esc_html_e('Copiar', 'bpid-suite'); ?>
         </button>
