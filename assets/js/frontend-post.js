@@ -120,6 +120,56 @@
     var showOds       = gridConfig.accordionShowOds !== false && gridConfig.accordionShowOds !== 0;
     var showContratos = gridConfig.accordionShowContratos !== false && gridConfig.accordionShowContratos !== 0;
     var contratoFields = Array.isArray(gridConfig.accordionContratoFields) ? gridConfig.accordionContratoFields : [];
+    var fieldMap = gridConfig.fieldMap || {};
+    var currencyFields = Array.isArray(gridConfig.currencyFields) ? gridConfig.currencyFields : [];
+    var percentFields  = Array.isArray(gridConfig.percentFields)  ? gridConfig.percentFields  : [];
+
+    function resolveField(source, fallback, fieldKey) {
+        var apiKey = fieldMap[fieldKey] || fieldKey;
+        var v = source ? source[apiKey] : undefined;
+        if ((v === undefined || v === null || v === '') && fallback) {
+            v = fallback[apiKey];
+        }
+        // Also try the raw key (in case caller used the API key directly).
+        if ((v === undefined || v === null || v === '') && source && source[fieldKey] !== undefined) {
+            v = source[fieldKey];
+        }
+        if ((v === undefined || v === null || v === '') && fallback && fallback[fieldKey] !== undefined) {
+            v = fallback[fieldKey];
+        }
+        return v;
+    }
+
+    function formatFieldValue(fieldKey, value) {
+        if (value === undefined || value === null || value === '') return '—';
+        var apiKey = fieldMap[fieldKey] || fieldKey;
+        // Arrays → bullet list (metas, odss, municipios).
+        if (Array.isArray(value)) {
+            if (!value.length) return '—';
+            var items = value.map(function(v) {
+                if (v && typeof v === 'object') {
+                    if (v.nombre) return escHtml(v.nombre);
+                    return escHtml(JSON.stringify(v));
+                }
+                return escHtml(String(v));
+            });
+            return '<ul class="bpid-modal-inline-list"><li>' + items.join('</li><li>') + '</li></ul>';
+        }
+        if (typeof value === 'object') {
+            return escHtml(JSON.stringify(value));
+        }
+        // Currency.
+        if (currencyFields.indexOf(fieldKey) >= 0 || currencyFields.indexOf(apiKey) >= 0) {
+            var num = parseFloat(value);
+            if (!isNaN(num)) return escHtml(formatCOP(num));
+        }
+        // Percent.
+        if (percentFields.indexOf(fieldKey) >= 0 || percentFields.indexOf(apiKey) >= 0) {
+            var pct = parseFloat(value);
+            if (!isNaN(pct)) return escHtml(pct.toFixed(1) + '%');
+        }
+        return escHtml(String(value));
+    }
 
     window.bpidGridOpenModal = function (idx) {
         var p = proyectosData[idx];
@@ -135,7 +185,7 @@
 
                 var esOps = (c.esOpsEjecContractual || '').toLowerCase().trim();
                 if (!ocultarOps || (esOps !== 'si' && esOps !== 'si\u0301')) {
-                    contratosHtml += renderContrato(c, val, av);
+                    contratosHtml += renderContrato(c, val, av, p);
                 }
             });
 
@@ -210,30 +260,39 @@
         return div.innerHTML;
     }
 
-    function renderContrato(c, val, av) {
+    function humanize(key) {
+        if (!key) return '';
+        return key.replace(/_/g, ' ').replace(/\b\w/g, function(c) { return c.toUpperCase(); });
+    }
+
+    function renderContrato(c, val, av, parentProyecto) {
         var html = '<div class="bpid-modal-contrato">';
 
-        // If custom contrato fields are configured, use them.
+        html += '<div class="bpid-modal-contrato-header">' +
+            '<strong>' + escHtml(c.numeroContrato || '—') + '</strong>' +
+            '<span class="bpid-modal-contrato-valor">' + formatCOP(val) + '</span></div>';
+
+        // If custom contrato fields are configured, render them via fieldMap with
+        // fallback to the parent project (so picking "nombre_proyecto" works).
         if (contratoFields.length > 0) {
-            html += '<div class="bpid-modal-contrato-header">';
-            html += '<strong>' + escHtml(c.numeroContrato) + '</strong>';
-            html += '<span class="bpid-modal-contrato-valor">' + formatCOP(val) + '</span></div>';
             contratoFields.forEach(function(cf) {
                 var fieldKey = cf.field || '';
-                var label = cf.label || fieldKey;
-                var value = c[fieldKey] || '';
-                if (typeof value === 'object') value = JSON.stringify(value);
-                html += '<p><strong>' + escHtml(label) + ':</strong> ' + escHtml(String(value)) + '</p>';
+                if (!fieldKey) return;
+                var label = cf.label || humanize(fieldKey);
+                var rawValue = resolveField(c, parentProyecto, fieldKey);
+                html += '<p class="bpid-modal-contrato-field">' +
+                    '<strong>' + escHtml(label) + ':</strong> ' +
+                    '<span>' + formatFieldValue(fieldKey, rawValue) + '</span>' +
+                '</p>';
             });
-            html += '<div class="bpid-modal-contrato-avance"><span>Avance fisico:</span>' + barra(av) + '</div>';
         } else {
-            // Default contrato rendering.
-            html += '<div class="bpid-modal-contrato-header">' +
-                '<strong>' + escHtml(c.numeroContrato) + '</strong>' +
-                '<span class="bpid-modal-contrato-valor">' + formatCOP(val) + '</span></div>' +
-                '<p>' + escHtml(c.objetoContrato) + '</p>' +
-                '<div class="bpid-modal-contrato-avance"><span>Avance fisico:</span>' + barra(av) + '</div>';
+            // Default rendering: object + description if present.
+            if (c.objetoContrato) {
+                html += '<p>' + escHtml(c.objetoContrato) + '</p>';
+            }
         }
+
+        html += '<div class="bpid-modal-contrato-avance"><span class="label-text">Avance fisico:</span>' + barra(av) + '</div>';
 
         // Municipios
         var munsHtml = '';
