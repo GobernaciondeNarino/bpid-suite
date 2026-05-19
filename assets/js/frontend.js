@@ -1,5 +1,5 @@
 /**
- * BPID Suite — Frontend Chart Manager v3.2.0
+ * BPID Suite — Frontend Chart Manager v3.3.0
  * Gobernacion de Narino
  *
  * Rendering engine: d3plus v3 (@d3plus/core)
@@ -175,6 +175,9 @@
     function buildTooltipConfig(config, opts) {
         var fmt = NumberFormatter.byFormat(config.number_format || 'es-CO');
         var customText = config.tooltip_text || '';
+        var tooltipCols = config.tooltip_columns && config.tooltip_columns.length
+            ? config.tooltip_columns
+            : null;
 
         return {
             background: '#ffffff',
@@ -190,14 +193,19 @@
                 if (opts.bodyFn) {
                     lines.push(opts.bodyFn(d, fmt));
                 } else if (opts.isMulti) {
-                    lines.push('<strong>' + escapeHtml(opts.axisX) + ':</strong> ' + escapeHtml(String(d[opts.axisX] || '')));
-                    lines.push('<strong>' + escapeHtml(String(d._measure || '')) + ':</strong> ' + fmt(d._value));
+                    if (!tooltipCols || tooltipCols.indexOf(opts.axisX) !== -1) {
+                        lines.push('<strong>' + escapeHtml(opts.axisX) + ':</strong> ' + escapeHtml(String(d[opts.axisX] || '')));
+                    }
+                    if (!tooltipCols || tooltipCols.indexOf(String(d._measure || '')) !== -1) {
+                        lines.push('<strong>' + escapeHtml(String(d._measure || '')) + ':</strong> ' + fmt(d._value));
+                    }
                 } else {
-                    var yColumns = opts.yColumns || [];
-                    for (var i = 0; i < yColumns.length; i++) {
-                        var val = d[yColumns[i]];
+                    var cols = tooltipCols || opts.yColumns || [];
+                    for (var i = 0; i < cols.length; i++) {
+                        var val = d[cols[i]];
                         if (val != null) {
-                            lines.push('<strong>' + escapeHtml(yColumns[i]) + ':</strong> ' + fmt(val));
+                            var isNum = typeof val === 'number' || (typeof val === 'string' && val !== '' && !isNaN(Number(val)));
+                            lines.push('<strong>' + escapeHtml(cols[i]) + ':</strong> ' + (isNum ? fmt(Number(val)) : escapeHtml(String(val))));
                         }
                     }
                 }

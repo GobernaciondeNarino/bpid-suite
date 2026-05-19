@@ -6,7 +6,7 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * BPID Suite Visualizer v3.2
+ * BPID Suite Visualizer v3.3
  *
  * Manages the 'bpid_chart' Custom Post Type for chart configurations
  * and renders d3plus-based visualizations via shortcode.
@@ -626,6 +626,12 @@ final class BPID_Suite_Visualizer {
         $tooltip_text = sanitize_text_field(wp_unslash($_POST['chart_tooltip_text'] ?? ''));
         update_post_meta($post_id, '_chart_tooltip_text', $tooltip_text);
 
+        $raw_tooltip_cols = $_POST['chart_tooltip_columns'] ?? [];
+        $tooltip_columns = is_array($raw_tooltip_cols)
+            ? array_map('sanitize_text_field', array_map('wp_unslash', $raw_tooltip_cols))
+            : [];
+        update_post_meta($post_id, '_chart_tooltip_columns', array_values(array_filter($tooltip_columns)));
+
         // Booleans
         $bool_fields = [
             'chart_show_legend', 'chart_show_timeline',
@@ -846,6 +852,7 @@ final class BPID_Suite_Visualizer {
                     'query_orderby'    => get_post_meta($post_id, '_chart_query_orderby', true) ?: '',
                     'query_order'      => get_post_meta($post_id, '_chart_query_order', true) ?: 'DESC',
                     'tooltip_text'     => get_post_meta($post_id, '_chart_tooltip_text', true) ?: '',
+                    'tooltip_columns'  => $this->get_tooltip_columns($post_id),
                 ];
             }
         }
@@ -896,7 +903,13 @@ final class BPID_Suite_Visualizer {
             'query_orderby'    => get_post_meta($post_id, '_chart_query_orderby', true) ?: '',
             'query_order'      => get_post_meta($post_id, '_chart_query_order', true) ?: 'ASC',
             'tooltip_text'     => get_post_meta($post_id, '_chart_tooltip_text', true) ?: '',
+            'tooltip_columns'  => $this->get_tooltip_columns($post_id),
         ];
+    }
+
+    private function get_tooltip_columns(int $post_id): array {
+        $cols = get_post_meta($post_id, '_chart_tooltip_columns', true);
+        return is_array($cols) ? array_values(array_filter($cols)) : [];
     }
 
     /* =========================================================================

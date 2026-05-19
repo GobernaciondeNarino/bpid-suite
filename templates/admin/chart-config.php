@@ -47,10 +47,15 @@ $chart_query_limit      = get_post_meta( $post->ID, '_chart_query_limit', true )
 $chart_query_orderby    = get_post_meta( $post->ID, '_chart_query_orderby', true );
 $chart_query_order      = get_post_meta( $post->ID, '_chart_query_order', true ) ?: 'ASC';
 $chart_tooltip_text     = get_post_meta( $post->ID, '_chart_tooltip_text', true );
+$chart_tooltip_columns  = get_post_meta( $post->ID, '_chart_tooltip_columns', true );
 $chart_value_scale      = get_post_meta( $post->ID, '_chart_value_scale', true ) ?: 'full';
 
 if ( ! is_array( $chart_adv_filters ) ) {
 	$chart_adv_filters = array();
+}
+
+if ( ! is_array( $chart_tooltip_columns ) ) {
+	$chart_tooltip_columns = array();
 }
 
 // Ensure arrays.
@@ -539,6 +544,17 @@ $value_scales = array(
 				</div>
 			</div>
 
+			<!-- Tooltip Configuration -->
+			<div class="bpid-chart-form-group" style="margin-top:16px;">
+				<label><?php esc_html_e( 'Campos del Tooltip', 'bpid-suite' ); ?></label>
+				<div id="bpid-tooltip-columns" class="bpid-tooltip-columns-wrap">
+					<p class="bpid-chart-help" style="margin:0 0 6px;"><?php esc_html_e( 'Seleccione qué campos se muestran en el tooltip al pasar el cursor. Si no selecciona ninguno, se mostrarán todos.', 'bpid-suite' ); ?></p>
+					<div id="bpid-tooltip-columns-list" class="bpid-tooltip-columns-list">
+						<em class="bpid-muted"><?php esc_html_e( 'Seleccione una fuente de datos para ver las columnas disponibles.', 'bpid-suite' ); ?></em>
+					</div>
+				</div>
+			</div>
+
 			<!-- Tooltip Custom Text -->
 			<div class="bpid-chart-form-group" style="margin-top:16px;">
 				<label for="chart_tooltip_text"><?php esc_html_e( 'Texto personalizado del Tooltip', 'bpid-suite' ); ?></label>
@@ -685,6 +701,7 @@ $value_scales = array(
 	var bpidChartSavedYColors  = <?php echo wp_json_encode( $chart_y_colors ); ?>;
 	var bpidChartSavedAxisX    = <?php echo wp_json_encode( $chart_axis_x ); ?>;
 	var bpidChartSavedTable    = <?php echo wp_json_encode( $chart_data_table ); ?>;
-	var bpidChartSavedDataMode = <?php echo wp_json_encode( $chart_data_mode ); ?>;
-	var bpidChartSavedView     = <?php echo wp_json_encode( $chart_view ); ?>;
+	var bpidChartSavedDataMode       = <?php echo wp_json_encode( $chart_data_mode ); ?>;
+	var bpidChartSavedView           = <?php echo wp_json_encode( $chart_view ); ?>;
+	var bpidChartSavedTooltipColumns = <?php echo wp_json_encode( $chart_tooltip_columns ); ?>;
 </script>

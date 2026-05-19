@@ -236,6 +236,8 @@
             if (yRowCounter === 0) {
                 restoreSavedYRows();
             }
+
+            refreshTooltipColumns();
         });
     }
 
@@ -846,6 +848,8 @@
                 var filterSection = qs('#filters-section');
                 if (groupSection) groupSection.style.display = mode === 'manual' ? '' : 'none';
                 if (filterSection) filterSection.style.display = mode === 'manual' ? '' : 'none';
+
+                refreshTooltipColumns();
             });
         });
 
@@ -920,11 +924,13 @@
             if (savedView) {
                 viewSelect.value = savedView;
                 updateViewDescription(savedView);
+                refreshTooltipColumns();
             }
         });
 
         viewSelect.addEventListener('change', function() {
             updateViewDescription(viewSelect.value);
+            refreshTooltipColumns();
         });
     }
 
@@ -1032,6 +1038,80 @@
     // -------------------------------------------------------------------------
     // Initialization
     // -------------------------------------------------------------------------
+
+    // -------------------------------------------------------------------------
+    // 12. Tooltip Column Selector
+    // -------------------------------------------------------------------------
+
+    function updateTooltipColumns(columns) {
+        var container = qs('#bpid-tooltip-columns-list');
+        if (!container) return;
+
+        if (!columns || !columns.length) {
+            container.innerHTML = '<em class="bpid-muted">Seleccione una fuente de datos para ver las columnas disponibles.</em>';
+            return;
+        }
+
+        var saved = (typeof bpidChartSavedTooltipColumns !== 'undefined' && Array.isArray(bpidChartSavedTooltipColumns))
+            ? bpidChartSavedTooltipColumns
+            : [];
+
+        var html = '';
+        columns.forEach(function(col) {
+            var checked = saved.indexOf(col) !== -1 ? ' checked' : '';
+            html += '<label class="bpid-tooltip-col-label">'
+                + '<input type="checkbox" name="chart_tooltip_columns[]" value="' + escHtml(col) + '"' + checked + '/> '
+                + escHtml(col)
+                + '</label>';
+        });
+
+        container.innerHTML = html;
+    }
+
+    function escHtml(s) {
+        var d = document.createElement('div');
+        d.textContent = s;
+        return d.innerHTML;
+    }
+
+    function getTooltipColumnsFromView(viewKey) {
+        if (!viewsCache || !viewKey || !viewsCache[viewKey]) return [];
+        var v = viewsCache[viewKey];
+        var cols = [];
+        if (v.columns) {
+            Object.keys(v.columns).forEach(function(k) {
+                cols.push(k);
+            });
+        }
+        return cols;
+    }
+
+    function getTooltipColumnsFromManual() {
+        var cols = [];
+        var xSel = qs('#chart_axis_x');
+        if (xSel && xSel.value) {
+            var xText = xSel.options[xSel.selectedIndex] ? xSel.options[xSel.selectedIndex].textContent.trim() : xSel.value;
+            cols.push(xSel.value);
+        }
+        qsa('.y-column-select').forEach(function(sel) {
+            if (sel.value && cols.indexOf(sel.value) === -1) {
+                cols.push(sel.value);
+            }
+        });
+        return cols;
+    }
+
+    function refreshTooltipColumns() {
+        var mode = qs('#chart_data_mode');
+        if (!mode) return;
+
+        if (mode.value === 'view') {
+            var viewSel = qs('#chart_view');
+            updateTooltipColumns(getTooltipColumnsFromView(viewSel ? viewSel.value : ''));
+        } else {
+            updateTooltipColumns(getTooltipColumnsFromManual());
+        }
+    }
 
     document.addEventListener('DOMContentLoaded', function() {
         if (!qs('.bpid-chart-config')) return;

@@ -1890,6 +1890,46 @@
     * { transition: none !important; animation: none !important; }
 }
 
+/* Tooltip Column Selector */
+.bpid-tooltip-columns-wrap {
+    border: 1px solid var(--bpid-gray-200, #e5e7eb);
+    border-radius: 6px;
+    padding: 10px 12px;
+    background: var(--bpid-gray-50, #fafbfc);
+}
+.bpid-tooltip-columns-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 14px;
+}
+.bpid-tooltip-col-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 13px;
+    padding: 3px 8px;
+    border-radius: 4px;
+    background: #fff;
+    border: 1px solid var(--bpid-gray-200, #e5e7eb);
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    white-space: nowrap;
+}
+.bpid-tooltip-col-label:hover {
+    border-color: var(--bpid-primary-light, #2980b9);
+    background: rgba(26, 82, 118, 0.04);
+}
+.bpid-tooltip-col-label input[type="checkbox"] {
+    margin: 0;
+}
+.bpid-tooltip-col-label input[type="checkbox"]:checked + * {
+    font-weight: 600;
+}
+.bpid-muted {
+    color: #999;
+    font-size: 13px;
+}
+
 .bpid-admin-wrap button:focus,
 .bpid-admin-wrap a:focus,
 .bpid-admin-wrap input:focus,
