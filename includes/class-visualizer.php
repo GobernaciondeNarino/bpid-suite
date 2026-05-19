@@ -6,7 +6,7 @@ if (!defined('ABSPATH')) {
 }
 
 /**
- * BPID Suite Visualizer v3.1
+ * BPID Suite Visualizer v3.2
  *
  * Manages the 'bpid_chart' Custom Post Type for chart configurations
  * and renders d3plus-based visualizations via shortcode.
@@ -161,6 +161,53 @@ final class BPID_Suite_Visualizer {
                 'y_cols'  => ['Valor Contratos'],
             ],
 
+            // ── Vistas de Población Beneficiada ──
+            'beneficiarios_dependencia' => [
+                'label'   => 'Beneficiarios por Dependencia',
+                'group'   => 'simple',
+                'desc'    => 'Total de población beneficiada agrupada por dependencia.',
+                'sql'     => "SELECT c.dependencia AS Dependencia, SUM(c.beneficiarios) AS `Poblacion Beneficiada`, COUNT(DISTINCT c.numero_proyecto) AS Proyectos FROM `$t` AS c WHERE c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY c.dependencia ORDER BY `Poblacion Beneficiada` DESC",
+                'columns' => ['Dependencia' => 'text', 'Poblacion Beneficiada' => 'number', 'Proyectos' => 'number'],
+                'axis_x'  => 'Dependencia',
+                'y_cols'  => ['Poblacion Beneficiada'],
+            ],
+            'beneficiarios_municipio' => [
+                'label'   => 'Beneficiarios por Municipio',
+                'group'   => 'simple',
+                'desc'    => 'Total de población beneficiada por municipio (tabla municipios).',
+                'sql'     => "SELECT m.municipio AS Municipio, SUM(m.beneficiarios) AS `Poblacion Beneficiada`, COUNT(DISTINCT c.numero_proyecto) AS Proyectos FROM `$t` AS c JOIN `$tm` AS m ON c.id = m.contrato_id WHERE m.municipio IS NOT NULL AND m.municipio != '' GROUP BY m.municipio ORDER BY `Poblacion Beneficiada` DESC",
+                'columns' => ['Municipio' => 'text', 'Poblacion Beneficiada' => 'number', 'Proyectos' => 'number'],
+                'axis_x'  => 'Municipio',
+                'y_cols'  => ['Poblacion Beneficiada'],
+            ],
+            'beneficiarios_ods' => [
+                'label'   => 'Beneficiarios por ODS',
+                'group'   => 'simple',
+                'desc'    => 'Total de población beneficiada por Objetivo de Desarrollo Sostenible.',
+                'sql'     => "SELECT o.ods AS ODS, SUM(c.beneficiarios) AS `Poblacion Beneficiada`, COUNT(DISTINCT c.numero_proyecto) AS Proyectos FROM `$t` AS c JOIN `$to` AS o ON c.id = o.contrato_id WHERE o.ods IS NOT NULL AND o.ods != '' GROUP BY o.ods ORDER BY `Poblacion Beneficiada` DESC",
+                'columns' => ['ODS' => 'text', 'Poblacion Beneficiada' => 'number', 'Proyectos' => 'number'],
+                'axis_x'  => 'ODS',
+                'y_cols'  => ['Poblacion Beneficiada'],
+            ],
+            'beneficiarios_entidad' => [
+                'label'   => 'Beneficiarios por Entidad Ejecutora',
+                'group'   => 'simple',
+                'desc'    => 'Total de población beneficiada por entidad ejecutora.',
+                'sql'     => "SELECT c.entidad_ejecutora AS `Entidad Ejecutora`, SUM(c.beneficiarios) AS `Poblacion Beneficiada`, COUNT(DISTINCT c.numero_contrato) AS Contratos FROM `$t` AS c WHERE c.entidad_ejecutora IS NOT NULL AND c.entidad_ejecutora != '' GROUP BY c.entidad_ejecutora ORDER BY `Poblacion Beneficiada` DESC",
+                'columns' => ['Entidad Ejecutora' => 'text', 'Poblacion Beneficiada' => 'number', 'Contratos' => 'number'],
+                'axis_x'  => 'Entidad Ejecutora',
+                'y_cols'  => ['Poblacion Beneficiada'],
+            ],
+            'beneficiarios_proyecto' => [
+                'label'   => 'Beneficiarios por Proyecto',
+                'group'   => 'simple',
+                'desc'    => 'Total de población beneficiada por proyecto.',
+                'sql'     => "SELECT c.nombre_proyecto AS Proyecto, SUM(c.beneficiarios) AS `Poblacion Beneficiada`, COUNT(DISTINCT c.numero_contrato) AS Contratos FROM `$t` AS c GROUP BY c.numero_proyecto, c.nombre_proyecto ORDER BY `Poblacion Beneficiada` DESC",
+                'columns' => ['Proyecto' => 'text', 'Poblacion Beneficiada' => 'number', 'Contratos' => 'number'],
+                'axis_x'  => 'Proyecto',
+                'y_cols'  => ['Poblacion Beneficiada'],
+            ],
+
             // ── Vistas con series (Apiladas/Agrupadas) ──
             'valor_dep_entidad' => [
                 'label'   => 'Valor: Dependencia x Entidad (Apiladas)',
@@ -219,6 +266,47 @@ final class BPID_Suite_Visualizer {
                 'columns' => ['Dependencia' => 'text', 'Metas' => 'number', 'Contratos' => 'number'],
                 'axis_x'  => 'Dependencia',
                 'y_cols'  => ['Metas', 'Contratos'],
+            ],
+
+            // ── Vistas con series: Población Beneficiada ──
+            'beneficiarios_dep_ops' => [
+                'label'   => 'Beneficiarios: Dependencia x OPS (Apiladas)',
+                'group'   => 'series',
+                'desc'    => 'Población beneficiada por dependencia, separada por tipo OPS. Ideal para Barras Apiladas.',
+                'sql'     => "SELECT c.dependencia AS Dependencia, CASE WHEN c.es_ops = 1 THEN 'OPS' ELSE 'No OPS' END AS series, SUM(c.beneficiarios) AS value FROM `$t` AS c WHERE c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY c.dependencia, c.es_ops",
+                'columns' => ['Dependencia' => 'text', 'series' => 'text', 'value' => 'number'],
+                'axis_x'  => 'Dependencia',
+                'y_cols'  => ['value'],
+                'series_col' => 'series',
+            ],
+            'beneficiarios_mun_dep' => [
+                'label'   => 'Beneficiarios: Municipio x Dependencia (Apiladas)',
+                'group'   => 'series',
+                'desc'    => 'Población beneficiada por municipio desglosada por dependencia. Ideal para Barras Apiladas.',
+                'sql'     => "SELECT m.municipio AS Municipio, c.dependencia AS series, SUM(m.beneficiarios) AS value FROM `$t` AS c JOIN `$tm` AS m ON c.id = m.contrato_id WHERE m.municipio IS NOT NULL AND m.municipio != '' AND c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY m.municipio, c.dependencia",
+                'columns' => ['Municipio' => 'text', 'series' => 'text', 'value' => 'number'],
+                'axis_x'  => 'Municipio',
+                'y_cols'  => ['value'],
+                'series_col' => 'series',
+            ],
+            'beneficiarios_ods_dep' => [
+                'label'   => 'Beneficiarios: ODS x Dependencia (Apiladas)',
+                'group'   => 'series',
+                'desc'    => 'Población beneficiada por ODS desglosada por dependencia. Ideal para Barras Apiladas.',
+                'sql'     => "SELECT o.ods AS ODS, c.dependencia AS series, SUM(c.beneficiarios) AS value FROM `$t` AS c JOIN `$to` AS o ON c.id = o.contrato_id WHERE o.ods IS NOT NULL AND o.ods != '' AND c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY o.ods, c.dependencia",
+                'columns' => ['ODS' => 'text', 'series' => 'text', 'value' => 'number'],
+                'axis_x'  => 'ODS',
+                'y_cols'  => ['value'],
+                'series_col' => 'series',
+            ],
+            'beneficiarios_vs_valor_dep' => [
+                'label'   => 'Beneficiarios vs Valor por Dependencia (Agrupadas)',
+                'group'   => 'series',
+                'desc'    => 'Comparar población beneficiada y valor de inversión por dependencia.',
+                'sql'     => "SELECT c.dependencia AS Dependencia, SUM(c.beneficiarios) AS `Poblacion Beneficiada`, SUM(c.valor_proyecto) AS `Valor Total` FROM `$t` AS c WHERE c.dependencia IS NOT NULL AND c.dependencia != '' GROUP BY c.dependencia",
+                'columns' => ['Dependencia' => 'text', 'Poblacion Beneficiada' => 'number', 'Valor Total' => 'number'],
+                'axis_x'  => 'Dependencia',
+                'y_cols'  => ['Poblacion Beneficiada', 'Valor Total'],
             ],
         ];
     }
